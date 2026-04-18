@@ -1,0 +1,36 @@
+services:
+  mqttdashboard:
+    build:
+      context: .
+      dockerfile: src/MqttDashboard.WebApp/MqttDashboard.WebApp/Dockerfile
+    ports:
+      - "8080:8080"   # read-only public port
+      - "8081:8081"   # read-write admin port
+    volumes:
+      # Persist dashboard files between container restarts
+      - ./data:/app/data
+    environment:
+      # Override MQTT broker settings here or in a .env file
+      - MqttSettings__Broker=your-mqtt-broker-host
+      - MqttSettings__Port=1883
+      - MqttSettings__Username=
+      - MqttSettings__Password=
+      # Update agent (host) — containers call the host agent URL and include the secret token.
+      # Example: http://host.docker.internal:8080/update (requires host-gateway/extra_hosts or host networking)
+      # - UPDATE_AGENT_URL=http://host.docker.internal:8080/update
+      # - UPDATE_AGENT_TOKEN=${UPDATE_AGENT_TOKEN}
+      # Data directory (matches the volume mount above)
+      - DiagramStorage__DataDirectory=/app/data
+      # Sub-path when accessed behind a reverse proxy (e.g. "rr-dev" for /rr-dev/).
+      # Leave empty for direct root access. The app only accepts this exact value from
+      # the X-Forwarded-Prefix header — arbitrary values from clients are ignored.
+      - AllowedPathBase=
+      # Render mode: Auto (default, WASM + server fallback), WebAssembly (WASM only), Server (Blazor Server, no WASM download)
+      - RenderMode=Auto
+      # Read-only mode: true to disable all edit UI and block write APIs (view-only public deployment)
+      - ReadOnly=false
+      # Per-port read-only: port 8080 is read-only (public), port 8081 is read-write (admin).
+      # Both ports share the same MQTT connection and data cache within one process.
+      # Remove ReadOnlyPorts (or set to empty) to make both ports fully editable.
+      - ReadOnlyPorts=8080
+    restart: unless-stopped

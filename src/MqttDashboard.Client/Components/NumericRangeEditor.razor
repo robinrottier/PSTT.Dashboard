@@ -1,0 +1,38 @@
+@using MqttDashboard.Models
+@using MudBlazor
+
+@if (Range != null)
+{
+    <MudGrid Spacing="2">
+        <MudItem xs="3">
+            <MudNumericField T="double" @bind-Value="Range.Min"
+                             Label="Min" Variant="Variant.Outlined" Margin="Margin.Dense" />
+        </MudItem>
+        <MudItem xs="3">
+            <MudNumericField T="double" @bind-Value="Range.Max"
+                             Label="Max" Variant="Variant.Outlined" Margin="Margin.Dense" />
+        </MudItem>
+        <MudItem xs="3">
+            <MudNumericField T="double?" @bind-Value="Range.Origin"
+                             Label="Origin" Variant="Variant.Outlined" Margin="Margin.Dense"
+                             Placeholder="(min)"
+                             HelperText="Origin / zero-point" />
+        </MudItem>
+        <MudItem xs="3">
+            <MudNumericField T="int" @bind-Value="Range.DataTopicIndex"
+                             Label="Value Topic (0-based)" Variant="Variant.Outlined" Margin="Margin.Dense"
+                             Min="0"
+                             HelperText="Which topic drives the display (0 = first)" />
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    /// <summary>Owning node — provided by NodePropertyRenderer but not used directly here.</summary>
+    [Parameter] public TextNodeModel? Node { get; set; }
+
+    /// <summary>The <see cref="NumericRangeSettings"/> group object to edit.</summary>
+    [Parameter] public object? Value { get; set; }
+
+    private NumericRangeSettings? Range => Value as NumericRangeSettings;
+}

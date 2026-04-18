@@ -1,0 +1,25 @@
+# Production compose: pulls pre-built image from GHCR.
+# Usage: docker compose -f docker-compose.production.yml up -d
+services:
+  mqttdashboard:
+    image: ghcr.io/robinrottier/mqttdashboard:latest
+    ports:
+      - "8080:8080"   # read-only public port
+      - "8081:8081"   # read-write admin port
+    volumes:
+      - ./data:/app/data
+    environment:
+      - MqttSettings__Broker=your-mqtt-broker-host
+      - MqttSettings__Port=1883
+      - MqttSettings__Username=
+      - MqttSettings__Password=
+      - DiagramStorage__DataDirectory=/app/data
+      - AllowedPathBase=
+      # Render mode: Auto (default), WebAssembly, Server (no WASM download)
+      - RenderMode=Auto
+      # Set to true for a view-only public deployment (no edit UI, write APIs blocked)
+      - ReadOnly=false
+      # Port 8080 = read-only public; port 8081 = read-write admin.
+      # Remove ReadOnlyPorts (or set to empty) to make both ports fully editable.
+      - ReadOnlyPorts=8080
+    restart: unless-stopped

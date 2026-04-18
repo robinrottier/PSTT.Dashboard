@@ -1,0 +1,14 @@
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+
+<MqttDashboard.App RenderMode="InteractiveAuto">
+    <AdditionalHeadContentBefore>
+        <ResourcePreloader />
+    </AdditionalHeadContentBefore>
+    <AdditionalStylesheets>
+        <link rel="stylesheet" href="MqttDashboard.WebApp.styles.css" />
+        <link rel="stylesheet" href="app.css" />
+    </AdditionalStylesheets>
+    <AdditionalHeadContentAfter>
+        <ImportMap />
+    </AdditionalHeadContentAfter>
+</MqttDashboard.App>

@@ -1,0 +1,12 @@
+@using MqttDashboard.WebAppServerOnly.Components.Layout
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+
+<MqttDashboard.App RenderMode="InteractiveServer">
+    <AdditionalStylesheets>
+        <link rel="stylesheet" href="app.css" />
+        <link rel="stylesheet" href="MqttDashboard.WebAppServerOnly.styles.css" />
+    </AdditionalStylesheets>
+</MqttDashboard.App>
+
+@* Server-specific reconnection modal *@
+<ReconnectModal />

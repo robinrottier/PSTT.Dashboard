@@ -1,0 +1,118 @@
+@using MqttDashboard.Models
+@using MqttDashboard.Services
+@using Blazor.Diagrams.Components.Renderers
+@inherits BaseNodeWithDataWidget<LogNodeModel>
+
+<div style="@ContainerStyle()"
+     class=@("default-node log-node"+(Node.Group!=null?" grouped":"")+(Node.Selected?" selected":""))
+     @ondblclick="OnDoubleClick">
+    <div style="display:flex;flex-direction:column;height:100%;overflow:hidden;min-width:0;">
+        <div style="display:flex;align-items:center;gap:2px;padding:1px 3px 0;min-height:18px;flex-shrink:0;">
+            <div style="font-size:0.75rem;font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:@(string.IsNullOrEmpty(Node.Title) ? "0" : "1");">
+                @Node.Title
+            </div>
+            <MudTooltip Text="@(_paused ? "Resume" : "Pause updates")">
+                <MudIconButton Icon="@(_paused ? Icons.Material.Filled.PlayArrow : Icons.Material.Filled.Pause)"
+                               Size="Size.Small"
+                               Style="margin:0;padding:0;width:16px;height:16px;min-width:unset;opacity:0.45;"
+                               OnClick="@(() => _paused = !_paused)" />
+            </MudTooltip>
+        </div>
+        <div style="flex:1;overflow-y:auto;overflow-x:hidden;min-height:0;min-width:0;">
+            @{
+                var colCount = (Node.ShowDate || Node.ShowTime ? 1 : 0)
+                             + (Node.ShowTopicFull ? 1 : 0)
+                             + (Node.ShowTopicPath ? 1 : 0)
+                             + (Node.ShowTopicName ? 1 : 0)
+                             + (Node.ShowValue ? 1 : 0);
+            }
+            <MudSimpleTable Dense="true" Hover="false" Striped="true" Bordered="false"
+                            Style="font-size:0.7rem;font-family:monospace;width:100%;table-layout:fixed;"
+                            Class="pa-0">
+                <thead>
+                    <tr>
+                        @if (Node.ShowDate || Node.ShowTime) { <th style="white-space:nowrap;width:6rem;">Time</th> }
+                        @if (Node.ShowTopicFull) { <th style="overflow:hidden;text-overflow:ellipsis;">Topic</th> }
+                        @if (Node.ShowTopicPath) { <th style="overflow:hidden;text-overflow:ellipsis;">Path</th> }
+                        @if (Node.ShowTopicName) { <th style="overflow:hidden;text-overflow:ellipsis;">Name</th> }
+                        @if (Node.ShowValue)     { <th>Value</th> }
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (_entries.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="@Math.Max(1, colCount)" style="opacity:0.5;font-style:italic;">No data yet…</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var entry in _entries)
+                        {
+                            <tr>
+                                @if (Node.ShowDate || Node.ShowTime) { <td style="opacity:0.6;white-space:nowrap;">@FormatTimestamp(entry.At)</td> }
+                                @if (Node.ShowTopicFull) { <td style="opacity:0.8;font-size:0.65rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@entry.Topic</td> }
+                                @if (Node.ShowTopicPath) { <td style="opacity:0.8;font-size:0.65rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@TopicPath(entry.Topic)</td> }
+                                @if (Node.ShowTopicName) { <td style="opacity:0.8;font-size:0.65rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@TopicName(entry.Topic)</td> }
+                                @if (Node.ShowValue)     { <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@entry.Value</td> }
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </MudSimpleTable>
+        </div>
+        @if (!string.IsNullOrEmpty(Node.DataTopic(0)))
+        {
+            <div style="font-size:0.65rem;opacity:0.4;padding:1px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                @Node.DataTopic(0)
+            </div>
+        }
+    </div>
+    @foreach (var port in Node.Ports)
+    {
+        <PortRenderer @key="port" Port="port" Style="@PortStyle(port as NodePortModel)" />
+    }
+</div>
+
+@code {
+    private record LogEntry(DateTime At, string Topic, string Value);
+    private List<LogEntry> _entries = [];
+    private bool _paused = false;
+
+    protected override void OnInitialized()
+    {
+        Node.MinimumDimensions = new(120, 80);
+        if (Node.Size == null || Node.Size.Width < 120 || Node.Size.Height < 80)
+            Node.Size = new(200, 160);
+        base.OnInitialized();
+    }
+
+    protected override void OnDataReceivedCore(int idx, string topic, object? rawValue)
+    {
+        if (_paused) return;
+        var value = rawValue?.ToString() ?? "";
+        var max = Math.Max(1, Node.MaxEntries);
+        var next = new List<LogEntry>(max) { new(DateTime.Now, topic, value) };
+        next.AddRange(_entries.Take(max - 1));
+        _entries = next;
+    }
+
+    private string FormatTimestamp(DateTime at)
+    {
+        if (Node.ShowDate && Node.ShowTime) return at.ToString("MM-dd HH:mm:ss");
+        if (Node.ShowDate) return at.ToString("yyyy-MM-dd");
+        return at.ToString("HH:mm:ss");
+    }
+
+    private static string TopicPath(string topic)
+    {
+        var idx = topic.LastIndexOf('/');
+        return idx < 0 ? "" : topic[..idx];
+    }
+
+    private static string TopicName(string topic)
+    {
+        var idx = topic.LastIndexOf('/');
+        return idx < 0 ? topic : topic[(idx + 1)..];
+    }
+}

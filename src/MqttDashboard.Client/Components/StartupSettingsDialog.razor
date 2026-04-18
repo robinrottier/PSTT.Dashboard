@@ -1,0 +1,108 @@
+@using MudBlazor
+@inject HttpClient Http
+@inject MqttDashboard.Services.IDashboardService DashboardService
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudText Typo="Typo.body2">
+                Choose what to open when a new browser session connects to this server.
+            </MudText>
+
+            <MudRadioGroup @bind-Value="_mode" T="string">
+                <MudRadio Value="@("LastUsed")" T="string">
+                    <MudText><strong>Last Used</strong> — each browser restores its own last-opened dashboard</MudText>
+                </MudRadio>
+                <MudRadio Value="@("SpecificFile")" T="string">
+                    <MudText><strong>Specific File</strong> — always open a fixed dashboard for every new session</MudText>
+                </MudRadio>
+                <MudRadio Value="@("None")" T="string">
+                    <MudText><strong>None</strong> — start with a blank canvas</MudText>
+                </MudRadio>
+            </MudRadioGroup>
+
+            @if (_mode == "SpecificFile")
+            {
+                <MudSelect T="string" @bind-Value="_dashboard" Label="Dashboard to open" Variant="Variant.Outlined" Dense="true">
+                    @foreach (var name in _availableDashboards)
+                    {
+                        <MudSelectItem T="string" Value="@name">@name</MudSelectItem>
+                    }
+                </MudSelect>
+            }
+
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert>
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_saving">
+            @(_saving ? "Saving…" : "Save")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+
+    private string _mode = "LastUsed";
+    private string _dashboard = string.Empty;
+    private List<string> _availableDashboards = [];
+    private bool _saving;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Load current settings
+        try
+        {
+            var resp = await Http.GetFromJsonAsync<StartupSettingsDto>("/api/settings/startup");
+            if (resp != null)
+            {
+                _mode = resp.Mode;
+                _dashboard = resp.Dashboard ?? string.Empty;
+            }
+        }
+        catch { /* ignore — defaults will be used */ }
+
+        // Load available dashboards for the specific-file picker
+        _availableDashboards = await DashboardService.ListDashboardsAsync();
+        if (_mode == "SpecificFile" && !string.IsNullOrEmpty(_dashboard) && !_availableDashboards.Contains(_dashboard))
+            _availableDashboards.Insert(0, _dashboard);
+    }
+
+    private async Task Save()
+    {
+        _saving = true;
+        _error = null;
+        StateHasChanged();
+        try
+        {
+            var resp = await Http.PostAsJsonAsync("/api/settings/startup", new
+            {
+                mode = _mode,
+                dashboard = _mode == "SpecificFile" ? _dashboard : string.Empty
+            });
+            if (resp.IsSuccessStatusCode)
+                MudDialog.Close(DialogResult.Ok(true));
+            else
+                _error = "Failed to save settings.";
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private record StartupSettingsDto(string Mode, string? Dashboard);
+}

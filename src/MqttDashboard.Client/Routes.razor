@@ -1,0 +1,13 @@
+@using MqttDashboard.Pages
+
+<Router AppAssembly="typeof(Display).Assembly" NotFoundPage="typeof(NotFound)">
+    <Found Context="routeData">
+        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+    <Navigating>
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+            <p>Loading page...</p>
+        </div>
+    </Navigating>
+</Router>

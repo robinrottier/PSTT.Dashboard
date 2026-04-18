@@ -1,0 +1,57 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+	<TargetFramework>net10.0</TargetFramework>
+	<Nullable>enable</Nullable>
+	<ImplicitUsings>enable</ImplicitUsings>
+	<RootNamespace>MqttDashboard</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="App\**" />
+    <Content Remove="App\**" />
+    <EmbeddedResource Remove="App\**" />
+    <None Remove="App\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+	<None Remove="Widgets\xx_MudNodeWidget.razor.css" />
+  </ItemGroup>
+
+  <ItemGroup>
+	<SupportedPlatform Include="browser" />
+  </ItemGroup>
+
+  <ItemGroup>
+	<PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.3" />
+	<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.3" />
+	<PackageReference Include="MudBlazor" Version="9.1.0" />
+	<PackageReference Include="rrSoft.Blazor.Diagrams" Version="0.1.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MqttDashboard.Data\MqttDashboard.Data.csproj" />
+  </ItemGroup>
+
+  <!-- Source generator: reads mqttdashboard-icon.svg and emits AppIcons.cs into obj/ -->
+  <ItemGroup>
+	<ProjectReference Include="..\MqttDashboard.SourceGenerators\MqttDashboard.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+	<!-- The SVG must be listed as AdditionalFiles for the generator to see it -->
+	<AdditionalFiles Include="wwwroot\mqttdashboard-icon.svg" />
+  </ItemGroup>
+
+  <ItemGroup>
+	<Folder Include="wwwroot\" />
+  </ItemGroup>
+
+  <!--
+    Auto-regenerate PNG icons when mqttdashboard-icon.svg is newer than the outputs.
+    AppIcons.cs is now handled by the source generator — no longer listed here.
+    Requires pwsh (PowerShell 7+). Skips silently on error (CI without pwsh).
+  -->
+  <Target Name="GenerateIconPngs" BeforeTargets="Build" Inputs="$(MSBuildThisFileDirectory)wwwroot\mqttdashboard-icon.svg" Outputs="$(MSBuildThisFileDirectory)wwwroot\icon-192.png;$(MSBuildThisFileDirectory)wwwroot\icon-512.png">
+    <Message Text="mqttdashboard-icon.svg changed — regenerating PNG icons..." Importance="High" />
+    <Exec Command="pwsh -NonInteractive -NoProfile -File &quot;$(MSBuildThisFileDirectory)..\..\scripts\Generate-Icons.ps1&quot;" ContinueOnError="true" IgnoreExitCode="false" WorkingDirectory="$(MSBuildThisFileDirectory)" />
+  </Target>
+
+</Project>

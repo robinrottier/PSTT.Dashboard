@@ -1,0 +1,89 @@
+@page "/login"
+@rendermode InteractiveAuto
+@inject MqttDashboard.Services.IAuthService AuthService
+@inject NavigationManager Nav
+@inject MqttDashboard.Services.ApplicationState AppState
+
+<PageTitle>Login - Mqtt Dashboard</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="mt-8">
+    <MudCard>
+        <MudCardHeader>
+            <CardHeaderContent>
+                <MudText Typo="Typo.h6">Admin Login</MudText>
+            </CardHeaderContent>
+        </MudCardHeader>
+        <MudCardContent>
+            <MudTextField @bind-Value="_password" Label="Password" InputType="InputType.Password"
+                          OnKeyDown="OnKeyDown" AutoFocus="true" Immediate="true" />
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Class="mt-2">@_errorMessage</MudAlert>
+            }
+        </MudCardContent>
+        <MudCardActions>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SubmitLogin"
+                       Disabled="@(string.IsNullOrWhiteSpace(_password) || _loggingIn)">
+                @(_loggingIn ? "Logging in..." : "Login")
+            </MudButton>
+        </MudCardActions>
+    </MudCard>
+</MudContainer>
+
+@code {
+    private string _password = string.Empty;
+    private string _errorMessage = string.Empty;
+    private bool _loggingIn = false;
+
+    private async Task SubmitLogin()
+    {
+        if (string.IsNullOrWhiteSpace(_password)) return;
+        _loggingIn = true;
+        _errorMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            if (OperatingSystem.IsBrowser())
+            {
+                // WASM: the browser makes the HTTP request directly, so the server can set
+                // the auth cookie on the real browser response via AuthController.Login.
+                var success = await AuthService.LoginAsync(_password);
+                if (success)
+                {
+                    AppState.SetAuthState(true, true);
+                    Nav.NavigateTo("/");
+                    return;
+                }
+            }
+            else
+            {
+                // Blazor Server: the circuit cannot set cookies (the WebSocket response has
+                // already been sent). Validate the password in-process and get a one-use token,
+                // then force a full browser navigation to redeem it via a fresh HTTP response.
+                var redirectUrl = await AuthService.GetLoginRedirectAsync(_password);
+                if (redirectUrl != null)
+                {
+                    Nav.NavigateTo(redirectUrl, forceLoad: true);
+                    return;
+                }
+            }
+
+            _errorMessage = "Invalid password";
+        }
+        catch
+        {
+            _errorMessage = "Failed to validate password";
+        }
+        finally
+        {
+            _loggingIn = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await SubmitLogin();
+    }
+}

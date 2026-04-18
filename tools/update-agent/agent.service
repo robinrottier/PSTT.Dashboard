@@ -1,0 +1,16 @@
+[Unit]
+Description=Local Update Agent
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/mqttdashboard/tools/update-agent
+Environment=UPDATE_AGENT_TOKEN=your-secret
+Environment=UPDATE_AGENT_ALLOW_REMOTE=true
+Environment=UPDATE_AGENT_ALLOWED_CIDRS=127.0.0.1/32,172.17.0.0/16,172.18.0.0/16
+ExecStart=/usr/bin/python3 /opt/mqttdashboard/tools/update-agent/agent.py --host 0.0.0.0 --port 8081
+Restart=on-failure
+User=root
+
+[Install]
+WantedBy=multi-user.target

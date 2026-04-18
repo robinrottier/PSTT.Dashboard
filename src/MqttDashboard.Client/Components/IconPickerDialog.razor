@@ -1,0 +1,74 @@
+@using MudBlazor
+
+<MudDialog>
+    <DialogContent>
+        <MudTextField @bind-Value="_searchText" 
+                      Label="Search Icons" 
+                      Variant="Variant.Outlined"
+                      Margin="Margin.Dense"
+                      Immediate="true"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      Class="mb-2" />
+
+        <div style="max-height: 450px; overflow-y: auto; border: 1px solid var(--mud-palette-divider); border-radius: 4px; padding: 8px;">
+            @foreach (var category in FilteredCategories)
+            {
+                <div class="mb-2">
+                    <!-- Category Header -->
+                    <MudStack Row="true" 
+                              AlignItems="AlignItems.Center" 
+                              Spacing="1"
+                              Class="pa-1"
+                              Style="cursor: pointer; background-color: var(--mud-palette-background-grey);"
+                              @onclick="@(() => ToggleCategory(category))">
+                        <MudIcon Icon="@(category.IsExpanded ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)" 
+                                 Size="MudBlazor.Size.Small" />
+                        <MudText Typo="Typo.subtitle2" Style="font-weight: 500;">@category.Name (@category.Children.Count)</MudText>
+                    </MudStack>
+
+                    <!-- Category Items -->
+                    @if (category.IsExpanded)
+                    {
+                        <div class="ml-4">
+                            @foreach (var icon in category.Children)
+                            {
+                                <MudStack Row="true" 
+                                          AlignItems="AlignItems.Center" 
+                                          Spacing="1"
+                                          Class="pa-1"
+                                          Style="@($"cursor: pointer; background-color: {(_selectedIcon == icon.IconPath ? "var(--mud-palette-primary-lighten)" : "transparent")}; border-radius: 4px;")"
+                                          @onclick="@(() => SelectIcon(icon.IconPath, icon.Name))">
+                                    <MudIcon Icon="@icon.IconPath" 
+                                             Size="MudBlazor.Size.Small" 
+                                             Color="@(_selectedIcon == icon.IconPath ? Color.Primary : Color.Default)" />
+                                    <MudText Typo="Typo.body2" 
+                                             Color="@(_selectedIcon == icon.IconPath ? Color.Primary : Color.Default)"
+                                             Style="flex-grow: 1;">
+                                        @icon.Name
+                                    </MudText>
+                                    @if (_selectedIcon == icon.IconPath)
+                                    {
+                                        <MudIcon Icon="@Icons.Material.Filled.Check" 
+                                                 Size="MudBlazor.Size.Small" 
+                                                 Color="Color.Primary" />
+                                    }
+                                </MudStack>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Size="MudBlazor.Size.Small">Cancel</MudButton>
+        <MudButton Color="Color.Primary" 
+                   OnClick="Select" 
+                   Variant="Variant.Filled" 
+                   Size="MudBlazor.Size.Small" 
+                   Disabled="@(string.IsNullOrEmpty(_selectedIcon))">
+            Select
+        </MudButton>
+    </DialogActions>
+</MudDialog>

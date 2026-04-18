@@ -1,0 +1,170 @@
+@using System.Reflection
+@using MqttDashboard.Models
+@using MudBlazor
+
+@foreach (var entry in GetEntries())
+{
+    @if (entry.Attr is NpTextAttribute textAttr)
+    {
+        <MudTextField T="string"
+                      Value="@((string?)entry.Prop.GetValue(Node))"
+                      ValueChanged="@((string v) => entry.Prop.SetValue(Node, v))"
+                      Label="@textAttr.DisplayName"
+                      Lines="@textAttr.Lines"
+                      Placeholder="@(textAttr.Placeholder ?? "")"
+                      HelperText="@textAttr.HelperText"
+                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+    }
+    else if (entry.Attr is NpNumericAttribute)
+    {
+        @RenderNumericField(entry.Prop, (NpNumericAttribute)entry.Attr)
+    }
+    else if (entry.Attr is NpCheckboxAttribute chkAttr)
+    {
+        <MudCheckBox T="bool"
+                     Value="@((bool)(entry.Prop.GetValue(Node) ?? false))"
+                     ValueChanged="@((bool v) => entry.Prop.SetValue(Node, v))"
+                     Label="@chkAttr.DisplayName"
+                     Dense="true" />
+    }
+    else if (entry.Attr is NpSelectAttribute)
+    {
+        @RenderSelectField(entry.Prop, (NpSelectAttribute)entry.Attr)
+    }
+    else if (entry.Attr is NpCustomAttribute custAttr)
+    {
+        <DynamicComponent Type="custAttr.ComponentType"
+                          Parameters="@BuildCustomParams(entry.Prop)" />
+    }
+}
+
+@code {
+    [Parameter] public TextNodeModel Node { get; set; } = null!;
+    [Parameter] public string? Category { get; set; }
+
+    private record PropEntry(PropertyInfo Prop, NodePropertyAttribute Attr);
+
+    private IEnumerable<PropEntry> GetEntries() =>
+        Node.GetType().GetProperties()
+            .Select(p => new PropEntry(p, p.GetCustomAttribute<NodePropertyAttribute>()!))
+            .Where(e => e.Attr != null && (e.Attr.Category ?? "") == (Category ?? ""))
+            .OrderBy(e => e.Attr.Order);
+
+    private RenderFragment RenderNumericField(PropertyInfo prop, NpNumericAttribute attr) => builder =>
+    {
+        bool hasMin = !double.IsNaN(attr.Min);
+        bool hasMax = !double.IsNaN(attr.Max);
+
+        if (prop.PropertyType == typeof(double))
+        {
+            builder.OpenComponent<MudNumericField<double>>(0);
+            builder.AddAttribute(1, "Value", (double)(prop.GetValue(Node) ?? 0.0));
+            builder.AddAttribute(2, "ValueChanged", EventCallback.Factory.Create<double>(this, v => prop.SetValue(Node, v)));
+            AddNumericAttrs(builder, attr, 3, hasMin, hasMax);
+            builder.CloseComponent();
+        }
+        else if (prop.PropertyType == typeof(double?))
+        {
+            builder.OpenComponent<MudNumericField<double?>>(0);
+            builder.AddAttribute(1, "Value", (double?)prop.GetValue(Node));
+            builder.AddAttribute(2, "ValueChanged", EventCallback.Factory.Create<double?>(this, v => prop.SetValue(Node, v)));
+            AddNumericAttrs(builder, attr, 3, hasMin, hasMax);
+            if (!string.IsNullOrEmpty(attr.Placeholder))
+                builder.AddAttribute(7, "Placeholder", attr.Placeholder);
+            builder.CloseComponent();
+        }
+        else if (prop.PropertyType == typeof(int))
+        {
+            builder.OpenComponent<MudNumericField<int>>(0);
+            builder.AddAttribute(1, "Value", (int)(prop.GetValue(Node) ?? 0));
+            builder.AddAttribute(2, "ValueChanged", EventCallback.Factory.Create<int>(this, v => prop.SetValue(Node, v)));
+            if (hasMin) builder.AddAttribute(3, "Min", (int)attr.Min);
+            if (hasMax) builder.AddAttribute(4, "Max", (int)attr.Max);
+            builder.AddAttribute(5, "Label", attr.DisplayName);
+            builder.AddAttribute(6, "HelperText", attr.HelperText);
+            builder.AddAttribute(7, "Variant", Variant.Outlined);
+            builder.AddAttribute(8, "Margin", Margin.Dense);
+            builder.CloseComponent();
+        }
+        else if (prop.PropertyType == typeof(int?))
+        {
+            builder.OpenComponent<MudNumericField<int?>>(0);
+            builder.AddAttribute(1, "Value", (int?)prop.GetValue(Node));
+            builder.AddAttribute(2, "ValueChanged", EventCallback.Factory.Create<int?>(this, v => prop.SetValue(Node, v)));
+            if (hasMin) builder.AddAttribute(3, "Min", (int)attr.Min);
+            if (hasMax) builder.AddAttribute(4, "Max", (int)attr.Max);
+            builder.AddAttribute(5, "Label", attr.DisplayName);
+            builder.AddAttribute(6, "HelperText", attr.HelperText);
+            builder.AddAttribute(7, "Variant", Variant.Outlined);
+            builder.AddAttribute(8, "Margin", Margin.Dense);
+            builder.CloseComponent();
+        }
+    };
+
+    private static void AddNumericAttrs(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder, NpNumericAttribute attr, int seq, bool hasMin, bool hasMax)
+    {
+        if (hasMin) builder.AddAttribute(seq++, "Min", attr.Min);
+        if (hasMax) builder.AddAttribute(seq++, "Max", attr.Max);
+        builder.AddAttribute(seq++, "Label", attr.DisplayName);
+        builder.AddAttribute(seq++, "HelperText", attr.HelperText);
+        builder.AddAttribute(seq++, "Variant", Variant.Outlined);
+        builder.AddAttribute(seq, "Margin", Margin.Dense);
+    }
+
+    private RenderFragment RenderSelectField(PropertyInfo prop, NpSelectAttribute attr) => builder =>
+    {
+        if (prop.PropertyType == typeof(string))
+        {
+            builder.OpenComponent<MudSelect<string>>(0);
+            builder.AddAttribute(1, "Value", (string?)prop.GetValue(Node));
+            builder.AddAttribute(2, "ValueChanged", EventCallback.Factory.Create<string>(this, v => prop.SetValue(Node, v)));
+            builder.AddAttribute(3, "Label", attr.DisplayName);
+            builder.AddAttribute(4, "Variant", Variant.Outlined);
+            builder.AddAttribute(5, "Margin", Margin.Dense);
+            builder.AddAttribute(6, "Dense", true);
+            builder.AddAttribute(7, "ChildContent", (RenderFragment)(cb =>
+            {
+                for (int i = 0; i < attr.Options.Length; i++)
+                {
+                    var opt = attr.Options[i];
+                    var lbl = attr.Labels != null && i < attr.Labels.Length ? attr.Labels[i] : opt;
+                    cb.OpenComponent<MudSelectItem<string>>(i);
+                    cb.AddAttribute(0, "Value", opt);
+                    cb.AddMarkupContent(1, System.Net.WebUtility.HtmlEncode(lbl));
+                    cb.CloseComponent();
+                }
+            }));
+            builder.CloseComponent();
+        }
+        else if (prop.PropertyType == typeof(int))
+        {
+            builder.OpenComponent<MudSelect<int>>(0);
+            builder.AddAttribute(1, "Value", (int)(prop.GetValue(Node) ?? 0));
+            builder.AddAttribute(2, "ValueChanged", EventCallback.Factory.Create<int>(this, v => prop.SetValue(Node, v)));
+            builder.AddAttribute(3, "Label", attr.DisplayName);
+            builder.AddAttribute(4, "Variant", Variant.Outlined);
+            builder.AddAttribute(5, "Margin", Margin.Dense);
+            builder.AddAttribute(6, "Dense", true);
+            builder.AddAttribute(7, "ChildContent", (RenderFragment)(cb =>
+            {
+                for (int i = 0; i < attr.Options.Length; i++)
+                {
+                    if (!int.TryParse(attr.Options[i], out int optVal)) continue;
+                    var lbl = attr.Labels != null && i < attr.Labels.Length ? attr.Labels[i] : attr.Options[i];
+                    cb.OpenComponent<MudSelectItem<int>>(i);
+                    cb.AddAttribute(0, "Value", optVal);
+                    cb.AddMarkupContent(1, System.Net.WebUtility.HtmlEncode(lbl));
+                    cb.CloseComponent();
+                }
+            }));
+            builder.CloseComponent();
+        }
+    };
+
+    private Dictionary<string, object> BuildCustomParams(PropertyInfo prop) =>
+        new()
+        {
+            ["Node"]  = Node,
+            ["Value"] = prop.GetValue(Node)!,
+        };
+}

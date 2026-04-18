@@ -1,0 +1,86 @@
+@page "/setup"
+@inject HttpClient Http
+@inject NavigationManager Nav
+
+<PageTitle>Setup</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+    <MudPaper Class="pa-6">
+        <MudText Typo="Typo.h5" Class="mb-4">First-Time Setup</MudText>
+        <MudText Class="mb-4">No admin password is configured. Please set a password to enable admin features.</MudText>
+
+        <MudTextField @bind-Value="_password" Label="New Password" InputType="InputType.Password"
+                      Required="true" Class="mb-2" @onkeydown="OnKeyDown" />
+        <MudTextField @bind-Value="_confirmPassword" Label="Confirm Password" InputType="InputType.Password"
+                      Required="true" Class="mb-4" @onkeydown="OnKeyDown" />
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+        }
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Submit" Disabled="@(_submitting || !CanSubmit)">
+            @(_submitting ? "Saving..." : "Set Password")
+        </MudButton>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private string _password = "";
+    private string _confirmPassword = "";
+    private string _error = "";
+    private bool _submitting = false;
+
+    private bool CanSubmit =>
+        !string.IsNullOrEmpty(_password) &&
+        !string.IsNullOrEmpty(_confirmPassword) &&
+        _password.Length >= 8 &&
+        _password == _confirmPassword;
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && CanSubmit && !_submitting)
+            await Submit();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var resp = await Http.GetFromJsonAsync<SetupNeededResponse>("/api/setup/needed");
+            if (resp != null && !resp.Needed)
+                Nav.NavigateTo("/");
+        }
+        catch { /* ignore */ }
+    }
+
+    private async Task Submit()
+    {
+        _error = "";
+        if (_password != _confirmPassword) { _error = "Passwords do not match."; return; }
+        if (_password.Length < 8) { _error = "Password must be at least 8 characters."; return; }
+
+        _submitting = true;
+        try
+        {
+            var resp = await Http.PostAsJsonAsync("/api/setup/password", new { Password = _password });
+            if (resp.IsSuccessStatusCode)
+            {
+                Nav.NavigateTo("/", forceLoad: true);
+            }
+            else
+            {
+                var err = await resp.Content.ReadFromJsonAsync<ErrorResponse>();
+                _error = err?.Error ?? "Failed to set password.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally { _submitting = false; }
+    }
+
+    private record SetupNeededResponse(bool Needed);
+    private record ErrorResponse(string Error);
+}

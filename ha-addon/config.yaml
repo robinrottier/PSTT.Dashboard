@@ -1,0 +1,27 @@
+name: "Mqtt Dashboard"
+version: "0.0.0"
+slug: "mqttdashboard"
+description: "Visual MQTT data dashboard — create node-based diagrams driven by live MQTT data."
+url: "https://github.com/robinrottier/MqttDashboard"
+arch:
+  - aarch64
+  - amd64
+image: "ghcr.io/robinrottier/mqttdashboard:{version}"
+ports:
+  8080/tcp: 8080
+ports_description:
+  8080/tcp: "Web dashboard UI"
+options:
+  mqtt_broker: "homeassistant"
+  mqtt_port: 1883
+  mqtt_username: ""
+  mqtt_password: ""
+schema:
+  mqtt_broker: str
+  mqtt_port: int
+  mqtt_username: str
+  mqtt_password: str
+map:
+  - data:rw
+startup: application
+boot: auto

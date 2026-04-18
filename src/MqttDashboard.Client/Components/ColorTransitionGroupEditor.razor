@@ -1,0 +1,33 @@
+@using MqttDashboard.Models
+@using MudBlazor
+
+@if (ColorTransition != null)
+{
+    <MudGrid Spacing="2" Class="mb-1">
+        <MudItem xs="6">
+            <MudNumericField T="int" @bind-Value="ColorTransition.ColorTopicIndex"
+                             Label="Color Topic (0-based)"
+                             Variant="Variant.Outlined" Margin="Margin.Dense" Min="0"
+                             HelperText="Which data topic is used for colour rules" />
+        </MudItem>
+    </MudGrid>
+    <MudText Typo="Typo.caption" Class="mb-1">Colour Transitions. First matching rule wins.</MudText>
+    <ColorTransitionEditor Thresholds="ColorTransition.ColorThresholds" />
+    <MudDivider Class="my-2" />
+    <MudText Typo="Typo.caption" Class="mb-1">Else (no rule matched)</MudText>
+    <ColorInputRow Value="@ColorTransition.ElseColor"
+                   ValueChanged="@(v => ColorTransition.ElseColor = v)"
+                   Label="Else Color"
+                   Placeholder="Default"
+                   ShowClear="true" />
+}
+
+@code {
+    /// <summary>Owning node — available for context if needed by the editor.</summary>
+    [Parameter] public TextNodeModel? Node { get; set; }
+
+    /// <summary>The <see cref="ColorTransition"/> group object to edit.</summary>
+    [Parameter] public object? Value { get; set; }
+
+    private ColorTransition? ColorTransition => Value as ColorTransition;
+}

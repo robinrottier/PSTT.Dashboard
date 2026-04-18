@@ -1,0 +1,47 @@
+{
+  // Copy this file to appsettings.Development.json and fill in your local values.
+  // appsettings.Development.json is git-ignored; this example file is committed for documentation.
+  // edit this file and save — at runtime it appears to be simply reloaded immediately,
+  // -- no hot reload required
+  "Serilog": {
+    "MinimumLevel":
+    {
+      "Default": "Information",
+      "Override":
+      {
+        "Microsoft": "Information",
+        "Microsoft.AspNetCore": "Warning",
+        "System": "Warning"
+      }
+    }
+  },
+  "Logging":
+  {
+    "LogLevel":
+    {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+      //"Microsoft.AspNetCore.SignalR": "Debug",
+      //"Microsoft.AspNetCore.Http.Connections": "Debug",
+      //"MqttDashboard.Server.Services.MqttClientService": "Trace",
+      //"MqttDashboard.Server.Hubs.MqttDataHub": "Debug",
+      //"MqttDashboard.Server.Hubs.MqttTopicSubscriptionManager": "Debug",
+    }
+  },
+  "DiagramStorage":
+  {
+    // Relative to ContentRootPath — resolves to {repo}/data/ so all hosting projects share the same files
+    "DataDirectory": "../../../data"
+  },
+  "DataProtection":
+  {
+    "KeysDirectory": "../../../data/keys"
+  },
+  "MqttSettings":
+  {
+    "Broker": "your-mqtt-broker-host",
+    "Port": "1883",
+    "Username": "",
+    "Password": ""
+  }
+}

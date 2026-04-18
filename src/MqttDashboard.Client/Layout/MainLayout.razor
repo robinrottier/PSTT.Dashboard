@@ -1,0 +1,305 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@using MqttDashboard.Services
+@using MqttDashboard.Models
+@using System.Reflection
+@inject MqttInitializationService MqttInit
+@inject ApplicationState AppState
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+@inject HttpClient Http
+@inject LocalStorageService LocalStorage
+<MudThemeProvider Theme="@_theme" IsDarkMode="@ComputedDarkMode" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="0" Dense="false" Gutters="false">
+        <!-- App icon — matches mqttdashboard-icon.svg -->
+        <MudIconButton Icon="@AppIcons.MqttDashboard" Color="Color.Primary" Size="Size.Large" Class="mr-1"
+                       OnClick='() => Nav.NavigateTo("/")' />
+
+        <!-- App name + dashboard name.
+             Wide: single line "App — Name" with ellipsis if overflow.
+             Narrow (<600px): two stacked lines, smaller font, no dash. -->
+        <MudTooltip Text="@TitleTooltip" Placement="Placement.Bottom" Style="overflow:hidden;min-width:0;flex-shrink:1;">
+            <div class="appbar-title-inner">
+                <span class="title-app-name">@AppName</span>
+                @if (AppState.IsEditMode || AppState.ShowName)
+                {
+                    <span class="title-sep">&mdash;</span>
+                    <span class="title-dash-name">@AppState.ActiveDashboardLabel</span>
+                }
+            </div>
+        </MudTooltip>
+
+        <MudSpacer />
+
+        <!-- MQTT connection status indicator -->
+        <div class="toolbar-hide-xs d-flex align-center">
+            <MudTooltip Text="@AppState.MqttConnectionStatus">
+                <MudIcon Icon="@MqttStatusIcon" Color="@MqttStatusColor" Size="Size.Medium" Class="mr-3" />
+            </MudTooltip>
+        </div>
+
+        <!-- Auth: login/logout button when auth is configured and not read-only -->
+        @if (AppState.AuthEnabled && !AppState.IsReadOnly)
+        {
+            <div class="toolbar-hide-xs d-flex align-center">
+            @if (AppState.IsAdmin)
+            {
+                <MudTooltip Text="Logout admin">
+                    <MudIconButton Icon="@Icons.Material.Filled.Logout" Color="Color.Inherit" Size="Size.Medium"
+                                   OnClick="Logout" Class="mr-1" />
+                </MudTooltip>
+            }
+            else
+            {
+                <MudTooltip Text="Login as admin">
+                    <MudIconButton Icon="@Icons.Material.Filled.Login" Color="Color.Warning" Size="Size.Medium"
+                                   OnClick='() => Nav.NavigateTo("/login")' Class="mr-1" />
+                </MudTooltip>
+            }
+            </div>
+        }
+
+        <!-- Edit mode toggle switch — hidden when auth is enabled and user is not admin, or in read-only mode.
+             Wrapped in a plain <div> so the Blazor CSS isolation scope attribute applies directly
+             (only works reliably on HTML elements, not on component Class parameters). -->
+        @if (!AppState.IsReadOnly && (!AppState.AuthEnabled || AppState.IsAdmin))
+        {
+        <div class="toolbar-hide-xs d-flex align-center mr-2">
+            <MudTooltip Text="@EditModeTooltip">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudText Typo="Typo.body2" Style="@EditTextStyle">
+                        Edit
+                    </MudText>
+                    <MudSwitch Value="_isEditMode"
+                               ValueChanged="@((bool v) => ToggleEditMode())"
+                               Color="@(!_isEditMode ? Color.Default : AppState.IsEdited ? Color.Error : Color.Warning)"
+                               T="bool" />
+                </MudStack>
+            </MudTooltip>
+        </div>
+        }
+
+        <!-- Hamburger menu — always last in flex flow; flex-shrink:0 means it can never be
+             pushed off. Gradient background fades over any compressed title text. -->
+        <div class="appbar-menu-pin">
+            <AppMenu />
+        </div>
+    </MudAppBar>
+
+    <MudMainContent Class="pt-16 pa-2">
+        @if (_setupNeeded && !AppState.IsReadOnly && !Nav.Uri.Contains("/setup", StringComparison.OrdinalIgnoreCase))
+        {
+            <MudAlert Severity="Severity.Warning" Class="ma-2">
+                Admin password not configured. <MudLink Href="/setup">Set up now →</MudLink>
+            </MudAlert>
+        }
+
+        @Body
+    </MudMainContent>
+</MudLayout>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    private bool _systemDarkMode = false;
+    private MudTheme? _theme = null;
+    private bool _setupNeeded = false;
+
+
+    private string AppName => GetType().Assembly
+        .GetCustomAttribute<System.Reflection.AssemblyProductAttribute>()?.Product
+        ?? "MQTT Dashboard";
+    private bool _isEditMode => AppState.IsEditMode;
+
+    private string EditTextStyle => _isEditMode
+        ? "font-weight:700; color: var(--mud-palette-primary);"
+        : "color: var(--mud-palette-text-secondary);";
+
+    private string TitleTooltip
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (!string.IsNullOrEmpty(AppState.DashboardName))
+                parts.Add($"File: {AppState.DashboardName}");
+            if (!string.IsNullOrEmpty(AppState.DashboardDisplayName) && AppState.DashboardDisplayName != AppState.DashboardName)
+                parts.Add($"Display: {AppState.DashboardDisplayName}");
+            if (!AppState.IsEditMode)
+                parts.Add("Status: View mode");
+            else if (AppState.IsEdited)
+                parts.Add("Status: Editing — unsaved changes");
+            else
+                parts.Add("Status: Editing");
+            return string.Join(" | ", parts);
+        }
+    }
+
+    private string EditModeTooltip =>
+        !_isEditMode ? "Switch to edit mode" :
+        AppState.IsEdited ? "Editing — unsaved changes (click to exit)" :
+        "Editing (click to exit)";
+
+    private bool ComputedDarkMode => AppState.ThemeMode switch
+    {
+        ThemeMode.Light => false,
+        ThemeMode.Dark  => true,
+        _               => _systemDarkMode
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        _theme = new()
+        {
+            PaletteLight = _lightPalette,
+            PaletteDark = _darkPalette,
+            LayoutProperties = new LayoutProperties()
+        };
+
+        AppState.OnStateChanged += OnAppStateChanged;
+        await MqttInit.InitializeAsync(RendererInfo.IsInteractive);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                _systemDarkMode = await JS.InvokeAsync<bool>(
+                    "eval", "window.matchMedia('(prefers-color-scheme: dark)').matches");
+                StateHasChanged();
+            }
+            catch { /* ignore — JS not available during prerender */ }
+
+            // Load persisted user preferences (theme from localStorage; app settings from server)
+            try
+            {
+                var savedTheme = await LocalStorage.GetItemAsync<ThemeMode?>("pref:theme");
+                if (savedTheme.HasValue) AppState.SetTheme(savedTheme.Value);
+                if (savedTheme.HasValue) StateHasChanged();
+            }
+            catch { /* ignore — localStorage may not be available */ }
+
+            try
+            {
+                var appSettings = await Http.GetFromJsonAsync<AppSettingsResponse>("/api/settings/app");
+                if (appSettings != null)
+                {
+                    AppState.SetAutoSaveOnExitEditMode(appSettings.AutoSaveOnExit);
+                    StateHasChanged();
+                }
+            }
+            catch { /* ignore — non-critical */ }
+
+            try
+            {
+                var resp = await Http.GetFromJsonAsync<SetupNeededResponse>("/api/setup/needed");
+                if (resp?.Needed == true)
+                {
+                    _setupNeeded = true;
+                    StateHasChanged();
+                }
+            }
+            catch { /* ignore if not available */ }
+
+            // Check for available updates
+            try
+            {
+                var status = await Http.GetFromJsonAsync<UpdateStatusResponse>("/api/update/status");
+                if (status != null)
+                {
+                    AppState.SetUpdateState(status.CurrentVersion, status.LatestVersion,
+                        status.UpdateAvailable, status.DeploymentType, status.LastChecked, status.ReleaseUrl);
+                    StateHasChanged();
+                }
+            }
+            catch { /* ignore — update check is non-critical */ }
+        }
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
+    private void OnAppStateChanged() => InvokeAsync(StateHasChanged);
+
+    private void ToggleEditMode()=> AppState.RequestToggleEditMode();
+
+    [Inject] private IAuthService AuthService { get; set; } = default!;
+
+    private async Task Logout()
+    {
+        await AuthService.LogoutAsync();
+        AppState.SetAuthState(false, true);
+        Nav.NavigateTo("/login");
+    }
+
+    private string MqttStatusIcon =>AppState.IsMqttConnected
+        ? Icons.Material.Filled.CloudDone
+        : AppState.MqttConnectionStatus.Contains("reconnect", StringComparison.OrdinalIgnoreCase)
+            ? Icons.Material.Filled.CloudSync
+            : Icons.Material.Filled.CloudOff;
+
+    private Color MqttStatusColor => AppState.IsMqttConnected
+        ? Color.Success
+        : AppState.MqttConnectionStatus.Contains("reconnect", StringComparison.OrdinalIgnoreCase)
+            ? Color.Warning
+            : Color.Error;
+
+    public void Dispose()
+    {
+        AppState.OnStateChanged -= OnAppStateChanged;
+    }
+
+    private record SetupNeededResponse(bool Needed);
+    private record UpdateStatusResponse(string CurrentVersion, string? LatestVersion, bool UpdateAvailable,
+        string DeploymentType, DateTimeOffset? LastChecked, string? ReleaseUrl, string RuntimeIdentifier);
+    private record AppSettingsResponse(bool AutoSaveOnExit);
+
+    private readonly PaletteLight _lightPalette = new()
+    {
+        Black = "#110e2d",
+        AppbarText = "#424242",
+        AppbarBackground = "rgba(255,255,255,0.8)",
+        DrawerBackground = "#ffffff",
+        GrayLight = "#e8e8e8",
+        GrayLighter = "#f9f9f9",
+    };
+
+    private readonly PaletteDark _darkPalette = new()
+    {
+        Primary = "#7e6fff",
+        Surface = "#1e1e2d",
+        Background = "#1a1a27",
+        BackgroundGray = "#151521",
+        AppbarText = "#92929f",
+        AppbarBackground = "rgba(26,26,39,0.8)",
+        DrawerBackground = "#1a1a27",
+        ActionDefault = "#74718e",
+        ActionDisabled = "#9999994d",
+        ActionDisabledBackground = "#605f6d4d",
+        TextPrimary = "#b2b0bf",
+        TextSecondary = "#92929f",
+        TextDisabled = "#ffffff33",
+        DrawerIcon = "#92929f",
+        DrawerText = "#92929f",
+        GrayLight = "#2a2833",
+        GrayLighter = "#1e1e2d",
+        Info = "#4a86ff",
+        Success = "#3dcb6c",
+        Warning = "#ffb545",
+        Error = "#ff3f5f",
+        LinesDefault = "#33323e",
+        TableLines = "#33323e",
+        Divider = "#292838",
+        OverlayLight = "#1e1e2d80",
+    };
+}

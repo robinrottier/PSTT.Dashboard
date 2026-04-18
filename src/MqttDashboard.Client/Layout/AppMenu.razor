@@ -1,0 +1,286 @@
+@using MqttDashboard.Services
+@using MqttDashboard.Models
+@using Blazor.Diagrams.Core.Models
+@using MqttDashboard.Components
+@inject ApplicationState AppState
+@inject NavigationManager Nav
+@inject IDialogService DialogService
+@inject LocalStorageService LocalStorage
+@inject IAuthService AuthService
+@inject HttpClient Http
+@implements IDisposable
+
+<MudMenu Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+
+    <!-- File menu: always a submenu; recent files + More... in both modes -->
+    <MudMenu Label="File" Dense="true" AnchorOrigin="Origin.TopLeft" TransformOrigin="Origin.TopRight">
+        @if (IsEditMode)
+        {
+            <MudMenuItem OnClick="NewDiagram">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Style="width:100%;justify-content:space-between;">
+                    <span>New</span>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">&nbsp;</MudText>
+                </MudStack>
+            </MudMenuItem>
+        }
+            <MudMenuItem OnClick="OpenDiagram">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Style="width:100%;justify-content:space-between;">
+                <span>Open…</span>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">&nbsp;</MudText>
+            </MudStack>
+        </MudMenuItem>
+        @if (IsEditMode)
+        {
+            <MudMenuItem OnClick="ReloadDiagram">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Style="width:100%;justify-content:space-between;">
+                    <span>Reload from Disk</span>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">&nbsp;</MudText>
+                </MudStack>
+            </MudMenuItem>
+            <MudDivider />
+            <MudMenuItem Disabled="@string.IsNullOrEmpty(AppState.DashboardName)" OnClick="SaveDashboard">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Style="width:100%;justify-content:space-between;">
+                    <span>Save</span>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Ctrl+S</MudText>
+                </MudStack>
+            </MudMenuItem>
+            <MudMenuItem OnClick="SaveAsDiagram">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Style="width:100%;justify-content:space-between;">
+                    <span>Save As…</span>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">&nbsp;</MudText>
+                </MudStack>
+            </MudMenuItem>
+            <MudDivider />
+            <MudMenuItem Label="Dashboard Properties…"  OnClick="MenuDiagramProperties"  />
+            @if (AppState.IsEditMode)
+            {
+                <MudDivider />
+                <MudMenuItem Label="Export…" OnClick="MenuExportNodes" />
+                <MudMenuItem Label="Import…" OnClick="MenuImportNodes" />
+            }
+            @if (AppState.IsEditMode)
+            {
+                <MudDivider />
+                <MudMenuItem OnClick="@(() => AppState.TriggerAddPage())">Add Page</MudMenuItem>
+                @for (int i = 0; i < AppState.PageNames.Count; i++)
+                {
+                    var idx = i;
+                    <MudMenuItem OnClick="@(() => AppState.TriggerSetActivePage(idx))"
+                                 Disabled="@(AppState.ActivePageIndex == idx)">
+                        @(AppState.ActivePageIndex == idx ? "▶ " : "")Go to: @AppState.PageNames[idx]
+                    </MudMenuItem>
+                }
+            }
+        }
+    </MudMenu>
+
+    <!-- Edit: only shown in edit mode -->
+    @if (IsEditMode)
+    {
+    <MudMenu Label="Edit" Dense="true" AnchorOrigin="Origin.TopLeft" TransformOrigin="Origin.TopRight">
+        <MudMenuItem OnClick="Undo" Disabled="@(!AppState.CanUndo)">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Style="width:100%;justify-content:space-between;">
+                <span>Undo</span>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Ctrl+Z</MudText>
+            </MudStack>
+        </MudMenuItem>
+        <MudMenuItem OnClick="Redo" Disabled="@(!AppState.CanRedo)">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Style="width:100%;justify-content:space-between;">
+                <span>Redo</span>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Ctrl+Y</MudText>
+            </MudStack>
+        </MudMenuItem>
+        <MudMenuItem OnClick="UndoAll" Disabled="@(!AppState.CanUndo)">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Style="width:100%;justify-content:space-between;">
+                <span>Undo All</span>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">&nbsp;</MudText>
+            </MudStack>
+        </MudMenuItem>
+        <MudDivider />
+        <MudMenuItem OnClick="MenuAddNode" Disabled="@(!IsEditMode)">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Style="width:100%;justify-content:space-between;">
+                <span>Add Node</span>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">&nbsp;</MudText>
+            </MudStack>
+        </MudMenuItem>
+        <MudMenuItem OnClick="MenuDeleteNode" Disabled="@(!AppState.HasSelectedNode)">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Style="width:100%;justify-content:space-between;">
+                <span>Delete Node</span>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Del</MudText>
+            </MudStack>
+        </MudMenuItem>
+        <MudDivider />
+        <MudMenuItem OnClick="MenuCutSelected" Disabled="@(!AppState.HasSelectedNode)">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Style="width:100%;justify-content:space-between;">
+                <span>Cut</span>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Ctrl+X</MudText>
+            </MudStack>
+        </MudMenuItem>
+        <MudMenuItem OnClick="MenuCopySelected" Disabled="@(!AppState.HasSelectedNode)">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Style="width:100%;justify-content:space-between;">
+                <span>Copy</span>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Ctrl+C</MudText>
+            </MudStack>
+        </MudMenuItem>
+        <MudMenuItem OnClick="MenuPasteSelected" Disabled="@(!AppState.HasClipboard || !IsEditMode)">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Style="width:100%;justify-content:space-between;">
+                <span>Paste</span>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Ctrl+V</MudText>
+            </MudStack>
+        </MudMenuItem>
+        <MudDivider />
+        <MudMenu Label="Add Port"    Dense="true" AnchorOrigin="Origin.TopLeft" TransformOrigin="Origin.TopRight" Disabled="@(!AppState.HasSingleSelectedNode)">
+            <MudMenuItem Label="Top"    OnClick="() => MenuAddPort(PortAlignment.Top)"    Disabled="@(AppState.SelectedNodePorts?.Contains(PortAlignment.Top) == true)" />
+            <MudMenuItem Label="Left"   OnClick="() => MenuAddPort(PortAlignment.Left)"   Disabled="@(AppState.SelectedNodePorts?.Contains(PortAlignment.Left) == true)" />
+            <MudMenuItem Label="Bottom" OnClick="() => MenuAddPort(PortAlignment.Bottom)" Disabled="@(AppState.SelectedNodePorts?.Contains(PortAlignment.Bottom) == true)" />
+            <MudMenuItem Label="Right"  OnClick="() => MenuAddPort(PortAlignment.Right)"  Disabled="@(AppState.SelectedNodePorts?.Contains(PortAlignment.Right) == true)" />
+            <MudDivider />
+            <MudMenuItem Label="All"    OnClick="MenuAddAllPorts" Disabled="@(AppState.SelectedNodePorts?.Count == 4)" />
+        </MudMenu>
+        <MudMenu Label="Delete Port" Dense="true" AnchorOrigin="Origin.TopLeft" TransformOrigin="Origin.TopRight" Disabled="@(!AppState.HasSingleSelectedNode)">
+            <MudMenuItem Label="Top"    OnClick="() => MenuDeletePort(PortAlignment.Top)"    Disabled="@(AppState.SelectedNodePorts?.Contains(PortAlignment.Top) != true)" />
+            <MudMenuItem Label="Left"   OnClick="() => MenuDeletePort(PortAlignment.Left)"   Disabled="@(AppState.SelectedNodePorts?.Contains(PortAlignment.Left) != true)" />
+            <MudMenuItem Label="Bottom" OnClick="() => MenuDeletePort(PortAlignment.Bottom)" Disabled="@(AppState.SelectedNodePorts?.Contains(PortAlignment.Bottom) != true)" />
+            <MudMenuItem Label="Right"  OnClick="() => MenuDeletePort(PortAlignment.Right)"  Disabled="@(AppState.SelectedNodePorts?.Contains(PortAlignment.Right) != true)" />
+        </MudMenu>
+        <MudDivider />
+        <MudMenuItem Label="Properties" OnClick="MenuEditProperties" Disabled="@(!AppState.HasSingleSelectedNode)" />
+    </MudMenu>
+    }
+
+    <!-- Options (before About) -->
+    <MudMenu Label="Options" Dense="true" AnchorOrigin="Origin.TopLeft" TransformOrigin="Origin.TopRight">
+
+        <!-- Edit mode toggle — always accessible; on mobile the toolbar toggle is hidden -->
+        @if (!AppState.IsReadOnly && (!AppState.AuthEnabled || AppState.IsAdmin))
+        {
+            <MudMenuItem OnClick="ToggleEditMode">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small"
+                             Style="@(AppState.IsEditMode ? "" : "visibility:hidden")" />
+                    <MudText>Edit Mode</MudText>
+                </MudStack>
+            </MudMenuItem>
+            @if (AppState.IsEditMode)
+            {
+                <MudMenuItem OnClick="ToggleAutoSave">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small"
+                                 Style="@(AppState.AutoSaveOnExitEditMode ? "" : "visibility:hidden")" />
+                        <MudText>Auto-save on Exit</MudText>
+                    </MudStack>
+                </MudMenuItem>
+            }
+            <MudDivider />
+        }
+
+        <!-- Login / Logout — always accessible; on mobile the toolbar buttons are hidden -->
+        @if (AppState.AuthEnabled && !AppState.IsReadOnly)
+        {
+            @if (AppState.IsAdmin)
+            {
+                <MudMenuItem OnClick="MenuLogout">Logout</MudMenuItem>
+            }
+            else
+            {
+                <MudMenuItem OnClick='() => Nav.NavigateTo("/login")'>Login as Admin</MudMenuItem>
+            }
+            <MudDivider />
+        }
+
+        <MudMenu Label="Theme" Dense="true" AnchorOrigin="Origin.TopLeft" TransformOrigin="Origin.TopRight">
+            <MudMenuItem OnClick="() => SetTheme(ThemeMode.Light)">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" Style="@(AppState.ThemeMode == ThemeMode.Light ? "" : "visibility:hidden")" />
+                    <MudText>Light</MudText>
+                </MudStack>
+            </MudMenuItem>
+            <MudMenuItem OnClick="() => SetTheme(ThemeMode.Dark)">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" Style="@(AppState.ThemeMode == ThemeMode.Dark ? "" : "visibility:hidden")" />
+                    <MudText>Dark</MudText>
+                </MudStack>
+            </MudMenuItem>
+            <MudMenuItem OnClick="() => SetTheme(ThemeMode.Auto)">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" Style="@(AppState.ThemeMode == ThemeMode.Auto ? "" : "visibility:hidden")" />
+                    <MudText>Auto</MudText>
+                </MudStack>
+            </MudMenuItem>
+        </MudMenu>
+        @if (AppState.AuthEnabled && AppState.IsAdmin)
+        {
+            <MudDivider />
+            <MudMenuItem OnClick='() => Nav.NavigateTo("/change-password")'>Change Password…</MudMenuItem>
+            <MudMenuItem OnClick="ShowStartupSettings">Startup Settings…</MudMenuItem>
+        }
+    </MudMenu>
+
+    <!-- About (last) -->
+    <MudMenuItem OnClick="ShowAbout">About</MudMenuItem>
+
+</MudMenu>
+
+@code {
+    private bool IsEditMode => AppState.IsEditMode;
+
+    protected override void OnInitialized()
+    {
+        AppState.OnStateChanged += OnAppStateChanged;
+    }
+
+    private void OnAppStateChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        AppState.OnStateChanged -= OnAppStateChanged;
+    }
+
+    private Task ShowAbout() => DialogService.ShowAsync<AboutDialog>("About Mqtt Dashboard",
+        new DialogParameters(),
+        new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true });
+    private Task ShowStartupSettings() => DialogService.ShowAsync<StartupSettingsDialog>("Startup Settings");
+
+    private void NewDiagram()         => AppState.TriggerNewDiagram();
+    private void OpenDiagram()        => AppState.TriggerOpen();
+    private void SaveDashboard()        => AppState.TriggerSaveDiagram();
+    private void SaveAsDiagram()      => AppState.TriggerSaveAs();
+    private void ReloadDiagram()          => AppState.TriggerReloadDiagram();
+    private void MenuDiagramProperties()  => AppState.TriggerDiagramProperties();
+    private void Undo()               => AppState.TriggerUndo();
+    private void Redo()               => AppState.TriggerRedo();
+    private void UndoAll()            => AppState.TriggerUndoAll();
+    private void MenuAddNode()        => AppState.TriggerAddNode();
+    private void MenuDeleteNode()     => AppState.TriggerDeleteNode();
+    private void MenuCutSelected()    => AppState.TriggerCutSelected();
+    private void MenuCopySelected()   => AppState.TriggerCopySelected();
+    private void MenuPasteSelected()  => AppState.TriggerPasteSelected();
+    private void MenuExportNodes()    => AppState.TriggerExportNodes();
+    private void MenuImportNodes()    => AppState.TriggerImportNodes();
+    private void MenuEditProperties() => AppState.TriggerEditProperties();
+    private void MenuAddAllPorts()              => AppState.TriggerAddAllPorts();
+    private void MenuAddPort(PortAlignment a)    => AppState.TriggerAddPort(a);
+    private void MenuDeletePort(PortAlignment a) => AppState.TriggerDeletePort(a);
+    private void ToggleEditMode()               => AppState.RequestToggleEditMode();
+    private void SetTheme(ThemeMode m)
+    {
+        AppState.SetTheme(m);
+        _ = LocalStorage.SetItemAsync("pref:theme", m);
+    }
+
+    private async Task ToggleAutoSave()
+    {
+        var newValue = !AppState.AutoSaveOnExitEditMode;
+        AppState.SetAutoSaveOnExitEditMode(newValue);
+        try { await Http.PostAsJsonAsync("/api/settings/app", new { autoSaveOnExit = newValue }); }
+        catch { /* non-critical — will reset on next page load */ }
+    }
+
+    private async Task MenuLogout()
+    {
+        await AuthService.LogoutAsync();
+        AppState.SetAuthState(false, true);
+        // After logout show home page (not the login dialog) so user sees the default unauthenticated view
+        Nav.NavigateTo("/");
+    }
+}

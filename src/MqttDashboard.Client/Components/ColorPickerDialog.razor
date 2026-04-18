@@ -1,0 +1,71 @@
+@using MudBlazor
+
+<MudDialog>
+    <DialogContent>
+        @if (Mode == ColorPickerMode.Theme)
+        {
+            <MudText Typo="Typo.subtitle2" Class="mb-2">Select Theme Color</MudText>
+            <MudSimpleTable Dense="true" Style="max-height: 400px; overflow-y: auto;">
+                <tbody>
+                    @foreach (var color in ThemeColors)
+                    {
+                        <tr style="cursor: pointer; @(SelectedColor == color.Value ? "background-color: var(--mud-palette-action-default-hover);" : "")"
+                            @onclick="@(() => SelectColor(color.Value))">
+                            <td style="width: 40px;">
+                                <div style="@($"width: 30px; height: 30px; background-color: {color.Value}; border: 2px solid var(--mud-palette-divider); border-radius: 4px;")"></div>
+                            </td>
+                            <td>
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.body2">@color.Key</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@color.Value</MudText>
+                                </MudStack>
+                            </td>
+                            <td style="width: 40px; text-align: center;">
+                                @if (SelectedColor == color.Value)
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Primary" Size="MudBlazor.Size.Small" />
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        }
+        else if (Mode == ColorPickerMode.Named)
+        {
+            <MudText Typo="Typo.subtitle2" Class="mb-2">Select Named Color</MudText>
+            <MudGrid Spacing="1" Style="max-height: 400px; overflow-y: auto;">
+                @foreach (var color in NamedColors)
+                {
+                    <MudItem xs="6" sm="4" md="3">
+                        <MudPaper Elevation="0" 
+                                  Style="@($"cursor: pointer; border: 2px solid {(SelectedColor == color ? "var(--mud-palette-primary)" : "var(--mud-palette-divider)")}; border-radius: 4px; padding: 4px;")"
+                                  @onclick="@(() => SelectColor(color))">
+                            <MudStack Spacing="1" AlignItems="AlignItems.Center">
+                                <div style="@($"width: 100%; height: 30px; background-color: {color}; border-radius: 2px;")"></div>
+                                <MudText Typo="Typo.caption" Align="Align.Center" Style="word-break: break-word;">@color</MudText>
+                            </MudStack>
+                        </MudPaper>
+                    </MudItem>
+                }
+            </MudGrid>
+        }
+        else if (Mode == ColorPickerMode.Custom)
+        {
+            <MudText Typo="Typo.subtitle2" Class="mb-2">Custom Color</MudText>
+            <MudColorPicker @bind-Value="@CustomColor" 
+                            ColorPickerView="ColorPickerView.Spectrum"
+                            Style="width: 100%;" />
+            <MudTextField @bind-Value="@CustomColorString" 
+                          Label="Color Value" 
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Class="mt-2"
+                          Placeholder="e.g., #FF5733, rgb(255,87,51), rgba(255,87,51,0.8)" />
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Size="MudBlazor.Size.Small">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Select" Variant="Variant.Filled" Size="MudBlazor.Size.Small">Select</MudButton>
+    </DialogActions>
+</MudDialog>

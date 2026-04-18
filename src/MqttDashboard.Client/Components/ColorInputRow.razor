@@ -1,0 +1,73 @@
+@* Reusable color input row: color swatch preview + editable text field + Theme/Named/Custom picker buttons + optional clear. *@
+@using MudBlazor
+
+@inject IDialogService DialogService
+
+<MudStack Row="true" Spacing="0" AlignItems="AlignItems.Center">
+    <div style="@SwatchStyle" title="@Value"></div>
+    <MudTextField T="string" Value="@Value" ValueChanged="@(v => ValueChanged.InvokeAsync(v))"
+                  Label="@Label" Variant="Variant.Outlined" Margin="Margin.Dense"
+                  Placeholder="@Placeholder"
+                  Style="flex-grow:1;margin-left:6px;" />
+    <MudTooltip Text="Theme Colors">
+        <MudIconButton Icon="@Icons.Material.Filled.Palette" Size="MudBlazor.Size.Small"
+                       OnClick="@(() => OpenPicker(ColorPickerMode.Theme))" Class="mt-1" />
+    </MudTooltip>
+    <MudTooltip Text="Named Colors">
+        <MudIconButton Icon="@Icons.Material.Filled.FormatColorFill" Size="MudBlazor.Size.Small"
+                       OnClick="@(() => OpenPicker(ColorPickerMode.Named))" Class="mt-1" />
+    </MudTooltip>
+    <MudTooltip Text="Custom Color">
+        <MudIconButton Icon="@Icons.Material.Filled.Colorize" Size="MudBlazor.Size.Small"
+                       OnClick="@(() => OpenPicker(ColorPickerMode.Custom))" Class="mt-1" />
+    </MudTooltip>
+    @if (ShowClear && !string.IsNullOrEmpty(Value))
+    {
+        <MudIconButton Icon="@Icons.Material.Filled.Clear" Size="MudBlazor.Size.Small"
+                       OnClick="@(() => ValueChanged.InvokeAsync(null))" Class="mt-1" />
+    }
+</MudStack>
+
+@code {
+    /// <summary>The current CSS color value (e.g. "#ff0000", "red", "var(--mud-palette-primary)").</summary>
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public string Label { get; set; } = "Color";
+    [Parameter] public string? Placeholder { get; set; }
+    /// <summary>When true, shows an X button to clear the value (set it to null).</summary>
+    [Parameter] public bool ShowClear { get; set; } = false;
+
+    private string SwatchStyle =>
+        $"width:28px;height:28px;flex-shrink:0;background:{(string.IsNullOrEmpty(Value) ? "transparent" : Value)};" +
+        $"border:1px solid var(--mud-palette-divider);border-radius:3px;";
+
+    private async Task OpenPicker(ColorPickerMode mode)
+    {
+        var parameters = new DialogParameters
+        {
+            { "Mode", mode },
+            { "CurrentColor", Value }
+        };
+
+        var options = new DialogOptions
+        {
+            MaxWidth = mode == ColorPickerMode.Named ? MaxWidth.Medium : MaxWidth.Small,
+            FullWidth = true,
+            CloseButton = true
+        };
+
+        string title = mode switch
+        {
+            ColorPickerMode.Theme  => "Select Theme Color",
+            ColorPickerMode.Named  => "Select Named Color",
+            ColorPickerMode.Custom => "Custom Color",
+            _                      => "Select Color"
+        };
+
+        var dialog = await DialogService.ShowAsync<ColorPickerDialog>(title, parameters, options);
+        var result = await dialog.Result;
+
+        if (result is { Canceled: false, Data: string selectedColor })
+            await ValueChanged.InvokeAsync(selectedColor);
+    }
+}

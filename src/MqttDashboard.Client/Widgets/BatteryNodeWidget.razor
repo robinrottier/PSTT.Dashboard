@@ -1,0 +1,89 @@
+@using MqttDashboard.Models
+@using MqttDashboard.Services
+@using MqttDashboard.Helpers
+@inherits BaseNodeWithDataWidget<BatteryNodeModel>
+
+<StandardNodeLayout Node="Node" ExtraCssClass="battery-node">
+    <ExtraContent>
+        <div style="flex:1;min-height:0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+            <!-- Battery SVG: terminal nub on top, body below, fill from bottom -->
+            <svg viewBox="0 0 40 70" style="width:auto;height:80%;max-height:60px;display:block;">
+                <!-- Terminal nub -->
+                <rect x="13" y="0" width="14" height="5" rx="2" fill="currentColor" opacity="0.6"/>
+                <!-- Battery body outline -->
+                <rect x="3" y="5" width="34" height="60" rx="4" stroke="currentColor" stroke-width="2.5" fill="none"/>
+                <!-- Fill level (from bottom up) -->
+                @{
+                    var fillH = (int)(54 * Math.Clamp(_percent, 0.0, 1.0));
+                    var fillY = 59 - fillH;
+                }
+                @if (fillH > 0)
+                {
+                    <rect x="5" y="@fillY" width="30" height="@fillH" rx="2" fill="@GetFillColor()"/>
+                }
+                <!-- Percentage text centred in battery -->
+                @((MarkupString)$"<text x=\"20\" y=\"40\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-size=\"14\" font-weight=\"bold\" fill=\"currentColor\">{XmlStringHelper.XmlSafeEncode(FormatPercent())}</text>")
+            </svg>
+            @if (!string.IsNullOrEmpty(Node.Text))
+            {
+                <div style="text-align:center;font-size:0.7rem;padding:1px 2px;word-break:break-word;">@FormatText()</div>
+            }
+        </div>
+    </ExtraContent>
+</StandardNodeLayout>
+
+@code {
+    private double _percent = 0;
+
+    private object? ActiveValue => Node.DataValue(Node.DataTopicIndex);
+    private object? ColorValue => Node.DataValue(Node.BatteryColor.ColorTopicIndex);
+
+    protected override void OnInitialized()
+    {
+        Node.MinimumDimensions = new(50, 70);
+        if (Node.Size == null || Node.Size.Width < 50 || Node.Size.Height < 70)
+            Node.Size = new(80, 110);
+        base.OnInitialized();
+    }
+
+    protected override void OnDataUpdated() => UpdatePercent();
+ 
+    private void UpdatePercent()
+    {
+        if (ActiveValue == null) { _percent = 0; return; }
+        if (double.TryParse(ActiveValue.ToString(), out var d))
+        {
+            var range = Node.MaxValue - Node.MinValue;
+            _percent = range == 0 ? 0 : Math.Clamp((d - Node.MinValue) / range, 0.0, 1.0);
+        }
+    }
+
+    private string GetFillColor()
+    {
+        if (Node.BatteryColor.ColorThresholds.Count > 0)
+        {
+            var pct = _percent * 100;
+            var cv = ColorValue;
+            double colorDouble = cv != null && double.TryParse(cv.ToString(), out var parsed) ? parsed : pct;
+            foreach (var t in Node.BatteryColor.ColorThresholds)
+            {
+                if (t.Direction == ">=" && colorDouble >= t.Value) return t.Color;
+                if (t.Direction == "<=" && colorDouble <= t.Value) return t.Color;
+            }
+            // No threshold matched — use ElseColor if set
+            if (!string.IsNullOrEmpty(Node.BatteryColor.ElseColor)) return Node.BatteryColor.ElseColor;
+        }
+        return "var(--mud-palette-primary)";
+    }
+
+    private string FormatPercent()
+    {
+        if (!Node.ShowPercent || ActiveValue == null) return "";
+        if (double.TryParse(ActiveValue.ToString(), out _))
+        {
+            var pct = (int)Math.Round(_percent * 100);
+            return $"{pct}%";
+        }
+        return "";
+    }
+}

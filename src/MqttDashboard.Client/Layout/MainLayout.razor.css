@@ -1,0 +1,191 @@
+.page {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    /* allow the layout to shrink below the sidebar width when needed */
+    min-width: 0;
+}
+
+main {
+    flex: 1;
+}
+
+.sidebar {
+    background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
+}
+
+.top-row {
+    background-color: #f7f7f7;
+    border-bottom: 1px solid #d6d5d5;
+    justify-content: flex-end;
+    height: 3.5rem;
+    display: flex;
+    align-items: center;
+}
+
+    .top-row ::deep a, .top-row ::deep .btn-link {
+        white-space: nowrap;
+        margin-left: 1.5rem;
+        text-decoration: none;
+    }
+
+    .top-row ::deep a:hover, .top-row ::deep .btn-link:hover {
+        text-decoration: underline;
+    }
+
+    .top-row ::deep a:first-child {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+@media (max-width: 640.98px) {
+    .top-row {
+        justify-content: space-between;
+    }
+
+    .top-row ::deep a, .top-row ::deep .btn-link {
+        margin-left: 0;
+    }
+}
+
+@media (min-width: 641px) {
+    .page {
+        flex-direction: row;
+    }
+
+    .sidebar {
+        width: 140px;
+        height: 100vh;
+        position: sticky;
+        top: 0;
+        /* allow the sidebar to be flex-shrunk on narrow viewports */
+        min-width: 0;
+    }
+
+    .top-row {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+
+    .top-row.auth ::deep a:first-child {
+        flex: 1;
+        text-align: right;
+        width: 0;
+    }
+
+    .top-row, article {
+        padding-left: 1rem !important;
+        padding-right: 0.75rem !important;
+    }
+}
+
+/* Hide non-essential toolbar items on xs screens */
+@media (max-width: 449px) {
+    .toolbar-hide-xs {
+        display: none !important;
+    }
+}
+
+#blazor-error-ui {
+    color-scheme: light only;
+    background: lightyellow;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    box-sizing: border-box;
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+
+    #blazor-error-ui .dismiss {
+        cursor: pointer;
+        position: absolute;
+        right: 0.75rem;
+        top: 0.5rem;
+    }
+
+/* ── Responsive AppBar title ─────────────────────────────────────────────────
+   Wide (≥600px): "App Name — Dashboard Name" on one line; dashboard name
+                   truncates with ellipsis when space is tight.
+   Narrow (<600px): two stacked lines (smaller font), no dash separator.
+   The MudTooltip root gets flex-shrink:1 + min-width:0 via its Style param
+   so the whole title block can yield space to the hamburger menu.
+   ──────────────────────────────────────────────────────────────────────────── */
+.appbar-title-inner {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+    width: 100%; /* fills the tooltip root's flex-assigned width */
+    font-size: 1.25rem;
+    font-weight: 400;
+    line-height: 1.6;
+    letter-spacing: 0.0075em;
+}
+
+.title-app-name,
+.title-dash-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.title-app-name {
+    flex-shrink: 0; /* keep app name visible; dashboard name truncates first */
+}
+
+.title-sep {
+    flex-shrink: 0;
+    white-space: nowrap;
+    color: var(--mud-palette-text-secondary);
+}
+
+.title-dash-name {
+    flex-shrink: 1;
+    color: var(--mud-palette-text-secondary);
+}
+
+/* ── Hamburger menu: stays in flex flow, always rightmost, never shrinks ─────
+   flex-shrink:0 guarantees it cannot be squeezed out at any viewport width.
+   position:relative + z-index:5 lets it stack on top of adjacent content.
+   padding-left + gradient fades over any compressed title text behind it.
+   ──────────────────────────────────────────────────────────────────────────── */
+.appbar-menu-pin {
+    flex-shrink: 0;
+    position: relative;
+    z-index: 5;
+    padding-left: 20px;
+    background: linear-gradient(
+        to right,
+        transparent 0%,
+        var(--mud-palette-appbar-background) 40%
+    );
+}
+
+@media (max-width: 599px) {
+    .appbar-title-inner {
+        flex-direction: column;
+        align-items: stretch; /* fill width so text-overflow works per line */
+        gap: 0;
+        font-size: 0.875rem;
+        font-weight: 600;
+        line-height: 1.25;
+    }
+
+    .title-sep {
+        display: none;
+    }
+
+    .title-dash-name {
+        font-size: 0.7rem;
+        font-weight: 400;
+        line-height: 1.2;
+    }
+}
+

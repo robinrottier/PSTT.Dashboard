@@ -1,0 +1,165 @@
+@using MqttDashboard.Models
+@inject IJSRuntime JSRuntime
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="1">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                <MudText Typo="Typo.body2" Style="flex:1">
+                    Paste JSON exported from this dashboard into the box below, then choose where to import it.
+                </MudText>
+                <MudTooltip Text="Paste from clipboard">
+                    <MudIconButton Icon="@Icons.Material.Filled.ContentPaste"
+                                   OnClick="PasteFromClipboardAsync"
+                                   Size="Size.Small" />
+                </MudTooltip>
+            </MudStack>
+
+            <MudRadioGroup @bind-Value="_destination" T="string">
+                <MudRadio Value="@("current")">Add to current page</MudRadio>
+                <MudRadio Value="@("new")">Add as new page</MudRadio>
+            </MudRadioGroup>
+
+                @if (_parseError != null)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true">@_parseError</MudAlert>
+                }
+                else if (_parsed != null)
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true">
+                        Detected: @_detectedFormat —
+                        @_parsed.Nodes.Count node(s)@(_parsed.Links.Count > 0 ? $", {_parsed.Links.Count} link(s)" : "")
+                    </MudAlert>
+                }
+                else
+                {
+                    <MudAlert  Severity="Severity.Normal" Dense="true" NoIcon >
+                   
+                    </MudAlert>
+                }
+
+            <MudTextField T="string"
+                          Label="Paste JSON here"
+                          Lines="12"
+                          Variant="Variant.Outlined"
+                          Style="font-family:monospace;font-size:0.72rem;"
+                          Value="@_json"
+                          ValueChanged="@OnValueChanged" />
+
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   Disabled="@(_parsed == null)"
+                   OnClick="Import">Import</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+
+    private string _json = string.Empty;
+    private string _destination = "current";
+    private string? _parseError;
+    private string _detectedFormat = string.Empty;
+    private ParsedImport? _parsed;
+
+    private static readonly System.Text.Json.JsonSerializerOptions _jsonOpts = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+    };
+
+    private sealed class ParsedImport
+    {
+        public List<NodeData> Nodes { get; init; } = [];
+        public List<LinkData> Links { get; init; } = [];
+    }
+
+    private void OnValueChanged(string value)
+    {
+        _json = value;
+        TryParse();
+    }
+
+    private void TryParse()
+    {
+        _parseError = null;
+        _parsed = null;
+        _detectedFormat = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(_json)) return;
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(_json);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("mqttdashboard", out var tagEl))
+            {
+                _parseError = "Not a valid Mqtt Dashboard export — missing 'mqttdashboard' field.";
+                return;
+            }
+
+            var tag = tagEl.GetString();
+
+            if (tag == "nodes")
+            {
+                if (!root.TryGetProperty("data", out var dataEl))
+                { _parseError = "Missing 'data' field."; return; }
+
+                var nodes = System.Text.Json.JsonSerializer.Deserialize<List<NodeData>>(dataEl.GetRawText(), _jsonOpts);
+                if (nodes == null) { _parseError = "Could not deserialize nodes."; return; }
+                _detectedFormat = "nodes";
+                _parsed = new ParsedImport { Nodes = nodes };
+            }
+            else if (tag == "page")
+            {
+                if (!root.TryGetProperty("data", out var dataEl))
+                { _parseError = "Missing 'data' field."; return; }
+
+                var page = System.Text.Json.JsonSerializer.Deserialize<DashboardPageModel>(dataEl.GetRawText(), _jsonOpts);
+                if (page == null) { _parseError = "Could not deserialize page."; return; }
+                _detectedFormat = "page";
+                _parsed = new ParsedImport { Nodes = page.Nodes, Links = page.Links };
+            }
+            else
+            {
+                _parseError = $"Unknown format tag '{tag}'. Expected 'nodes' or 'page'.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _parseError = $"JSON parse error: {ex.Message}";
+        }
+    }
+
+    private async Task PasteFromClipboardAsync()
+    {
+        try
+        {
+            var text = await JSRuntime.InvokeAsync<string?>("mqttClipboard.readText");
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                _json = text;
+                TryParse();
+            }
+        }
+        catch { /* clipboard access denied — user can paste manually */ }
+    }
+
+    private void Import()
+    {
+        if (_parsed == null) return;
+        var result = new ImportResult
+        {
+            Nodes = _parsed.Nodes,
+            Links = _parsed.Links,
+            AddAsNewPage = _destination == "new",
+        };
+        MudDialog.Close(DialogResult.Ok(result));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

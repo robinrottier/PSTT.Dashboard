@@ -1,0 +1,126 @@
+@using MudBlazor
+@using MqttDashboard.Services
+@using MqttDashboard.Components
+@inject ApplicationState AppState
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudTextField @bind-Value="_name" Label="Dashboard Name" Variant="Variant.Outlined" />
+
+            <MudCheckBox @bind-Value="_showDiagramName" Label="Show dashboard name in title bar" />
+
+            <ColorInputRow @bind-Value="_backgroundColor" Label="Canvas Background" ShowClear="true" />
+
+            <MudDivider />
+            <MudText Typo="Typo.subtitle2">Grid</MudText>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudNumericField @bind-Value="_gridSize" Label="Grid Size (px)" Variant="Variant.Outlined"
+                                 Min="5" Max="100" Step="5" Style="max-width:140px;" />
+                <MudCheckBox @bind-Value="_gridSnapToCenter" Label="Snap to cell centre" />
+            </MudStack>
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Grid is always visible in edit mode (5–100 px, step 5). Snap positions nodes at cell intersections when dragging.</MudText>
+
+            <MudDivider />
+            <MudText Typo="Typo.subtitle2">Data Topics</MudText>
+            <MudList T="string" Dense="true">
+                @foreach (var topic in _topics)
+                {
+                    var t = topic;
+                    <MudListItem T="string" Dense="true" Class="px-0 py-0">
+                        <div style="display:flex;align-items:center;gap:4px;width:100%;">
+                            <MudText Typo="Typo.body2" Style="flex:1;font-family:monospace;">@t</MudText>
+                            <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Close"
+                                           Color="Color.Error" title="Remove topic"
+                                           OnClick="() => RemoveTopic(t)" />
+                        </div>
+                    </MudListItem>
+                }
+                <MudListItem T="string" Dense="true" Class="px-0 py-1">
+                    <div style="display:flex;align-items:center;gap:4px;width:100%;">
+                        <MudTextField @bind-Value="_newTopic"
+                                      Placeholder="e.g. home/sensors/#"
+                                      Variant="Variant.Text"
+                                      Margin="Margin.Dense"
+                                      Style="flex:1;font-family:monospace;"
+                                      Immediate="true"
+                                      @onkeydown="HandleTopicKeyDown" />
+                        <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Add"
+                                       Color="Color.Primary" title="Add topic"
+                                       Disabled="@string.IsNullOrWhiteSpace(_newTopic)"
+                                       OnClick="AddTopic" />
+                    </div>
+                </MudListItem>
+            </MudList>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ApplyAsync">Apply</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+
+    private string _name = "";
+    private bool _showDiagramName;
+    private string _backgroundColor = "";
+    private int _gridSize;
+    private bool _gridSnapToCenter;
+    private List<string> _topics = new();
+    private string _newTopic = "";
+
+    protected override void OnInitialized()
+    {
+        _name = AppState.DashboardDisplayName;
+        _showDiagramName = AppState.ShowName;
+        _backgroundColor = AppState.CanvasBackgroundColor;
+        _topics = AppState.SubscribedTopics.OrderBy(t => t).ToList();
+        _gridSnapToCenter = AppState.GridSnapToCenter;
+        _gridSize = Math.Max(5, AppState.GridSize);
+    }
+
+    private void AddTopic()
+    {
+        var t = _newTopic.Trim();
+        if (!string.IsNullOrEmpty(t) && !_topics.Contains(t))
+            _topics.Add(t);
+        _newTopic = "";
+    }
+
+    private void RemoveTopic(string topic) => _topics.Remove(topic);
+
+    private void HandleTopicKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") AddTopic();
+    }
+
+    private async Task ApplyAsync()
+    {
+        AppState.SetDisplayName(_name);
+        AppState.SetShowDiagramName(_showDiagramName);
+        AppState.SetCanvasBackground(_backgroundColor);
+
+        AppState.SetGridSnapToCenter(_gridSnapToCenter);
+        AppState.SetGridSize(_gridSize);
+
+        // Sync DataServer subscriptions: subscribe added, unsubscribe removed
+        if (AppState.DataServer != null)
+        {
+            var previous = AppState.SubscribedTopics;
+            var next = new HashSet<string>(_topics);
+            foreach (var t in previous.Where(t => !next.Contains(t)))
+                await AppState.DataServer.UnsubscribeAsync(t);
+            foreach (var t in next.Where(t => !previous.Contains(t)))
+                await AppState.DataServer.SubscribeAsync(t);
+        }
+
+        AppState.SetSubscribedTopics(_topics);
+        AppState.MarkEdited();
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}
+

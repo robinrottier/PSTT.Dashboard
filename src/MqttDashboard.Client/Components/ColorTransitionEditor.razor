@@ -1,0 +1,52 @@
+@using MqttDashboard.Models
+@using MudBlazor
+
+<MudStack Spacing="1">
+    @if (Thresholds != null)
+    {
+        @foreach (var threshold in Thresholds.ToList())
+        {
+            <MudGrid Spacing="1" Class="mb-1">
+                <MudItem xs="3">
+                    <MudSelect T="string" Value="threshold.Direction"
+                               ValueChanged="v => threshold.Direction = v"
+                               Label="When" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                        <MudSelectItem Value="@(">=")">≥ (above)</MudSelectItem>
+                        <MudSelectItem Value="@("<=")">≤ (below)</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="3">
+                    <MudNumericField T="double" Value="threshold.Value"
+                                     ValueChanged="v => threshold.Value = v"
+                                     Label="@ValueLabel" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="5">
+                    <ColorInputRow Value="@threshold.Color"
+                                   ValueChanged="@(v => threshold.Color = v ?? string.Empty)"
+                                   Label="Color" />
+                </MudItem>
+                <MudItem xs="1" Class="d-flex align-center">
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
+                                   OnClick="@(() => Thresholds.Remove(threshold))"
+                                   Size="MudBlazor.Size.Small" />
+                </MudItem>
+            </MudGrid>
+        }
+    }
+    <MudButton StartIcon="@Icons.Material.Filled.Add"
+               OnClick="AddThreshold"
+               Color="Color.Primary" Variant="Variant.Text" Size="MudBlazor.Size.Small">
+        Add Transition
+    </MudButton>
+</MudStack>
+
+@code {
+    [Parameter] public List<GaugeColorThreshold>? Thresholds { get; set; }
+    [Parameter] public string ValueLabel { get; set; } = "Value";
+
+    private void AddThreshold()
+    {
+        Thresholds?.Add(new GaugeColorThreshold { Direction = ">=" });
+    }
+}
+

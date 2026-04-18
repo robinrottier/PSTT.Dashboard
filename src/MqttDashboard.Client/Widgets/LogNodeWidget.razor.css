@@ -1,0 +1,20 @@
+/* Force the MudSimpleTable and its internal elements to fill the widget width */
+::deep .mud-simple-table {
+    width: 100%;
+}
+
+::deep .mud-table-container {
+    width: 100%;
+    overflow-x: hidden;
+}
+
+::deep .mud-table-root {
+    width: 100%;
+    table-layout: fixed;
+}
+
+/* Compact cell padding to maximise content area */
+::deep .mud-table-root th,
+::deep .mud-table-root td {
+    padding: 2px 4px;
+}

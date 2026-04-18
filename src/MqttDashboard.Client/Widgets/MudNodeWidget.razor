@@ -1,0 +1,30 @@
+@using Blazor.Diagrams.Components.Renderers;
+@using MqttDashboard.Models
+@using MqttDashboard.Services
+@inherits BaseNodeWithDataWidget<TextNodeModel>
+
+<StandardNodeLayout Node="Node">
+    <ExtraContent>
+        @if (!string.IsNullOrEmpty(Node.Text))
+        {
+            <div style="@TextStyle">@FormatText()</div>
+        }
+    </ExtraContent>
+</StandardNodeLayout>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Node.MinimumDimensions = new(20, 20);
+        if (Node.Size == null
+         || Node.Size.Width  < Node.MinimumDimensions.Width
+         || Node.Size.Height < Node.MinimumDimensions.Height)
+            Node.Size = new(100, 60);
+        base.OnInitialized();
+    }
+
+    private string TextStyle =>
+        "flex:1;overflow:auto;padding:2px 6px;" +
+        $"font-size:{(Node.FontSize.HasValue ? $"{Node.FontSize.Value}px" : "inherit")};" +
+        "white-space:pre-wrap;word-break:break-word;";
+}

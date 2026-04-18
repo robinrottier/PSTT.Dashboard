@@ -1,0 +1,131 @@
+@using MqttDashboard.Models
+@using MqttDashboard.Services
+@using Blazor.Diagrams.Components.Renderers
+@inject ApplicationState AppState
+
+<MudTooltip Delay="500" Arrow="true" Placement="Placement.Top">
+    <TooltipContent>
+        <DataValueTooltipContent Node="@Node" />
+    </TooltipContent>
+    <ChildContent>
+        <div style="@ContainerStyle"
+             class="@CssClass"
+             @ondblclick="HandleDoubleClick">
+            <div style="@OuterFlexStyle">
+                @if (ShowTitle && ShowTitleFirst && HasTitleContent)
+                {
+                    <div style="@TitleDivStyle">
+                        @if (!string.IsNullOrEmpty(Node.Icon))
+                        {
+                            <MudIcon Icon="@Node.Icon" Style="@IconStyle" Size="MudBlazor.Size.Small" />
+                        }
+                        @if (!string.IsNullOrEmpty(Node.Title))
+                        {
+                            <span>@Node.Title</span>
+                        }
+                    </div>
+                }
+                @ExtraContent
+                @if (ShowTitle && !ShowTitleFirst && HasTitleContent)
+                {
+                    <div style="@TitleDivStyle">
+                        @if (!string.IsNullOrEmpty(Node.Icon))
+                        {
+                            <MudIcon Icon="@Node.Icon" Style="@IconStyle" Size="MudBlazor.Size.Small" />
+                        }
+                        @if (!string.IsNullOrEmpty(Node.Title))
+                        {
+                            <span>@Node.Title</span>
+                        }
+                    </div>
+                }
+            </div>
+            @foreach (var port in Node.Ports)
+            {
+                // in view mode, hide ports that have no links
+                if (port.Links.Count > 0 || AppState.IsEditMode)
+                {
+                    <PortRenderer @key="port" Port="port" Style="@PortStyleFor(port)" />
+                }
+            }
+        </div>
+    </ChildContent>
+</MudTooltip>
+
+@code {
+    [Parameter] public TextNodeModel Node { get; set; } = null!;
+
+    /// <summary>Extra CSS classes appended to the node container (e.g. "gauge-node").</summary>
+    [Parameter] public string? ExtraCssClass { get; set; }
+
+    /// <summary>Widget-specific content placed between the title slots.</summary>
+    [Parameter] public RenderFragment? ExtraContent { get; set; }
+
+    /// <summary>When false the title is never rendered, even if Node.Title is set.</summary>
+    [Parameter] public bool ShowTitle { get; set; } = true;
+
+    private string ContainerStyle
+    {
+        get
+        {
+            var sb = new System.Text.StringBuilder();
+            if (Node.Size != null) sb.Append($"width:{Node.Size.Width}px;height:{Node.Size.Height}px;");
+            if (!string.IsNullOrEmpty(Node.BackgroundColor)) sb.Append($"background-color:{Node.BackgroundColor};");
+            var bgUrl = Node.BackgroundImageUrl;
+            if (!string.IsNullOrEmpty(bgUrl))
+            {
+                sb.Append($"background-image:url('{bgUrl}');");
+                var bgSize = Node.BackgroundObjectFit switch
+                {
+                    "contain" => "contain",
+                    "fill"    => "100% 100%",
+                    _         => "cover",
+                };
+                sb.Append($"background-size:{bgSize};background-position:center;background-repeat:no-repeat;");
+            }
+            return sb.ToString();
+        }
+    }
+
+    private string CssClass =>
+        $"default-node{(string.IsNullOrEmpty(ExtraCssClass) ? "" : " " + ExtraCssClass)}" +
+        (Node.Group != null ? " grouped"  : "") +
+        (Node.Selected       ? " selected" : "");
+
+    private void HandleDoubleClick()
+    {
+        if (AppState.IsEditMode) AppState.TriggerEditProperties();
+    }
+
+    private static string PortStyleFor(Blazor.Diagrams.Core.Models.PortModel port) =>
+        port is NodePortModel mp ? $"width:{(int)mp.Size.Width}px; height:{(int)mp.Size.Height}px;" : "";
+
+    private string TitlePosition =>
+        string.IsNullOrEmpty(Node.TitlePosition) ? "Above" : Node.TitlePosition;
+
+    private bool ShowTitleFirst =>
+        TitlePosition is "Above" or "Left";
+
+    private string OuterFlexStyle => TitlePosition switch
+    {
+        "Left"  => "display:flex;flex-direction:row;align-items:center;height:100%;",
+        "Right" => "display:flex;flex-direction:row;align-items:center;height:100%;",
+        _       => "display:flex;flex-direction:column;height:100%;"
+    };
+
+    private bool HasTitleContent =>
+        !string.IsNullOrEmpty(Node.Icon) || !string.IsNullOrEmpty(Node.Title);
+
+    private string IconStyle =>
+        string.IsNullOrEmpty(Node.IconColor) ? "" : $"color:{Node.IconColor}";
+
+    private string TitleDivStyle => TitlePosition switch
+    {
+        "Left" or "Right" =>
+            "display:flex;flex-direction:column;align-items:center;gap:2px;" +
+            "font-size:0.75rem;font-weight:500;padding:2px 4px;max-width:4rem;word-wrap:break-word;",
+        _ =>
+            "display:flex;flex-direction:row;align-items:center;justify-content:center;gap:4px;" +
+            "font-size:0.75rem;font-weight:500;padding:2px 4px 0;"
+    };
+}

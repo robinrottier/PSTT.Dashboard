@@ -1,0 +1,83 @@
+name: Patch Release
+
+# Bumps the patch component of the latest stable version tag and pushes it,
+# then explicitly dispatches the "Create Release" and "Build and Push Docker Image"
+# workflows against the new tag.
+#
+# Background: GitHub Actions blocks on:push triggers in other workflows when the
+# push is made with GITHUB_TOKEN (to prevent infinite loops). We work around this
+# by dispatching the downstream workflows explicitly via the GitHub CLI.
+#
+# For a major or minor bump, create the tag manually: git tag vX.Y.0 && git push origin vX.Y.0
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write    # needed to dispatch other workflows via GITHUB_TOKEN
+
+jobs:
+  bump-patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0          # needed to see all tags
+
+      - name: Compute next patch version
+        id: version
+        run: |
+          # Find the latest stable semver tag (exact vX.Y.Z — no pre-release suffix)
+          latest=$(git tag --list --sort=-version:refname \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+            | head -1)
+
+          if [ -z "$latest" ]; then
+            next="v0.0.1"
+          else
+            version="${latest#v}"
+            major=$(echo "$version" | cut -d. -f1)
+            minor=$(echo "$version" | cut -d. -f2)
+            patch=$(echo "$version" | cut -d. -f3)
+            next="v${major}.${minor}.$((patch + 1))"
+          fi
+
+          echo "Previous tag : ${latest:-none}"
+          echo "Next tag     : $next"
+          echo "tag=$next" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push tag
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"
+
+      - name: Dispatch downstream workflows
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          REPO="${{ github.repository }}"
+          # Small delay to ensure the tag is visible to the GitHub API
+          sleep 5
+
+          # Create a GitHub Release with the tag as the title so the version shows in the UI.
+          # If CHANGELOG.md contains an [Unreleased] section, use its contents as release notes.
+          echo "Creating GitHub Release for $TAG"
+          NOTES="Release $TAG"
+          if [ -f CHANGELOG.md ]; then
+            # Extract the Unreleased section from CHANGELOG.md (lines after '## [Unreleased]' until next '## ')
+            UNRELEASED=$(awk '/^## \[Unreleased\]/{flag=1;next}/^## /{if(flag) exit}flag' CHANGELOG.md || true)
+            if [ -n "$UNRELEASED" ]; then
+              NOTES="$UNRELEASED"
+            fi
+          fi
+
+          # Create or update release via gh CLI. If release already exists, gh will fail — ignore errors to allow idempotency.
+          gh release create "$TAG" --title "Release $TAG" --notes "$NOTES" -R "$REPO" || true
+
+          # Dispatch the Docker build workflow against the new tag
+          echo "Dispatching Build and Push Docker Image for $TAG"
+          gh workflow run docker.yml --ref "$TAG" -R "$REPO"

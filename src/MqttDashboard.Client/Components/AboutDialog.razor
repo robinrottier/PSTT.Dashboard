@@ -1,0 +1,392 @@
+@using MqttDashboard.Services
+@using Blazor.Diagrams
+@using System.Reflection
+@using MudBlazor
+@inject ApplicationState AppState
+@inject NavigationManager NavManager
+@inject HttpClient Http
+@inject MudBlazor.IDialogService DialogService
+@implements IDisposable
+
+<MudDialog>
+    <DialogContent>
+        <MudCard Class="mb-1">
+            <MudCardContent Class="pa-0">
+                <MudSimpleTable Dense="true" Hover="true" Style="overflow: hidden;">
+                    <tbody>
+                        @foreach (var item in _appInfo)
+                        {
+                            <tr>
+                                <td style="width: 40%; font-weight: 500; padding: 6px 16px;">@item.Label</td>
+                                <td style="padding: 6px 16px; font-family: monospace;">@item.Value</td>
+                            </tr>
+                        }
+                        @if (AppState.IsAdmin)
+                        {
+                            @if (_checkingUpdate)
+                            {
+                                <tr>
+                                    <td colspan="2" style="padding: 6px 16px;">
+                                        <MudProgressLinear Indeterminate="true" Class="mb-1" />
+                                        <MudText Typo="Typo.body2">Checking for updates…</MudText>
+                                    </td>
+                                </tr>
+                            }
+                            else if (_updateError != null)
+                            {
+                                <tr>
+                                    <td colspan="2" style="padding: 6px 16px;">
+                                        <MudAlert Severity="Severity.Warning" Dense="true">@_updateError</MudAlert>
+                                    </td>
+                                </tr>
+                            }
+                            else if (_updateStatus != null)
+                            {
+                                <tr>
+                                    <td style="width:40%;font-weight:500;padding:6px 16px;">Latest Version</td>
+                                    <td style="padding:6px 16px;font-family:monospace;">
+                                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                            <MudTooltip Text="@($"Last checked: {(_updateStatus.LastChecked?.LocalDateTime.ToString("yyyy-MM-dd HH:mm") ?? "Not yet")}")" Arrow="true">
+                                                <span>@(_updateStatus.LatestVersion ?? "—")</span>
+                                            </MudTooltip>
+                                            @if (!_updateStatus.UpdateAvailable && _updateStatus.LastChecked != null)
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Success" Style="height:18px;">Up to date</MudChip>
+                                            }
+                                            <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="CheckForUpdates" Disabled="_checkingUpdate">
+                                                @(_checkingUpdate ? "Checking..." : "Check")
+                                            </MudButton>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </MudSimpleTable>
+                @if (AppState.IsAdmin)
+                {
+                    @if (_updateStatus?.UpdateAvailable == true)
+                    {
+                        <MudAlert Severity="Severity.Info" Class="mt-2 mx-2 mb-1" Dense="true">
+                            Update available: @_updateStatus.LatestVersion
+                            @if (_updateStatus.DeploymentType == "Standalone")
+                            {
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                                           OnClick="DownloadUpdate" Class="ml-2" Disabled="_downloadingUpdate">
+                                    @(_downloadingUpdate ? "Downloading..." : "Download Update")
+                                </MudButton>
+                            }
+                        </MudAlert>
+                        @if (!string.IsNullOrEmpty(_downloadResult))
+                        {
+                            <MudAlert Severity="Severity.Success" Class="mx-2 mb-1" Dense="true">
+                                @_downloadResult
+                            </MudAlert>
+                        }
+                    }
+                    @if (_updateStatus?.DeploymentType == "Docker")
+                    {
+                        <div class="mx-2 mb-2 mt-1" style="display:flex;align-items:center;gap:8px;flex-direction:column;align-items:flex-start;">
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                                           StartIcon="@Icons.Material.Filled.CloudUpload"
+                                           OnClick="UpgradeNow" Disabled="_updating">
+                                    @(_updating ? "Upgrading…" : "Upgrade Now")
+                                </MudButton>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Pulls new image and restarts the service via host agent</MudText>
+                            </div>
+                            @if (!string.IsNullOrEmpty(_agentResponse))
+                            {
+                                <MudAlert Severity="Severity.Info" Class="mt-1" Dense="true">@_agentResponse</MudAlert>
+                            }
+                        </div>
+                    }
+                }
+            </MudCardContent>
+        </MudCard>
+
+        <MudCard Class="mb-1">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">Server</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudAlert Severity="@(AppState.IsMqttConnected ? Severity.Success : Severity.Warning)"
+                          Variant="Variant.Filled" Dense="true">
+                    @AppState.MqttConnectionStatus
+                </MudAlert>
+                @if (_clientCount >= 0)
+                {
+                    <MudText Typo="Typo.body2" Class="mt-2">
+                        <MudIcon Icon="@Icons.Material.Filled.People" Size="Size.Small" Class="mr-1" />
+                        Connected clients: @_clientCount
+                    </MudText>
+                }
+            </MudCardContent>
+        </MudCard>
+
+        @if (_showDebugInfo)
+        {
+            <MudCard Class="mb-2">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">Runtime (Debug)</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent Class="pa-0">
+                    <MudSimpleTable Dense="true" Hover="true" Style="overflow: hidden;">
+                        <tbody>
+                            @if (_updateStatus != null)
+                            {
+                                <tr>
+                                    <td style="width: 40%; font-weight: 500; padding: 6px 16px;">Deployment</td>
+                                    <td style="padding: 6px 16px; font-family: monospace;">@_updateStatus.DeploymentType</td>
+                                </tr>
+                            }
+                            @foreach (var item in _debugInfo)
+                            {
+                                <tr>
+                                    <td style="width: 40%; font-weight: 500; padding: 6px 16px;">@item.Label</td>
+                                    <td style="padding: 6px 16px; font-family: monospace;">@item.Value</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                </MudCardContent>
+            </MudCard>
+        }
+
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+
+    private record InfoItem(string Label, string Value);
+    private record UpdateStatusDto(string CurrentVersion, string? LatestVersion, bool UpdateAvailable,
+        string DeploymentType, DateTimeOffset? LastChecked, string? ReleaseUrl, string RuntimeIdentifier,
+        string? MachineName, string? DataDirectory, string? DotNetVersion, string? OsDescription);
+    private record DownloadResult(bool Success, string? Instructions, string? Error);
+
+    private List<InfoItem> _appInfo = new();
+    private List<InfoItem> _debugInfo = new();
+    private bool _showDebugInfo;
+    private int _clientCount = -1;
+    private IDisposable? _clientCountSubscription;
+
+    private UpdateStatusDto? _updateStatus;
+    private bool _checkingUpdate = false;
+    private bool _downloadingUpdate = false;
+    private string? _updateError;
+    private string? _downloadResult;
+    private bool _updating = false;
+    private string? _agentResponse;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Subscribe to live client count from $DASHBOARD topic; fires immediately if cached.
+        _clientCountSubscription = AppState.DataCache.Subscribe("$DASHBOARD/CLIENTS/COUNT", (_, val) =>
+        {
+            if (int.TryParse(val?.ToString(), out var count))
+            {
+                _clientCount = count;
+                InvokeAsync(StateHasChanged);
+            }
+        });
+
+        var appAssembly = typeof(AboutDialog).Assembly;
+        var appName = AppState.DisplayName;
+        var appVersion = appAssembly
+            .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion
+            ?? appAssembly.GetName().Version?.ToString()
+            ?? "unknown";
+        if (appVersion.Contains('+'))
+            appVersion = appVersion[..appVersion.IndexOf('+')];
+        var dotNetVersion = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription;
+        var mudBlazorVersion = typeof(MudBlazor.MudText).Assembly.GetName().Version?.ToString() ?? "unknown";
+        var diagramsAssembly = typeof(BlazorDiagram).Assembly;
+        var diagramsVersion = diagramsAssembly
+            .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion
+            ?? diagramsAssembly.GetName().Version?.ToString()
+            ?? "unknown";
+        if (diagramsVersion.Contains('+'))
+            diagramsVersion = diagramsVersion[..diagramsVersion.IndexOf('+')];
+
+        _appInfo = new List<InfoItem>
+        {
+            new("Application", appName),
+            new("Version", appVersion),
+            new(".NET", dotNetVersion),
+            new("MudBlazor", mudBlazorVersion),
+            new("Blazor Diagrams", diagramsVersion),
+        };
+
+        var renderMode = OperatingSystem.IsBrowser() ? "WebAssembly" : "Server";
+        var baseUri = NavManager.BaseUri;
+        var currentUri = NavManager.Uri;
+
+        _debugInfo = new List<InfoItem>
+        {
+            new("Render Mode", renderMode),
+            new("Server Hostname", new Uri(NavManager.BaseUri).Host),
+            new("Server Host", baseUri),
+            new("Current URL", currentUri),
+        };
+
+#if DEBUG
+        _showDebugInfo = true;
+        _debugInfo.Add(new("Build", "DEBUG"));
+#else
+        _showDebugInfo = AppState.IsAdmin;
+#endif
+
+        if (AppState.IsAdmin)
+        {
+            await CheckForUpdates();
+
+            // Enrich debug info with server deployment details (available after update status call)
+            if (_updateStatus != null)
+            {
+                if (!string.IsNullOrEmpty(_updateStatus.MachineName))
+                    _debugInfo.Add(new("Machine Name", _updateStatus.MachineName));
+                if (!string.IsNullOrEmpty(_updateStatus.DataDirectory))
+                    _debugInfo.Add(new("Data Directory", _updateStatus.DataDirectory));
+                if (!string.IsNullOrEmpty(_updateStatus.OsDescription))
+                    _debugInfo.Add(new("OS", _updateStatus.OsDescription));
+                if (!string.IsNullOrEmpty(_updateStatus.RuntimeIdentifier))
+                    _debugInfo.Add(new("Runtime ID", _updateStatus.RuntimeIdentifier));
+            }
+        }
+        StateHasChanged();
+    }
+
+    public void Dispose() => _clientCountSubscription?.Dispose();
+
+    private async Task CheckForUpdates()
+    {
+        _checkingUpdate = true;
+        _updateError = null;
+        StateHasChanged();
+        try
+        {
+            // Trigger a fresh check on the server. Don't bail out if the POST fails;
+            // we'll still attempt to read the last known status.
+            try
+            {
+                var postResp = await Http.PostAsync("/api/update/check", null);
+                if (!postResp.IsSuccessStatusCode)
+                {
+                    // Log to console for diagnostics and continue to GET status
+                    Console.Error.WriteLine($"Update check POST returned {(int)postResp.StatusCode} {postResp.ReasonPhrase}");
+                }
+            }
+            catch (Exception postEx)
+            {
+                // Swallow POST errors but record to console for diagnostics
+                Console.Error.WriteLine($"Update check POST failed: {postEx}");
+            }
+
+            // Now request the status. Use GetAsync to surface HTTP status codes.
+            var getResp = await Http.GetAsync("/api/update/status");
+            if (!getResp.IsSuccessStatusCode)
+            {
+                _updateError = $"Could not retrieve update status: {(int)getResp.StatusCode} {getResp.ReasonPhrase}";
+                return;
+            }
+            _updateStatus = await getResp.Content.ReadFromJsonAsync<UpdateStatusDto>();
+        }
+        catch (Exception ex)
+        {
+            // Provide the top-level exception message; developers can inspect browser console for the POST diagnostics above.
+            _updateError = $"Could not check for updates: {ex.Message}";
+        }
+        finally
+        {
+            _checkingUpdate = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DownloadUpdate()
+    {
+        _downloadingUpdate = true;
+        _downloadResult = null;
+        StateHasChanged();
+        try
+        {
+            var resp = await Http.PostAsync("/api/update/download", null);
+            var result = await resp.Content.ReadFromJsonAsync<DownloadResult>();
+            if (resp.IsSuccessStatusCode && result?.Success == true)
+                _downloadResult = result.Instructions;
+            else
+                _updateError = result?.Error ?? "Download failed.";
+        }
+        catch (Exception ex)
+        {
+            _updateError = $"Download failed: {ex.Message}";
+        }
+        finally
+        {
+            _downloadingUpdate = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RestartApp()
+    {
+        StateHasChanged();
+        try { await Http.PostAsync("/api/update/restart", null); }
+        catch { /* connection lost as app shuts down — expected */ }
+    }
+
+    private async Task UpgradeNow()
+    {
+        // Confirmation dialog before performing upgrade
+        // Prompt for confirmation and optional agent token
+        var parameters = new DialogParameters { ["Message"] = "This will pull the new image and restart the service. Continue?" };
+        var options = new MudBlazor.DialogOptions { CloseButton = true };
+        var dialogRef = await DialogService.ShowAsync<ConfirmDialog>("Confirm Upgrade", parameters, options);
+        var result = await dialogRef.Result;
+        if (result == null || result.Canceled) return;
+
+        // Ask the user for the agent token or use configured token
+        var tokenDialogRef = await DialogService.ShowAsync<AgentTokenDialog>("Update Token", new DialogParameters(), new MudBlazor.DialogOptions { CloseButton = true });
+        var tokenResult = await tokenDialogRef.Result;
+        if (tokenResult == null || tokenResult.Canceled) return;
+
+        var enteredToken = tokenResult.Data as string; // null means use configured token on server
+
+        _updating = true;
+        _agentResponse = null;
+        StateHasChanged();
+        try
+        {
+            // if no token entered then send no body -- will likely fail BUT server might have a token configured there
+            // otherwise just send the token ...server will then decide wether to update docker or whatever based on its config
+            var payload = string.IsNullOrEmpty(enteredToken) ? null : new { AgentToken = enteredToken };
+            var resp = await Http.PostAsJsonAsync("/api/update/host-update", payload);
+            if (resp.IsSuccessStatusCode)
+            {
+                var text = await resp.Content.ReadAsStringAsync();
+                _agentResponse = string.IsNullOrEmpty(text) ? "Update requested" : text;
+            }
+            else
+            {
+                var err = await resp.Content.ReadAsStringAsync();
+                _agentResponse = $"Agent error: {err}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _agentResponse = $"Request failed: {ex.Message}";
+        }
+        finally
+        {
+            _updating = false;
+            StateHasChanged();
+        }
+    }
+}

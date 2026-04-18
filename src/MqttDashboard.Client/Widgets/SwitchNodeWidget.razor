@@ -1,0 +1,72 @@
+@using MqttDashboard.Models
+@using MqttDashboard.Services
+@inherits BaseNodeWithDataWidget<SwitchNodeModel>
+
+<StandardNodeLayout Node="Node" ExtraCssClass="switch-node">
+    <ExtraContent>
+        <div style="flex:1;min-height:0;min-width:0;display:flex;align-items:center;justify-content:center;">
+            @if (Node.SwitchStyle == "IconOnly")
+            {
+                <MudIconButton Icon="@(_isOn ? Icons.Material.Filled.ToggleOn : Icons.Material.Filled.ToggleOff)"
+                               Color="@(_isOn ? Color.Success : Color.Default)"
+                               Size="Size.Large" Style="padding:0;"
+                               OnClick="@(async () => await Toggle())"
+                               Disabled="Node.IsReadOnly" />
+            }
+            else if (Node.SwitchStyle == "Compact")
+            {
+                <MudSwitch T="bool" Value="@_isOn"
+                           ValueChanged="@(async _ => await Toggle())"
+                           Color="Color.Success"
+                           UncheckedColor="Color.Default"
+                           Disabled="Node.IsReadOnly"
+                           Label="@(_isOn ? Node.OnText : Node.OffText)"
+                           Style="margin:0;" />
+            }
+            else
+            {
+                <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+                    <MudSwitch T="bool" Value="@_isOn"
+                               ValueChanged="@(async _ => await Toggle())"
+                               Color="Color.Success"
+                               UncheckedColor="Color.Default"
+                               Disabled="Node.IsReadOnly"
+                               Label="@(_isOn ? Node.OnText : Node.OffText)" />
+                </div>
+            }
+        </div>
+    </ExtraContent>
+</StandardNodeLayout>
+
+@code {
+    private bool _isOn = false;
+
+    protected override void OnInitialized()
+    {
+        Node.MinimumDimensions = new(60, 60);
+        if (Node.Size == null || Node.Size.Width < 60 || Node.Size.Height < 60)
+            Node.Size = new(100, 80);
+        base.OnInitialized();
+    }
+
+    protected override void OnDataUpdated() => UpdateState();
+
+    private void UpdateState()
+    {
+        var val   = Node.DataValues?[0]?.ToString() ?? "";
+        var onVal = string.IsNullOrEmpty(Node.OnValue) ? "1" : Node.OnValue;
+        _isOn = val.Equals(onVal, StringComparison.OrdinalIgnoreCase)
+             || val == "true" || val == "on";
+    }
+
+    private async Task Toggle()
+    {
+        if (Node.IsReadOnly) return;
+        var publishTopic = !string.IsNullOrEmpty(Node.PublishTopic) ? Node.PublishTopic : Node.DataTopic(0);
+        if (string.IsNullOrEmpty(publishTopic)) return;
+        var payload = _isOn
+            ? (string.IsNullOrEmpty(Node.OffValue) ? "0" : Node.OffValue)
+            : (string.IsNullOrEmpty(Node.OnValue)  ? "1" : Node.OnValue);
+        await AppState.DataCache.PublishAsync(publishTopic, payload, Node.Retain, Node.QosLevel);
+    }
+}

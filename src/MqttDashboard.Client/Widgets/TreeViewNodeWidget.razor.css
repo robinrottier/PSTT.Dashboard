@@ -1,0 +1,5 @@
+/* Force the MudTreeView to fill the widget width */
+::deep .mud-treeview {
+    width: 100%;
+    min-width: 0;
+}

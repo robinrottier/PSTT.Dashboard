@@ -1,0 +1,224 @@
+@using MqttDashboard.Models
+@using MqttDashboard.Services
+@using Blazor.Diagrams.Components.Renderers
+@inherits BaseNodeWidget<TreeViewNodeModel>
+
+<div style="@ContainerStyle()"
+     class=@("default-node treeview-node" + (Node.Group != null ? " grouped" : "") + (Node.Selected ? " selected" : ""))
+     @ondblclick="OnDoubleClick">
+    <div style="display:flex;flex-direction:column;height:100%;overflow:hidden;min-width:0;">
+        @if (!string.IsNullOrEmpty(Node.Title))
+        {
+            <div style="font-size:0.75rem;font-weight:500;padding:2px 4px 0;">@Node.Title</div>
+        }
+        @if (string.IsNullOrEmpty(RootTopicValue))
+        {
+            <div style="opacity:0.5;font-size:0.75rem;padding:4px;">Set Root Topic in properties.</div>
+        }
+        else
+        {
+            <div style="flex:1;overflow-y:auto;font-size:0.75rem;min-height:0;padding:2px 0;">
+                <MudTreeView T="TreeNode" Dense="true" Hover="true"
+                             Style="font-size:0.75rem;font-family:monospace;overflow:auto;width:100%;height:100%;">
+                    @RenderMudTreeItem(_tree)
+                </MudTreeView>
+            </div>
+        }
+    </div>
+    @foreach (var port in Node.Ports)
+    {
+        <PortRenderer @key="port" Port="port" Style="@PortStyle(port as NodePortModel)" />
+    }
+</div>
+
+@code {
+    // The root MQTT topic is DataTopics[0] (inherited from TextNodeModel).
+    private string RootTopicValue => Node.DataTopics.Count > 0 ? Node.DataTopics[0] : string.Empty;
+
+    private TreeNode _tree = new("", "");
+    private bool _disposed;
+    private IDisposable? _watchSubscription;
+    private IDisposable? _rootWatchSubscription;
+    private readonly Dictionary<string, bool> _expandedState = new();
+    private readonly Dictionary<string, DateTime> _changedAt = new();
+    private bool _pendingRebuild;
+    private System.Threading.Timer? _debounceTimer;
+    private System.Threading.Timer? _highlightClearTimer;
+
+    private sealed class TreeNode(string fullTopic, string label)
+    {
+        public string FullTopic { get; } = fullTopic;
+        public string Label { get; } = label;
+        public string? Value { get; set; }
+        public List<TreeNode> Children { get; set; } = [];
+        public bool Expanded { get; set; } = true;
+    }
+
+    protected override void OnInitialized()
+    {
+        Node.MinimumDimensions = new(120, 80);
+        if (Node.Size == null || Node.Size.Width < 120 || Node.Size.Height < 80)
+            Node.Size = new(200, 200);
+        base.OnInitialized();
+        _debounceTimer = new System.Threading.Timer(OnDebounceElapsed, null,
+            System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
+        _highlightClearTimer = new System.Threading.Timer(OnHighlightClearElapsed, null,
+            System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
+        SetupWatchers();
+    }
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        SetupWatchers();
+    }
+
+    private void SetupWatchers()
+    {
+        _watchSubscription?.Dispose(); _watchSubscription = null;
+        _rootWatchSubscription?.Dispose(); _rootWatchSubscription = null;
+
+        if (string.IsNullOrEmpty(RootTopicValue)) { _tree = new("", ""); return; }
+
+        RebuildTree();
+
+        var wildcardTopic = RootTopicValue.TrimEnd('/') + "/#";
+        _watchSubscription = AppState.DataCache.Subscribe(wildcardTopic, OnTopicChanged);
+        _rootWatchSubscription = AppState.DataCache.Subscribe(RootTopicValue, OnTopicChanged);
+    }
+
+    private void OnTopicChanged(string topic, object value)
+    {
+        if (_disposed) return;
+        _changedAt[topic] = DateTime.Now;
+        var node = FindNode(_tree, topic);
+        if (node != null)
+            node.Value = value?.ToString();
+        else
+            _pendingRebuild = true;
+
+        // Debounce: coalesce rapid MQTT bursts into one render
+        _debounceTimer?.Change(80, System.Threading.Timeout.Infinite);
+    }
+
+    private void OnDebounceElapsed(object? _)
+    {
+        if (_disposed) return;
+        if (_pendingRebuild)
+        {
+            _pendingRebuild = false;
+            SaveExpansionState(_tree);
+            RebuildTree();
+            RestoreExpansionState(_tree);
+        }
+        try { InvokeAsync(StateHasChanged); } catch { }
+        // Schedule a re-render to clear the 2s highlight window once it expires
+        _highlightClearTimer?.Change(2200, System.Threading.Timeout.Infinite);
+    }
+
+    private void OnHighlightClearElapsed(object? _)
+    {
+        if (_disposed) return;
+        try { InvokeAsync(StateHasChanged); } catch { }
+    }
+
+    private void RebuildTree()
+    {
+        if (string.IsNullOrEmpty(RootTopicValue)) { _tree = new("", ""); return; }
+
+        var root = new TreeNode(RootTopicValue, RootTopicValue.Split('/').Last());
+        root.Value = AppState.DataCache.GetValue(RootTopicValue)?.ToString();
+        root.Expanded = true;
+
+        var pattern = RootTopicValue.TrimEnd('/') + "/#";
+        var matches = AppState.DataCache.GetValuesByPattern(pattern);
+
+        foreach (var kvp in matches.OrderBy(x => x.Key))
+        {
+            var relativeParts = kvp.Key.Substring(RootTopicValue.Length).TrimStart('/').Split('/');
+            var node = root;
+            var currentPath = RootTopicValue;
+            var depth = 0;
+            foreach (var part in relativeParts)
+            {
+                currentPath += "/" + part;
+                depth++;
+                var child = node.Children.FirstOrDefault(c => c.Label == part);
+                if (child == null)
+                {
+                    child = new TreeNode(currentPath, part) { Expanded = depth <= 1 };
+                    node.Children.Add(child);
+                }
+                node = child;
+            }
+            node.Value = kvp.Value?.ToString();
+        }
+        _tree = root;
+    }
+
+    private void SaveExpansionState(TreeNode node)
+    {
+        _expandedState[node.FullTopic] = node.Expanded;
+        foreach (var child in node.Children)
+            SaveExpansionState(child);
+    }
+
+    private void RestoreExpansionState(TreeNode node)
+    {
+        if (_expandedState.TryGetValue(node.FullTopic, out var expanded))
+            node.Expanded = expanded;
+        foreach (var child in node.Children)
+            RestoreExpansionState(child);
+    }
+
+    private TreeNode? FindNode(TreeNode node, string fullTopic)
+    {
+        if (node.FullTopic == fullTopic) return node;
+        foreach (var child in node.Children)
+        {
+            var found = FindNode(child, fullTopic);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    private RenderFragment RenderMudTreeItem(TreeNode node) => builder =>
+    {
+        var isHighlighted = _changedAt.TryGetValue(node.FullTopic, out var changedTime) &&
+                            (DateTime.Now - changedTime).TotalSeconds < 2;
+
+        builder.OpenComponent<MudTreeViewItem<TreeNode>>(0);
+        builder.AddAttribute(1, "Value", node);
+        builder.AddAttribute(2, "Expanded", node.Expanded);
+        builder.AddAttribute(3, "ExpandedChanged", EventCallback.Factory.Create<bool>(this, v => node.Expanded = v));
+
+        var displayText = node.Children.Count > 0
+            ? node.Label
+            : (Node.ShowValues && node.Value != null ? $"{node.Label}: {node.Value}" : node.Label);
+        builder.AddAttribute(4, "Text", displayText);
+
+        if (isHighlighted)
+            builder.AddAttribute(5, "Style", "background:var(--mud-palette-warning-hover);");
+
+        if (node.Children.Count > 0)
+        {
+            builder.AddAttribute(6, "ChildContent", (RenderFragment)(childBuilder =>
+            {
+                foreach (var child in node.Children)
+                    childBuilder.AddContent(0, RenderMudTreeItem(child));
+            }));
+        }
+
+        builder.CloseComponent();
+    };
+
+    public override void Dispose()
+    {
+        _disposed = true;
+        _debounceTimer?.Dispose();
+        _highlightClearTimer?.Dispose();
+        _watchSubscription?.Dispose();
+        _rootWatchSubscription?.Dispose();
+        base.Dispose();
+    }
+}

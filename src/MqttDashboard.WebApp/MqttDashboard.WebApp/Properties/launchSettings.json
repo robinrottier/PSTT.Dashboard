@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "MqttDashboard.WebApp": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "DOTNET_RUNNING_IN_CONTAINER": "true"
+      },
+      "applicationUrl": "https://localhost:45678;http://localhost:45679"
+    }
+  }
+}

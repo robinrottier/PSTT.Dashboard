@@ -1,0 +1,66 @@
+<Solution>
+  <Folder Name="/data/">
+    <File Path="data/applicationstate.json" />
+    <File Path="data/dashboards/Default.json" />
+  </Folder>
+  <Folder Name="/solution items/">
+    <File Path="CHANGELOG.md" />
+    <File Path="DEVCHANGELOG.md" />
+    <File Path="TODO.md" />
+  </Folder>
+  <Folder Name="/solution items/docker/">
+    <File Path="docker-compose.override.yml" />
+    <File Path="docker-compose.yml" />
+  </Folder>
+  <Folder Name="/solution items/docker/update-agent/">
+    <File Path="tools/update-agent/agent.py" />
+    <File Path="tools/update-agent/agent.service" />
+    <File Path="tools/update-agent/README.md" />
+    <File Path="tools/update-agent/update-agent.sh" />
+    <File Path="tools/update-agent/UpdateAgent.ps1" />
+  </Folder>
+  <Folder Name="/solution items/documentation/">
+    <File Path=".github/copilot-instructions.md" />
+    <File Path="CHANGELOG.md" />
+    <File Path="documents/deployment-modes.md" />
+    <File Path="documents/Github and releases.md" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/solution items/scripts/">
+    <File Path="scripts/clean_and_build.bat" />
+    <File Path="scripts/docker-build.ps1" />
+    <File Path="scripts/docker-build.sh" />
+    <File Path="scripts/Generate-Icons.ps1" />
+    <File Path="scripts/publish.ps1" />
+    <File Path="scripts/publish.sh" />
+    <File Path="scripts/release.ps1" />
+    <File Path="scripts/test-publish.cmd" />
+  </Folder>
+  <Folder Name="/solution items/workflows/">
+    <File Path=".github/workflows/ci.yml" />
+    <File Path=".github/workflows/docker.yml" />
+    <File Path=".github/workflows/patch-release.yml" />
+    <File Path=".github/workflows/release.yml" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MqttDashboard.Client.Tests/MqttDashboard.Client.Tests.csproj" />
+    <Project Path="tests/MqttDashboard.Data.Tests/MqttDashboard.Data.Tests.csproj" />
+    <Project Path="tests/MqttDashboard.IntegrationTests/MqttDashboard.IntegrationTests.csproj" />
+    <Project Path="tests/MqttDashboard.Mqtt.Tests/MqttDashboard.Mqtt.Tests.csproj" />
+    <Project Path="tests/MqttDashboard.PlaywrightTests/MqttDashboard.PlaywrightTests.csproj" />
+    <Project Path="tests/MqttDashboard.Server.Tests/MqttDashboard.Server.Tests.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <File Path="src/Directory.Build.props" />
+    <Project Path="src/MqttDashboard.Client/MqttDashboard.Client.csproj" />
+    <Project Path="src/MqttDashboard.Data/MqttDashboard.Data.csproj" />
+    <Project Path="src/MqttDashboard.Mqtt/MqttDashboard.Mqtt.csproj" />
+    <Project Path="src/MqttDashboard.Server/MqttDashboard.Server.csproj" />
+    <Project Path="src/MqttDashboard.SourceGenerators/MqttDashboard.SourceGenerators.csproj" />
+  </Folder>
+  <Folder Name="/src/WebApp/">
+    <Project Path="src/MqttDashboard.WebApp/MqttDashboard.WebApp.Client/MqttDashboard.WebApp.Client.csproj" />
+    <Project Path="src/MqttDashboard.WebApp/MqttDashboard.WebApp/MqttDashboard.WebApp.csproj" />
+    <Project Path="src/MqttDashboard.WebApp/MqttDashboard.WebAppServerOnly/MqttDashboard.WebAppServerOnly.csproj" />
+  </Folder>
+</Solution>

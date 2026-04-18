@@ -1,0 +1,67 @@
+@using MqttDashboard.Models
+@inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudRadioGroup @bind-Value="_mode" T="string">
+                <MudRadio Value="@("nodes")" Disabled="@(SelectedNodes.Count == 0)">
+                    Selected nodes (@SelectedNodes.Count)
+                </MudRadio>
+                <MudRadio Value="@("page")">Current page (@(PageData?.Nodes.Count ?? 0) nodes)</MudRadio>
+            </MudRadioGroup>
+
+            <MudTextField Value="@Json" Label="JSON" Lines="18" ReadOnly="true"
+                          Variant="Variant.Outlined"
+                          Style="font-family:monospace;font-size:0.72rem;" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton StartIcon="@Icons.Material.Filled.ContentCopy"
+                   Variant="Variant.Filled" Color="Color.Primary"
+                   OnClick="CopyAsync">Copy to Clipboard</MudButton>
+        <MudButton OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter] public List<NodeData> SelectedNodes { get; set; } = [];
+    [Parameter] public DashboardPageModel? PageData { get; set; }
+
+    private string _mode = "nodes";
+
+    private static readonly System.Text.Json.JsonSerializerOptions _jsonOpts = new()
+    {
+        WriteIndented = true,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+    };
+
+    private string Json => _mode == "page" && PageData != null
+        ? System.Text.Json.JsonSerializer.Serialize(
+            new { mqttdashboard = "page", data = PageData }, _jsonOpts)
+        : System.Text.Json.JsonSerializer.Serialize(
+            new { mqttdashboard = "nodes", data = SelectedNodes }, _jsonOpts);
+
+    protected override void OnInitialized()
+    {
+        _mode = SelectedNodes.Count > 0 ? "nodes" : "page";
+    }
+
+    private async Task CopyAsync()
+    {
+        try
+        {
+            await JSRuntime.InvokeAsync<bool>("mqttClipboard.writeText", Json);
+            Snackbar.Add("Copied to clipboard", Severity.Success);
+        }
+        catch
+        {
+            Snackbar.Add("Could not write to clipboard — copy the text manually", Severity.Warning);
+        }
+    }
+
+    private void Close() => MudDialog.Cancel();
+}

@@ -1,0 +1,62 @@
+@using MudBlazor
+@using MqttDashboard.Services
+@inject IDashboardService DashboardService
+@inject IDialogService DialogService
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Open Dashboard</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudList T="string" SelectionMode="SelectionMode.SingleSelection" @bind-SelectedValue="_selected" Dense="true">
+            @foreach (var name in _names)
+            {
+                var n = name;
+                <MudListItem Value="@n" Dense="true">
+                    <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+                        <span>@n</span>
+                        <div @onclick:stopPropagation="true">
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                           OnClick="@(() => DeleteAsync(n))" />
+                        </div>
+                    </div>
+                </MudListItem>
+            }
+        </MudList>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Submit"
+                   Disabled="@string.IsNullOrEmpty(_selected)">Open</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public List<string> DashboardNames { get; set; } = [];
+
+    private string? _selected;
+    private List<string> _names = [];
+
+    protected override void OnParametersSet() => _names = [..DashboardNames];
+
+    private async Task DeleteAsync(string name)
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Delete Dashboard",
+            $"Delete '{name}'? This cannot be undone.",
+            yesText: "Delete", cancelText: "Cancel");
+        if (confirmed != true) return;
+
+        var ok = await DashboardService.DeleteDashboardByNameAsync(name);
+        if (ok)
+        {
+            _names.Remove(name);
+            if (_selected == name) _selected = null;
+        }
+    }
+
+    private void Submit() => MudDialog.Close(DialogResult.Ok(_selected ?? string.Empty));
+    private void Cancel() => MudDialog.Cancel();
+}
+

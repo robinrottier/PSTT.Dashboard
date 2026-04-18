@@ -1,0 +1,97 @@
+@page "/logging-config"
+@using Microsoft.Extensions.Logging
+@inject ILoggerFactory LoggerFactory
+@inject IJSRuntime JS
+
+<PageTitle>Logging Configuration</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Dynamic Log Level Configuration</MudText>
+
+    <MudCard Class="mt-4">
+        <MudCardContent>
+            <MudTextField @bind-Value="_category" 
+                          Label="Logger Category" 
+                          Placeholder="e.g., MqttDashboard.Services"
+                          Variant="Variant.Outlined" 
+                          Class="mb-3" />
+
+            <MudSelect @bind-Value="_selectedLevel" 
+                       Label="Log Level" 
+                       Variant="Variant.Outlined"
+                       Class="mb-3">
+                @foreach (LogLevel level in Enum.GetValues(typeof(LogLevel)))
+                {
+                    <MudSelectItem Value="@level">@level</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudButton Variant="Variant.Filled" 
+                       Color="Color.Primary" 
+                       OnClick="SetLogLevel"
+                       FullWidth="true">
+                Apply Log Level
+            </MudButton>
+        </MudCardContent>
+    </MudCard>
+
+    <MudCard Class="mt-4">
+        <MudCardHeader>
+            <CardHeaderContent>
+                <MudText Typo="Typo.h6">Test Logging</MudText>
+            </CardHeaderContent>
+        </MudCardHeader>
+        <MudCardContent>
+            <MudButton Variant="Variant.Outlined" 
+                       Color="Color.Info" 
+                       OnClick="TestLogging">
+                Generate Test Logs
+            </MudButton>
+        </MudCardContent>
+    </MudCard>
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <MudAlert Severity="Severity.Info" Class="mt-3">@_message</MudAlert>
+    }
+</MudContainer>
+
+@code {
+    private string _category = "MqttDashboard";
+    private LogLevel _selectedLevel = LogLevel.Information;
+    private string _message = string.Empty;
+    private ILogger? _testLogger;
+
+    protected override void OnInitialized()
+    {
+        _testLogger = LoggerFactory.CreateLogger("TestLogger");
+    }
+
+    private void SetLogLevel()
+    {
+        // In WebAssembly, we need to use a workaround
+        // Store the preference and configure it via JavaScript interop or local storage
+        _message = $"Log level for '{_category}' would be set to {_selectedLevel}. " +
+                   "Note: In WASM, log levels are set at startup. " +
+                   "Consider using server-side logging or browser console filtering.";
+        
+        // For demonstration, create a test logger with the category
+        var logger = LoggerFactory.CreateLogger(_category);
+        logger.LogInformation("Log level configuration changed to {Level}", _selectedLevel);
+    }
+
+    private void TestLogging()
+    {
+        if (_testLogger is not null)
+        {
+            _testLogger.LogTrace("This is a TRACE message");
+            _testLogger.LogDebug("This is a DEBUG message");
+            _testLogger.LogInformation("This is an INFORMATION message");
+            _testLogger.LogWarning("This is a WARNING message");
+            _testLogger.LogError("This is an ERROR message");
+            _testLogger.LogCritical("This is a CRITICAL message");
+        }
+
+        _message = "Test logs generated! Check the browser console (F12).";
+    }
+}

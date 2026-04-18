@@ -1,0 +1,83 @@
+@* Reusable inline color picker: supports CSS named color, hex, or MudBlazor theme color *@
+@using MudBlazor
+
+<MudStack Spacing="2">
+    <MudButtonGroup Variant="Variant.Outlined" Size="Size.Small">
+        <MudButton OnClick='() => SetMode(ColorMode.Css)'   Color="@(_mode == ColorMode.Css   ? Color.Primary : Color.Default)">CSS</MudButton>
+        <MudButton OnClick='() => SetMode(ColorMode.Hex)'   Color="@(_mode == ColorMode.Hex   ? Color.Primary : Color.Default)">Hex</MudButton>
+        <MudButton OnClick='() => SetMode(ColorMode.Theme)' Color="@(_mode == ColorMode.Theme ? Color.Primary : Color.Default)">Theme</MudButton>
+    </MudButtonGroup>
+
+    @if (_mode == ColorMode.Css)
+    {
+        <MudTextField T="string" Value="@_cssValue" ValueChanged="OnCssChanged"
+                      Label="CSS color name (e.g. white, cornsilk)"
+                      Variant="Variant.Outlined" Margin="Margin.Dense" Immediate="true" />
+    }
+    else if (_mode == ColorMode.Hex)
+    {
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudTextField T="string" Value="@_hexValue" ValueChanged="OnHexChanged"
+                          Label="Hex color (#RRGGBB)"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Immediate="true" />
+            <div style="width:32px;height:32px;border-radius:4px;border:1px solid #ccc;background:@_hexValue"></div>
+        </MudStack>
+    }
+    else
+    {
+        <MudSelect T="string" Value="@_themeColor" ValueChanged="OnThemeChanged"
+                   Label="Theme color" Variant="Variant.Outlined" Dense="true">
+            <MudSelectItem T="string" Value='""'>Default</MudSelectItem>
+            <MudSelectItem T="string" Value='"var(--mud-palette-primary)"'>Primary</MudSelectItem>
+            <MudSelectItem T="string" Value='"var(--mud-palette-secondary)"'>Secondary</MudSelectItem>
+            <MudSelectItem T="string" Value='"var(--mud-palette-background)"'>Background</MudSelectItem>
+            <MudSelectItem T="string" Value='"var(--mud-palette-surface)"'>Surface</MudSelectItem>
+            <MudSelectItem T="string" Value='"var(--mud-palette-dark)"'>Dark</MudSelectItem>
+        </MudSelect>
+    }
+
+    @if (!string.IsNullOrEmpty(Value))
+    {
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+            <MudText Typo="Typo.caption">Preview:</MudText>
+            <div style="width:60px;height:24px;border-radius:4px;border:1px solid #ccc;background:@Value"></div>
+            <MudText Typo="Typo.caption">@Value</MudText>
+        </MudStack>
+    }
+</MudStack>
+
+@code {
+    [Parameter] public string Value { get; set; } = "";
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+
+    private enum ColorMode { Css, Hex, Theme }
+    private ColorMode _mode = ColorMode.Css;
+    private string _cssValue = "";
+    private string _hexValue = "#ffffff";
+    private string _themeColor = "";
+
+    protected override void OnParametersSet()
+    {
+        if (Value?.StartsWith("#") == true)
+        {
+            _mode = ColorMode.Hex;
+            _hexValue = Value;
+        }
+        else if (Value?.StartsWith("var(") == true)
+        {
+            _mode = ColorMode.Theme;
+            _themeColor = Value;
+        }
+        else
+        {
+            _mode = ColorMode.Css;
+            _cssValue = Value ?? "";
+        }
+    }
+
+    private void SetMode(ColorMode mode) => _mode = mode;
+
+    private async Task OnCssChanged(string v) { _cssValue = v; await ValueChanged.InvokeAsync(v); }
+    private async Task OnHexChanged(string v) { _hexValue = v; await ValueChanged.InvokeAsync(v); }
+    private async Task OnThemeChanged(string v) { _themeColor = v; await ValueChanged.InvokeAsync(v); }
+}

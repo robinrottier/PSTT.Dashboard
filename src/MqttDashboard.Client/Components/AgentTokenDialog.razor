@@ -1,0 +1,21 @@
+@using MudBlazor
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.body1">Enter the update token to send with this request.</MudText>
+        <MudTextField @bind-Value="_token" Label="Update Token" InputType="InputType.Password" Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.VisibilityOff" Class="mt-3" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="SendToken">Send</MudButton>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+
+    private string? _token;
+
+    private void SendToken() => MudDialog.Close(DialogResult.Ok(_token));
+    private void Cancel() => MudDialog.Cancel();
+}

@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.3" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="Microsoft.Playwright" Version="1.49.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Reference the server-only host to reuse its startup and get access to Program. -->
+    <ProjectReference Include="..\..\src\MqttDashboard.WebApp\MqttDashboard.WebAppServerOnly\MqttDashboard.WebAppServerOnly.csproj" />
+    <ProjectReference Include="..\..\src\MqttDashboard.Server\MqttDashboard.Server.csproj" />
+    <!-- Reuse the fake MQTT service from the integration tests project. -->
+    <ProjectReference Include="..\MqttDashboard.IntegrationTests\MqttDashboard.IntegrationTests.csproj" />
+  </ItemGroup>
+
+  <!--
+    After building for the first time, install browsers once:
+      pwsh bin/Debug/net10.0/playwright.ps1 install chromium
+  -->
+
+</Project>
