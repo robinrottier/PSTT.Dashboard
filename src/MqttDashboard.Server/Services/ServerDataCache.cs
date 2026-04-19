@@ -1,27 +1,21 @@
-using MqttDashboard.Data;
-using MqttDashboard.Mqtt;
+using PSTT.Data;
+using PSTT.Mqtt;
 
 namespace MqttDashboard.Server.Services;
 
 /// <summary>
-/// Singleton server-side <see cref="DataCache"/> that accumulates ALL MQTT values
-/// received since the server started. Registered with <see cref="MqttDataServer"/>
-/// on construction so incoming messages are automatically stored here.
+/// Singleton server-side cache that accumulates all MQTT values.
+/// Backed by <see cref="MqttCache{TValue}"/> as upstream; publishes from UI widgets are
+/// forwarded to the broker via <c>forwardPublish: true</c>.
 /// <para>
-/// Per-circuit caches subscribe to this cache via <see cref="CacheBridgeDataServer"/>
-/// rather than hooking MQTT events directly. This means:
-/// <list type="bullet">
-///   <item>Value history is preserved across circuit reconnections.</item>
-///   <item>Widgets see cached values immediately on mount (no wait for first MQTT message).</item>
-///   <item>Broker-level subscriptions are ref-counted across all circuits by
-///         <see cref="MqttDataServer"/> + <see cref="MqttTopicSubscriptionManager"/>.</item>
-/// </list>
+/// All Blazor Server circuits and the PSTT <see cref="PSTT.Remote.RemoteCacheServer{TValue}"/>
+/// use this as their upstream so every client sees the same broker data.
 /// </para>
 /// </summary>
-public sealed class ServerDataCache : DataCache, IServerSnapshotCache
+public sealed class ServerDataCache : CacheWithWildcards<string, string>
 {
-    public ServerDataCache(MqttDataServer mqttDataServer)
+    public ServerDataCache(MqttCache<string> mqttCache)
     {
-        RegisterServer(mqttDataServer);
+        SetUpstream(mqttCache, supportsWildcards: true, forwardPublish: true);
     }
 }

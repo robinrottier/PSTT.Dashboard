@@ -5,9 +5,6 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Remove="Services\MqttDataServer.cs" />
-  </ItemGroup>
-  <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
   <ItemGroup>
@@ -18,7 +15,9 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\MqttDashboard.Client\MqttDashboard.Client.csproj" />
-    <ProjectReference Include="..\MqttDashboard.Data\MqttDashboard.Data.csproj" />
-    <ProjectReference Include="..\MqttDashboard.Mqtt\MqttDashboard.Mqtt.csproj" />
+    <ProjectReference Include="..\..\libs\PSTT\src\PSTT.Data\PSTT.Data.csproj" />
+    <ProjectReference Include="..\..\libs\PSTT\src\PSTT.Mqtt\PSTT.Mqtt.csproj" />
+    <ProjectReference Include="..\..\libs\PSTT\src\PSTT.Remote\PSTT.Remote.csproj" />
+    <ProjectReference Include="..\..\libs\PSTT\src\PSTT.Remote.AspNetCore\PSTT.Remote.AspNetCore.csproj" />
   </ItemGroup>
 </Project>

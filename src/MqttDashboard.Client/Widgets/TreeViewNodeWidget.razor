@@ -41,6 +41,7 @@
     private IDisposable? _rootWatchSubscription;
     private readonly Dictionary<string, bool> _expandedState = new();
     private readonly Dictionary<string, DateTime> _changedAt = new();
+    private readonly Dictionary<string, string?> _values = new();
     private bool _pendingRebuild;
     private System.Threading.Timer? _debounceTimer;
     private System.Threading.Timer? _highlightClearTimer;
@@ -83,22 +84,32 @@
         RebuildTree();
 
         var wildcardTopic = RootTopicValue.TrimEnd('/') + "/#";
-        _watchSubscription = AppState.DataCache.Subscribe(wildcardTopic, OnTopicChanged);
-        _rootWatchSubscription = AppState.DataCache.Subscribe(RootTopicValue, OnTopicChanged);
+        _watchSubscription = AppState.DataCache.Subscribe(wildcardTopic, async sub =>
+        {
+            if (sub.Status.IsPending) return;
+            await OnTopicChangedAsync(sub.Key, sub.Value);
+        });
+        _rootWatchSubscription = AppState.DataCache.Subscribe(RootTopicValue, async sub =>
+        {
+            if (sub.Status.IsPending) return;
+            await OnTopicChangedAsync(sub.Key, sub.Value);
+        });
     }
 
-    private void OnTopicChanged(string topic, object value)
+    private Task OnTopicChangedAsync(string topic, string? value)
     {
-        if (_disposed) return;
+        if (_disposed) return Task.CompletedTask;
+        _values[topic] = value;
         _changedAt[topic] = DateTime.Now;
         var node = FindNode(_tree, topic);
         if (node != null)
-            node.Value = value?.ToString();
+            node.Value = value;
         else
             _pendingRebuild = true;
 
         // Debounce: coalesce rapid MQTT bursts into one render
         _debounceTimer?.Change(80, System.Threading.Timeout.Infinite);
+        return Task.CompletedTask;
     }
 
     private void OnDebounceElapsed(object? _)
@@ -127,11 +138,11 @@
         if (string.IsNullOrEmpty(RootTopicValue)) { _tree = new("", ""); return; }
 
         var root = new TreeNode(RootTopicValue, RootTopicValue.Split('/').Last());
-        root.Value = AppState.DataCache.GetValue(RootTopicValue)?.ToString();
+        root.Value = _values.TryGetValue(RootTopicValue, out var rv) ? rv : AppState.DataCache.GetValue(RootTopicValue);
         root.Expanded = true;
 
-        var pattern = RootTopicValue.TrimEnd('/') + "/#";
-        var matches = AppState.DataCache.GetValuesByPattern(pattern);
+        var prefix = RootTopicValue.TrimEnd('/') + "/";
+        var matches = _values.Where(kvp => kvp.Key.StartsWith(prefix));
 
         foreach (var kvp in matches.OrderBy(x => x.Key))
         {
@@ -151,7 +162,7 @@
                 }
                 node = child;
             }
-            node.Value = kvp.Value?.ToString();
+            node.Value = kvp.Value;
         }
         _tree = root;
     }

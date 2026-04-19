@@ -1,4 +1,3 @@
-using MqttDashboard.Server.Hubs;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -8,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
+using PSTT.Remote.AspNetCore.Extensions;
 
 namespace MqttDashboard.Server.Extensions;
 
@@ -26,10 +26,6 @@ public static class WebApplicationExtensions
         var renderModeOptions = app.Services.GetService<MqttDashboard.Services.RenderModeOptions>();
         app.Lifetime.ApplicationStarted.Register(() =>
         {
-            // Force MqttStatusBroadcaster to be instantiated so its constructor wires
-            // the MqttConnectionMonitor.OnStateChanged → SignalR broadcast event.
-            app.Services.GetRequiredService<MqttStatusBroadcaster>();
-
             try
             {
                 var addresses = app.Services.GetService<IServer>()
@@ -146,9 +142,8 @@ public static class WebApplicationExtensions
                 : Results.Json(body, statusCode: StatusCodes.Status503ServiceUnavailable);
         });
 
-        // Map SignalR Hub — disable antiforgery since SignalR manages its own security
-        // (WebSocket same-origin policy protects against CSRF; antiforgery tokens don't apply here)
-        app.MapHub<DataHub>("/datahub").DisableAntiforgery();
+        // Map PSTT CacheHub — SignalR hub (WebSocket same-origin protects against CSRF)
+        app.MapCacheHub("/cachehub");
 
         // Map Razor Components with appropriate render mode
         var razorComponentsEndpoint = app.MapRazorComponents<TApp>();

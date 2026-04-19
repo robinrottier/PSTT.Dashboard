@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using MudBlazor.Services;
 using MudBlazor;
+using PSTT.Data;
 
 namespace MqttDashboard.Services;
 
@@ -25,17 +26,16 @@ public static class ServiceCollectionExtensions
             config.SnackbarConfiguration.ClearAfterNavigation = true;
         });
 
-        services.AddScoped<ApplicationState>();
+        // ApplicationState is scoped: each circuit/WASM instance gets its own.
+        // ICache<string,string> is resolved from DI — either the scoped circuit cache (Blazor Server)
+        // or the singleton RemoteCache (WASM). Falls back to a plain Cache if none is registered.
+        services.AddScoped<ApplicationState>(sp =>
+            new ApplicationState(
+                sp.GetService<Microsoft.Extensions.Configuration.IConfiguration>(),
+                sp.GetService<ICache<string, string>>()));
+
         services.AddScoped<LocalStorageService>();
         services.AddScoped<MqttInitializationService>();
-
-        // DashboardService is only needed on client-side where HttpClient is available
-        // Do not register here - it will be registered in client Program.cs
-
-        // ⚠️ Do not re-enable: replacing IJSRuntime in DI breaks Blazor Server's internal
-        // RemoteJSRuntime cast during circuit init → InvalidCastException on page load.
-        // Fix is to guard JS interop call sites with RendererInfo.IsInteractive instead.
-        // services.AddSafeJSRuntime();
 
         return services;
     }

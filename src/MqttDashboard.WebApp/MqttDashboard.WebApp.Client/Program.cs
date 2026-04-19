@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
-using MqttDashboard.Data;
+using PSTT.Data;
+using PSTT.Remote;
 using MqttDashboard.Services;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
@@ -9,9 +10,15 @@ builder.Services.AddMqttDashboardServices();
 // Add HttpClient for API calls
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 
-// Add SignalRDataServer (HTTP WebSocket client, runs in browser)
-builder.Services.AddScoped<SignalRDataServer>();
-builder.Services.AddScoped<IDataServer>(sp => sp.GetRequiredService<SignalRDataServer>());
+// Build RemoteCache<string> and register as ICache<string,string>.
+// ConnectAsync is called by MqttInitializationService after the component mounts.
+var hubUrl = builder.HostEnvironment.BaseAddress.TrimEnd('/') + "/cachehub";
+var remoteCache = new RemoteCacheBuilder<string>()
+    .WithSignalRTransport(hubUrl)
+    .WithUtf8Encoding()
+    .Build();
+builder.Services.AddSingleton<ICache<string,string>>(remoteCache);
+builder.Services.AddSingleton(remoteCache);
 
 // Add DashboardService (needs HttpClient)
 builder.Services.AddScoped<IDashboardService, DashboardService>();

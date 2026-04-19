@@ -24,18 +24,14 @@
 
   <ItemGroup>
 	<PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.3" />
-	<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.3" />
 	<PackageReference Include="MudBlazor" Version="9.1.0" />
 	<PackageReference Include="rrSoft.Blazor.Diagrams" Version="0.1.2" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\MqttDashboard.Data\MqttDashboard.Data.csproj" />
-  </ItemGroup>
-
-  <!-- Source generator: reads mqttdashboard-icon.svg and emits AppIcons.cs into obj/ -->
-  <ItemGroup>
-	<ProjectReference Include="..\MqttDashboard.SourceGenerators\MqttDashboard.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\libs\PSTT\src\PSTT.Data\PSTT.Data.csproj" />
+    <ProjectReference Include="..\..\libs\PSTT\src\PSTT.Remote\PSTT.Remote.csproj" />
+    <ProjectReference Include="..\MqttDashboard.SourceGenerators\MqttDashboard.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 	<!-- The SVG must be listed as AdditionalFiles for the generator to see it -->
 	<AdditionalFiles Include="wwwroot\mqttdashboard-icon.svg" />
   </ItemGroup>

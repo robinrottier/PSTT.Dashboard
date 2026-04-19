@@ -105,17 +105,8 @@
         AppState.SetGridSnapToCenter(_gridSnapToCenter);
         AppState.SetGridSize(_gridSize);
 
-        // Sync DataServer subscriptions: subscribe added, unsubscribe removed
-        if (AppState.DataServer != null)
-        {
-            var previous = AppState.SubscribedTopics;
-            var next = new HashSet<string>(_topics);
-            foreach (var t in previous.Where(t => !next.Contains(t)))
-                await AppState.DataServer.UnsubscribeAsync(t);
-            foreach (var t in next.Where(t => !previous.Contains(t)))
-                await AppState.DataServer.SubscribeAsync(t);
-        }
-
+        // PSTT manages MQTT subscriptions automatically via wildcard upstream — no explicit
+        // subscribe/unsubscribe calls needed at this layer.
         AppState.SetSubscribedTopics(_topics);
         AppState.MarkEdited();
         MudDialog.Close(DialogResult.Ok(true));

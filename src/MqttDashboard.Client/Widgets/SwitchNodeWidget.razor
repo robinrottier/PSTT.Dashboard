@@ -67,6 +67,6 @@
         var payload = _isOn
             ? (string.IsNullOrEmpty(Node.OffValue) ? "0" : Node.OffValue)
             : (string.IsNullOrEmpty(Node.OnValue)  ? "1" : Node.OnValue);
-        await AppState.DataCache.PublishAsync(publishTopic, payload, Node.Retain, Node.QosLevel);
+        await AppState.DataCache.PublishAsync(publishTopic, payload, null, Node.Retain);
     }
 }

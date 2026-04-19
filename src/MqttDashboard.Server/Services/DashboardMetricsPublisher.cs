@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using MqttDashboard.Mqtt;
-using MqttDashboard.Server.Hubs;
+using PSTT.Data;
+using PSTT.Mqtt;
 using System.Reflection;
 
 namespace MqttDashboard.Server.Services;
@@ -15,98 +15,57 @@ namespace MqttDashboard.Server.Services;
 public sealed class DashboardMetricsPublisher : BackgroundService
 {
     private readonly ServerDataCache _cache;
-    private readonly MqttConnectionMonitor _connectionMonitor;
-    private readonly HubConnectionTracker _connectionTracker;
+    private readonly MqttCache<string> _mqttCache;
     private readonly UpdateCheckService _updateCheckService;
     private readonly ILogger<DashboardMetricsPublisher> _logger;
     private readonly DateTime _startTime = DateTime.UtcNow;
 
     public DashboardMetricsPublisher(
         ServerDataCache cache,
-        MqttConnectionMonitor connectionMonitor,
-        HubConnectionTracker connectionTracker,
+        MqttCache<string> mqttCache,
         UpdateCheckService updateCheckService,
         ILogger<DashboardMetricsPublisher> logger)
     {
         _cache = cache;
-        _connectionMonitor = connectionMonitor;
-        _connectionTracker = connectionTracker;
+        _mqttCache = mqttCache;
         _updateCheckService = updateCheckService;
         _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        PublishVersion();
-        PublishMqttStatus();
-
-        _connectionMonitor.OnStateChanged += HandleStateChanged;
+        _ = _cache.PublishAsync(DashboardTopics.Version, ReadVersion());
 
         try
         {
             using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
             while (await timer.WaitForNextTickAsync(stoppingToken))
             {
-                PublishTimeMetrics();
-                PublishDynamicMetrics();
-                MaybePublishLatestVersion();
+                _ = _cache.PublishAsync(DashboardTopics.Time, DateTime.UtcNow.ToString("o"));
+                _ = _cache.PublishAsync(DashboardTopics.Uptime, FormatUptime(DateTime.UtcNow - _startTime));
+                _ = _cache.PublishAsync(DashboardTopics.MqttTopicCount, _cache.Count.ToString());
+                _ = _cache.PublishAsync(DashboardTopics.MqttStatus, _mqttCache.IsConnected ? "Connected" : "Disconnected");
+
+                var latest = _updateCheckService.UpdateInfo.LatestVersion;
+                if (!string.IsNullOrEmpty(latest))
+                    _ = _cache.PublishAsync(DashboardTopics.VersionLatest, latest);
             }
         }
         catch (OperationCanceledException)
         {
             // Normal shutdown
         }
-        finally
-        {
-            _connectionMonitor.OnStateChanged -= HandleStateChanged;
-        }
     }
 
-    private void PublishVersion()
+    private static string ReadVersion()
     {
         var asm = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
         var version = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
             ?? asm.GetName().Version?.ToString()
             ?? "unknown";
-        // Strip commit hash suffix (e.g. "1.2.3+abc123" → "1.2.3")
         var plusIdx = version.IndexOf('+');
         if (plusIdx > 0) version = version[..plusIdx];
-        _cache.UpdateValue(DashboardTopics.Version, version);
-        _logger.LogDebug("[DashboardMetrics] Published version: {Version}", version);
-    }
-
-    private void MaybePublishLatestVersion()
-    {
-        var latest = _updateCheckService.UpdateInfo.LatestVersion;
-        if (!string.IsNullOrEmpty(latest))
-            _cache.UpdateValue(DashboardTopics.VersionLatest, latest);
-    }
-
-    private void PublishMqttStatus()
-    {
-        var state = _connectionMonitor.State;
-        var broker = _connectionMonitor.Broker is { Length: > 0 } b ? b : "unknown";
-        var status = state == MqttConnectionState.Connected ? "Connected" : state.ToString();
-        _cache.UpdateValue(DashboardTopics.MqttStatus, status);
-        _cache.UpdateValue(DashboardTopics.MqttBroker, broker);
-    }
-
-    private void PublishTimeMetrics()
-    {
-        _cache.UpdateValue(DashboardTopics.Time, DateTime.UtcNow.ToString("o"));
-        _cache.UpdateValue(DashboardTopics.Uptime, FormatUptime(DateTime.UtcNow - _startTime));
-    }
-
-    private void PublishDynamicMetrics()
-    {
-        _cache.UpdateValue(DashboardTopics.MqttTopicCount, _cache.GetAllTopics().Count().ToString());
-        _cache.UpdateValue(DashboardTopics.ClientsCount, _connectionTracker.ConnectedCount.ToString());
-    }
-
-    private Task HandleStateChanged(MqttConnectionState state, int reconnectAttempts)
-    {
-        PublishMqttStatus();
-        return Task.CompletedTask;
+        return version;
     }
 
     private static string FormatUptime(TimeSpan uptime)

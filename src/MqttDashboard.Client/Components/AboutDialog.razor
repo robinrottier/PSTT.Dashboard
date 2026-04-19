@@ -186,12 +186,13 @@
     protected override async Task OnInitializedAsync()
     {
         // Subscribe to live client count from $DASHBOARD topic; fires immediately if cached.
-        _clientCountSubscription = AppState.DataCache.Subscribe("$DASHBOARD/CLIENTS/COUNT", (_, val) =>
+        _clientCountSubscription = AppState.DataCache.Subscribe("$DASHBOARD/CLIENTS/COUNT", async sub =>
         {
-            if (int.TryParse(val?.ToString(), out var count))
+            if (sub.Status.IsPending) return;
+            if (int.TryParse(sub.Value, out var count))
             {
                 _clientCount = count;
-                InvokeAsync(StateHasChanged);
+                await InvokeAsync(StateHasChanged);
             }
         });
 

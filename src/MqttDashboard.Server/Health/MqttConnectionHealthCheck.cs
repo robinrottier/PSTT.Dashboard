@@ -1,34 +1,22 @@
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using MqttDashboard.Mqtt;
+using PSTT.Mqtt;
 
 namespace MqttDashboard.Server.Health;
 
 public class MqttConnectionHealthCheck : IHealthCheck
 {
-    private readonly MqttConnectionMonitor _monitor;
+    private readonly MqttCache<string> _mqttCache;
 
-    public MqttConnectionHealthCheck(MqttConnectionMonitor monitor)
+    public MqttConnectionHealthCheck(MqttCache<string> mqttCache)
     {
-        _monitor = monitor;
+        _mqttCache = mqttCache;
     }
 
     public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
     {
-        var data = new Dictionary<string, object>
-        {
-            ["broker"] = _monitor.Broker,
-            ["state"] = _monitor.State.ToString(),
-            ["reconnectAttempts"] = _monitor.ReconnectAttempts
-        };
-
-        var result = _monitor.State switch
-        {
-            MqttConnectionState.Connected    => HealthCheckResult.Healthy("MQTT broker connected", data),
-            MqttConnectionState.Connecting   => HealthCheckResult.Degraded($"Connecting to MQTT broker (attempt {_monitor.ReconnectAttempts})", data: data),
-            MqttConnectionState.Failed       => HealthCheckResult.Unhealthy("MQTT broker connection failed", data: data),
-            _                                => HealthCheckResult.Unhealthy("MQTT broker disconnected", data: data),
-        };
-
+        var result = _mqttCache.IsConnected
+            ? HealthCheckResult.Healthy("MQTT broker connected")
+            : HealthCheckResult.Degraded("MQTT broker disconnected");
         return Task.FromResult(result);
     }
 }

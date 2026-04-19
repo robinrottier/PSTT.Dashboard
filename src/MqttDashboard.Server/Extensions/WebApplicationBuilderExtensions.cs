@@ -196,12 +196,8 @@ public static class WebApplicationBuilderExtensions
             !string.Equals(envName, "Production", StringComparison.OrdinalIgnoreCase))
             builder.WebHost.UseStaticWebAssets();
 
-        // Add core services
         builder.Services.AddMqttDashboardServices();
-        builder.Services.AddMqttDashboardServerServices();
-
-        // Add SignalR
-        builder.Services.AddSignalR();
+        builder.Services.AddMqttDashboardServerServices(builder.Configuration);
 
         // Add health checks
         builder.Services.AddHealthChecks()

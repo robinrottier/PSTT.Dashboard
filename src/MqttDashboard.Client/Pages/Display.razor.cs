@@ -1099,14 +1099,11 @@ public partial class Display : IDisposable
         StateHasChanged();
     }
 
-    private async Task SyncSubscriptionsAsync(HashSet<string> previous, IReadOnlyCollection<string> current)
+    private Task SyncSubscriptionsAsync(HashSet<string> previous, IReadOnlyCollection<string> current)
     {
-        if (AppState.DataServer == null) return;
-        var currentSet = new HashSet<string>(current);
-        foreach (var topic in previous.Where(t => !currentSet.Contains(t)))
-            await AppState.DataServer.UnsubscribeAsync(topic);
-        foreach (var topic in currentSet.Where(t => !previous.Contains(t)))
-            await AppState.DataServer.SubscribeAsync(topic);
+        // PSTT manages MQTT subscriptions automatically via wildcard upstream — no explicit
+        // subscribe/unsubscribe calls needed at this layer.
+        return Task.CompletedTask;
     }
 
     // ── Save As / Open ────────────────────────────────────────────────────────

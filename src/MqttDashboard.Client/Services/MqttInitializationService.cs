@@ -1,47 +1,47 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
-using MqttDashboard.Data;
+using PSTT.Data;
+using PSTT.Remote;
 
 namespace MqttDashboard.Services;
 
 /// <summary>
-/// Service to initialize MQTT connection and subscriptions on application startup
+/// Service to initialize the PSTT data connection and restore topic subscriptions on startup.
+/// <list type="bullet">
+///   <item>Blazor Server interactive circuit: scoped <see cref="ICache{TKey,TValue}"/> is already wired.</item>
+///   <item>WASM: connects <see cref="RemoteCache{TValue}"/> to the server SignalR hub.</item>
+///   <item>SSR pre-render: defers connection, returns early.</item>
+/// </list>
 /// </summary>
 public class MqttInitializationService
 {
     private readonly ApplicationState _appState;
     private readonly IDashboardService _dashboardService;
-    private readonly IDataServer _dataServer;
     private readonly NavigationManager _navigationManager;
     private readonly IAuthService _authService;
     private readonly RenderModeOptions? _renderModeOptions;
-    private readonly IServerSnapshotCache? _serverSnapshot;
     private readonly ILogger<MqttInitializationService>? _logger;
     private bool _initialized = false;
 
     public MqttInitializationService(
         ApplicationState appState,
         IDashboardService dashboardService,
-        IDataServer dataServer,
         NavigationManager navigationManager,
         IAuthService authService,
         RenderModeOptions? renderModeOptions = null,
-        IServerSnapshotCache? serverSnapshot = null,
         ILogger<MqttInitializationService>? logger = null)
     {
         _appState = appState;
         _dashboardService = dashboardService;
-        _dataServer = dataServer;
         _navigationManager = navigationManager;
         _authService = authService;
         _renderModeOptions = renderModeOptions;
-        _serverSnapshot = serverSnapshot;
         _logger = logger;
     }
 
     /// <summary>
-    /// Initializes MQTT. Pass <c>RendererInfo.IsInteractive</c> from the calling component
-    /// so the service can reliably distinguish SSR pre-render from interactive circuit/WASM mode.
+    /// Initializes the connection. Pass <c>RendererInfo.IsInteractive</c> from the calling
+    /// component so the service can distinguish SSR pre-render from an active circuit.
     /// </summary>
     public async Task InitializeAsync(bool isInteractive = false)
     {
@@ -57,61 +57,53 @@ public class MqttInitializationService
 
             var (isAdmin, authEnabled, readOnly) = await _authService.GetStatusAsync();
             _appState.SetAuthState(isAdmin, authEnabled, readOnly);
-            _logger?.LogInformation("Auth state: IsAdmin={IsAdmin}, AuthEnabled={AuthEnabled}, ReadOnly={ReadOnly}", isAdmin, authEnabled, readOnly);
 
-            // Load subscriptions from the default dashboard file
             var defaultDashboard = await _dashboardService.LoadDashboardAsync();
             if (defaultDashboard?.MqttSubscriptions?.Count > 0)
-            {
                 _appState.SetSubscribedTopics(defaultDashboard.MqttSubscriptions);
-            }
             _logger?.LogInformation("Loaded {Count} saved subscriptions", _appState.SubscribedTopics.Count);
 
-            if (_appState.DataServer == null)
+            // SSR pre-render: defer connection
+            if (!OperatingSystem.IsBrowser() && !isInteractive)
             {
-                // On the server, !isInteractive means we're in SSR pre-render, not an interactive circuit.
-                // RendererInfo.IsInteractive is the reliable signal; HttpContext.IsNull is NOT reliable here.
-                if (!OperatingSystem.IsBrowser() && !isInteractive)
-                {
-                    if (_renderModeOptions?.IsWasmCapable == true)
-                    {
-                        // SSR pre-render for WASM/Auto mode: WASM will connect SignalR in the browser.
-                        SeedFromServerSnapshot();
-                        _initialized = true;
-                        _logger?.LogInformation("MQTT initialization deferred: SignalR will connect in browser");
-                        return;
-                    }
-
-                    // SSR pre-render for Blazor Server mode: the Blazor Server circuit hasn't been
-                    // established yet. Let the circuit reinitialize fully.
-                    SeedFromServerSnapshot();
-                    _logger?.LogInformation("MQTT initialization deferred: SSR pre-render, circuit will initialize");
-                    return; // Don't set _initialized = true — circuit scope will re-run this
-
-                    // (fall-through when isInteractive=true: Blazor Server interactive circuit)
-                }
-
-                // Wire up server events before starting
-                _dataServer.StatusChanged += HandleStatusChanged;
-                _dataServer.Reconnected += HandleReconnected;
-                _dataServer.ValueUpdated += HandleValueUpdated;
-
-                var hubUrl = BuildHubUrl();
-                await _dataServer.StartAsync(hubUrl);
-
-                _appState.SetDataServer(_dataServer);
-                // Only register if not already wired (e.g. ServerDataCache in same-process mode
-                // already has MqttDataServer registered in its constructor).
-                if (!_appState.DataCache.HasServer)
-                    _appState.DataCache.RegisterServer(_dataServer);
-
-                _logger?.LogInformation("DataServer started successfully");
-
-                await RestoreSubscriptionsAsync();
+                _logger?.LogInformation("MQTT initialization deferred: SSR pre-render");
+                if (_renderModeOptions?.IsWasmCapable == true)
+                    _initialized = true; // WASM will connect in browser; mark done for SSR pass
+                return;
             }
 
+            // WASM: connect RemoteCache to the server hub
+            if (OperatingSystem.IsBrowser() && _appState.DataCache is RemoteCache<string> remoteCache)
+            {
+                var hubUrl = _navigationManager.ToAbsoluteUri("cachehub").ToString();
+                _logger?.LogInformation("Connecting WASM remote cache to {Url}", hubUrl);
+                await remoteCache.ConnectAsync();
+            }
+
+            // Track MQTT connection status via the well-known status topic
+            _appState.DataCache.Subscribe(DashboardTopics.MqttStatus, async sub =>
+            {
+                if (sub.Status.IsPending) return;
+                var connected = "Connected".Equals(sub.Value, StringComparison.OrdinalIgnoreCase);
+                _appState.SetMqttConnectionStatus(sub.Value ?? "Unknown", connected);
+                await Task.CompletedTask;
+            });
+
+            // Accumulate message history for all received values
+            _appState.DataCache.Subscribe("#", async sub =>
+            {
+                if (sub.Status.IsPending) return;
+                _appState.AddMessage(new Models.MqttDataMessage
+                {
+                    Topic = sub.Key,
+                    Payload = sub.Value ?? string.Empty,
+                    Timestamp = DateTime.UtcNow
+                });
+                await Task.CompletedTask;
+            });
+
             _initialized = true;
-            _logger?.LogInformation("MQTT initialization completed successfully");
+            _logger?.LogInformation("MQTT initialization completed");
         }
         catch (Exception ex)
         {
@@ -119,61 +111,6 @@ public class MqttInitializationService
             _appState.SetMqttConnectionStatus($"Error: {ex.Message}", false);
         }
     }
-
-    private void SeedFromServerSnapshot()
-    {
-        if (_serverSnapshot == null) return;
-        var topics = _serverSnapshot.GetAllTopics().ToList();
-        foreach (var topic in topics)
-        {
-            var value = _serverSnapshot.GetValue(topic);
-            if (value != null)
-                _appState.DataCache.UpdateValue(topic, value);
-        }
-        _logger?.LogInformation("[SSR] Seeded {Count} cached values from server snapshot", topics.Count);
-    }
-
-    /// <summary>
-    /// Builds the SignalR hub URL for WASM clients.In Blazor Server, ServerSignalRService
-    /// is used instead and this URL is ignored.
-    /// </summary>
-    private string BuildHubUrl()
-    {
-        return _navigationManager.ToAbsoluteUri("datahub").ToString();
-    }
-
-    private async Task RestoreSubscriptionsAsync()
-    {
-        var topics = _appState.SubscribedTopics.ToList();
-        _logger?.LogInformation("Restoring {Count} subscriptions", topics.Count);
-        foreach (var topic in topics)
-        {
-            try
-            {
-                await _dataServer.SubscribeAsync(topic);
-                _logger?.LogDebug("Restored subscription to: {Topic}", topic);
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogWarning(ex, "Failed to restore subscription to {Topic}", topic);
-            }
-        }
-    }
-
-    private void HandleValueUpdated(string topic, object value)
-    {
-        _appState.AddMessage(new Models.MqttDataMessage
-        {
-            Topic = topic,
-            Payload = value?.ToString() ?? string.Empty,
-            Timestamp = DateTime.UtcNow
-        });
-    }
-
-    private void HandleReconnected() => _ = RestoreSubscriptionsAsync();
-
-    private void HandleStatusChanged(string status, bool connected)
-        => _appState.SetMqttConnectionStatus(status, connected);
 
     public bool IsInitialized => _initialized;
 }

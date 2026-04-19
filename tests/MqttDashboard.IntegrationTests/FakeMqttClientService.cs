@@ -1,40 +1,27 @@
-using System.Collections.Concurrent;
-using MqttDashboard.Mqtt;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Configuration;
+using PSTT.Data;
+using MqttDashboard.Server.Services;
 
 namespace MqttDashboard.IntegrationTests;
 
 /// <summary>
-/// Test double that replaces <see cref="MqttClientService"/> in Tier A integration tests.
-/// Does not connect to any MQTT broker. Use <see cref="TriggerIncomingMessageAsync"/>
-/// to inject fake MQTT messages directly into the SignalR dispatch path.
+/// Test double that replaces live MQTT with direct cache injection.
+/// Exposes the same API surface as the old MqttClientService fake so existing
+/// test call sites compile with minimal changes.
 /// </summary>
-public class FakeMqttClientService : MqttClientService
+public class FakeMqttClientService
 {
-    public FakeMqttClientService(
-        ILogger<MqttClientService> logger,
-        IConfiguration configuration,
-        MqttTopicSubscriptionManager subscriptionManager,
-        MqttConnectionMonitor connectionMonitor)
-        : base(logger, configuration, subscriptionManager, connectionMonitor) { }
+    private readonly ServerDataCache _cache;
 
-    /// <summary>Does nothing — no broker connection is made in tests.</summary>
-    protected override Task ExecuteAsync(CancellationToken stoppingToken) => Task.CompletedTask;
+    public FakeMqttClientService(ServerDataCache cache)
+    {
+        _cache = cache;
+    }
 
-    /// <summary>
-    /// Simulates an incoming MQTT message: caches the value and dispatches
-    /// <c>ReceiveMqttData</c> to all interested SignalR clients, exactly as the real
-    /// service would when a message arrives from the broker.
-    /// </summary>
+    /// <summary>Simulates an incoming MQTT message by publishing into the server cache.</summary>
     public Task TriggerIncomingMessageAsync(string topic, string payload)
-        => HandleIncomingMessageAsync(topic, payload, DateTime.UtcNow);
+        => _cache.PublishAsync(topic, payload);
 
-    /// <summary>
-    /// Seeds a value into the full pipeline (last-known values cache + <c>ServerDataCache</c>
-    /// via <c>OnMessagePublished</c>) without requiring a live MQTT broker.
-    /// Equivalent to a message arriving with no hub clients currently subscribed.
-    /// </summary>
+    /// <summary>Seeds a cached value as if it had previously arrived from MQTT.</summary>
     public Task SeedLastKnownValueAsync(string topic, string value)
-        => HandleIncomingMessageAsync(topic, value, DateTime.UtcNow);
+        => _cache.PublishAsync(topic, value);
 }

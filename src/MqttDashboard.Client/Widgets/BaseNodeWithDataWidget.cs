@@ -75,19 +75,18 @@ public abstract class BaseNodeWithDataWidget<TNode> : BaseNodeWidget<TNode>
                 if (idx == 0) { OnDataUpdated(); TriggerLinkAnimation(); }
             }
 
-            var watcher = AppState.DataCache.Subscribe(capturedTopic, (t, value) =>
+            var watcher = AppState.DataCache.Subscribe(capturedTopic, async sub =>
             {
+                if (sub.Status.IsPending) return;
                 if (_disposed) return;
-                // Marshal ALL render-affecting work onto the renderer's synchronisation context.
-                // Blazor Diagrams' l.Refresh() fires Changed events that cause DiagramCanvas to
-                // call StateHasChanged() — invoking this from an MQTT background thread throws
-                // InvalidOperationException which corrupts and eventually terminates the circuit.
+                var key = sub.Key;
+                var value = (object?)sub.Value;
                 _ = InvokeAsync(() =>
                 {
                     if (_disposed) return;
                     Node.DataValues[idx]       = value;
                     Node.DataUpdatedTimes[idx] = DateTime.Now;
-                    OnDataReceivedCore(idx, t, value);//with values
+                    OnDataReceivedCore(idx, key, value);
                     OnDataUpdated();
                     if (idx == 0)
                     {
@@ -95,6 +94,7 @@ public abstract class BaseNodeWithDataWidget<TNode> : BaseNodeWidget<TNode>
                     }
                     StateHasChanged();
                 });
+                await Task.CompletedTask;
             });
             _dataWatchers.Add(watcher);
         }
