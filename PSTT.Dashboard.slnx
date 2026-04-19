@@ -23,14 +23,14 @@
   </Folder>
   <Folder Name="/src/">
     <File Path="src/Directory.Build.props" />
-    <Project Path="src/MqttDashboard.Client/PSTT.Dashboard.Client.csproj" />
-    <Project Path="src/MqttDashboard.Server/PSTT.Dashboard.Server.csproj" />
-    <Project Path="src/MqttDashboard.SourceGenerators/PSTT.Dashboard.SourceGenerators.csproj" />
+    <Project Path="src/PSTT.Dashboard.Client/PSTT.Dashboard.Client.csproj" />
+    <Project Path="src/PSTT.Dashboard.Server/PSTT.Dashboard.Server.csproj" />
+    <Project Path="src/PSTT.Dashboard.SourceGenerators/PSTT.Dashboard.SourceGenerators.csproj" />
   </Folder>
   <Folder Name="/src/WebApp/">
-    <Project Path="src/MqttDashboard.WebApp/MqttDashboard.WebApp.Client/PSTT.Dashboard.WebApp.Client.csproj" />
-    <Project Path="src/MqttDashboard.WebApp/MqttDashboard.WebApp/PSTT.Dashboard.WebApp.csproj" />
-    <Project Path="src/MqttDashboard.WebApp/MqttDashboard.WebAppServerOnly/PSTT.Dashboard.WebAppServerOnly.csproj" />
+    <Project Path="src/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp.Client/PSTT.Dashboard.WebApp.Client.csproj" />
+    <Project Path="src/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp.csproj" />
+    <Project Path="src/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebAppServerOnly/PSTT.Dashboard.WebAppServerOnly.csproj" />
   </Folder>
   <Folder Name="/libs/" />
   <Folder Name="/libs/PSTT/">
@@ -41,9 +41,9 @@
     <Project Path="libs/PSTT/src/PSTT.Remote/PSTT.Remote.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/MqttDashboard.Client.Tests/PSTT.Dashboard.Client.Tests.csproj" />
-    <Project Path="tests/MqttDashboard.IntegrationTests/PSTT.Dashboard.IntegrationTests.csproj" />
-    <Project Path="tests/MqttDashboard.PlaywrightTests/PSTT.Dashboard.PlaywrightTests.csproj" />
-    <Project Path="tests/MqttDashboard.Server.Tests/PSTT.Dashboard.Server.Tests.csproj" />
+    <Project Path="tests/PSTT.Dashboard.Client.Tests/PSTT.Dashboard.Client.Tests.csproj" />
+    <Project Path="tests/PSTT.Dashboard.IntegrationTests/PSTT.Dashboard.IntegrationTests.csproj" />
+    <Project Path="tests/PSTT.Dashboard.PlaywrightTests/PSTT.Dashboard.PlaywrightTests.csproj" />
+    <Project Path="tests/PSTT.Dashboard.Server.Tests/PSTT.Dashboard.Server.Tests.csproj" />
   </Folder>
 </Solution>
