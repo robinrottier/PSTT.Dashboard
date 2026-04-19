@@ -15,7 +15,7 @@ namespace PSTT.Dashboard.IntegrationTests;
 public class IntegrationWebApplicationFactory : WebApplicationFactory<Program>
 {
     private readonly string _tempDataDir =
-        Path.Combine(Path.GetTempPath(), "mqttdashboard_tests_" + Guid.NewGuid().ToString("N"));
+        Path.Combine(Path.GetTempPath(), "dashboard_tests_" + Guid.NewGuid().ToString("N"));
 
     private FakeMqttClientService? _fakeMqttService;
 

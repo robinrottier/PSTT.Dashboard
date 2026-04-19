@@ -1,4 +1,4 @@
-# Contributing to MqttDashboard
+# Contributing to PSTT.Dashboard
 
 Thank you for considering a contribution!
 
@@ -7,14 +7,19 @@ Thank you for considering a contribution!
 Requirements: .NET 10 SDK, Docker (optional).
 
 ```bash
+# Clone with submodules (PSTT library is a git submodule)
+git clone --recurse-submodules https://github.com/robinrottier/PSTT.Dashboard
+# or, if already cloned:
+git submodule update --init --recursive
+
 # Install the WASM workload (first time only)
 dotnet workload install wasm-tools
 
 # Build the solution
-dotnet build MqttDashboard.slnx
+dotnet build PSTT.Dashboard.slnx
 
 # Run tests
-dotnet test MqttDashboard.slnx
+dotnet test PSTT.Dashboard.slnx
 ```
 
 Run with Docker Compose (builds from source):
@@ -29,20 +34,23 @@ Then open <http://localhost:8080>.
 
 ```
 src/
-  MqttDashboard.Client/       Razor class library — shared pages, components, services
-  MqttDashboard.Server/       Server-side services — MQTT client, SignalR hub, API controllers
-  MqttDashboard.WebApp/       Blazor Web App host (InteractiveAuto — WASM + server-side)
-  MqttDashboard.WebAppServerOnly/  Alternate host — pure Blazor Server (no WASM download)
+  PSTT.Dashboard.Client/       Razor class library — shared pages, components, services
+  PSTT.Dashboard.Server/       Server-side services — MQTT client, SignalR hub, API controllers
+  PSTT.Dashboard.WebApp/       Blazor Web App host (InteractiveAuto — WASM + server-side)
+  PSTT.Dashboard.WebAppServerOnly/  Alternate host — pure Blazor Server (no WASM download)
+libs/
+  PSTT/                        PSTT data transport library (git submodule)
 tests/
-  MqttDashboard.Client.Tests/
-  MqttDashboard.Server.Tests/
+  PSTT.Dashboard.Client.Tests/
+  PSTT.Dashboard.Server.Tests/
+  PSTT.Dashboard.IntegrationTests/
 ```
 
 ## Submitting a pull request
 
 1. Fork the repository and create a feature branch from `main`.
 2. Make your changes; add or update tests where appropriate.
-3. Run `dotnet test MqttDashboard.slnx` and confirm everything passes.
+3. Run `dotnet test PSTT.Dashboard.slnx` and confirm everything passes.
 4. Open a PR with a clear description of what changed and why.
 
 ## Reporting bugs

@@ -18,6 +18,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0          # needed for MinVer to read git tags
+          submodules: recursive   # needed for PSTT submodule
 
       - uses: actions/setup-dotnet@v5
         with:
@@ -34,18 +35,16 @@ jobs:
         run: dotnet workload install wasm-tools
 
       - name: Build
-        run: dotnet build MqttDashboard.slnx -c Release
+        run: dotnet build PSTT.Dashboard.slnx -c Release
 
       - name: Unit and integration tests
         # Playwright E2E tests run in the separate e2e job (requires browser install).
         run: |
-          dotnet test tests/MqttDashboard.Client.Tests/MqttDashboard.Client.Tests.csproj \
+          dotnet test tests/PSTT.Dashboard.Client.Tests/PSTT.Dashboard.Client.Tests.csproj \
             -c Release --no-build --verbosity normal
-          dotnet test tests/MqttDashboard.Data.Tests/MqttDashboard.Data.Tests.csproj \
+          dotnet test tests/PSTT.Dashboard.Server.Tests/PSTT.Dashboard.Server.Tests.csproj \
             -c Release --no-build --verbosity normal
-          dotnet test tests/MqttDashboard.Server.Tests/MqttDashboard.Server.Tests.csproj \
-            -c Release --no-build --verbosity normal
-          dotnet test tests/MqttDashboard.IntegrationTests/MqttDashboard.IntegrationTests.csproj \
+          dotnet test tests/PSTT.Dashboard.IntegrationTests/PSTT.Dashboard.IntegrationTests.csproj \
             -c Release --no-build --verbosity normal
 
       - name: Upload test artifacts on failure
@@ -66,6 +65,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          submodules: recursive   # needed for PSTT submodule
 
       - uses: actions/setup-dotnet@v5
         with:
@@ -84,14 +84,14 @@ jobs:
       - name: Build (Playwright project)
         # Use default (Debug) configuration — dotnet run --no-build in the fixture
         # defaults to Debug, so the build and run configuration must match.
-        run: dotnet build tests/MqttDashboard.PlaywrightTests/MqttDashboard.PlaywrightTests.csproj
+        run: dotnet build tests/PSTT.Dashboard.PlaywrightTests/PSTT.Dashboard.PlaywrightTests.csproj
 
       - name: Install Playwright browsers
-        run: pwsh tests/MqttDashboard.PlaywrightTests/bin/Debug/net10.0/playwright.ps1 install chromium --with-deps
+        run: pwsh tests/PSTT.Dashboard.PlaywrightTests/bin/Debug/net10.0/playwright.ps1 install chromium --with-deps
 
       - name: E2E tests
         run: |
-          dotnet test tests/MqttDashboard.PlaywrightTests/MqttDashboard.PlaywrightTests.csproj \
+          dotnet test tests/PSTT.Dashboard.PlaywrightTests/PSTT.Dashboard.PlaywrightTests.csproj \
             --no-build --verbosity normal
 
       - name: Upload Playwright traces on failure

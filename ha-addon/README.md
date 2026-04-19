@@ -1,4 +1,4 @@
-# Mqtt Dashboard — Home Assistant Add-on
+# PSTT Dashboard — Home Assistant Add-on
 
 Visual MQTT data dashboard. Connect to your MQTT broker and build node-based diagrams with live data.
 
@@ -6,8 +6,8 @@ Visual MQTT data dashboard. Connect to your MQTT broker and build node-based dia
 
 1. In Home Assistant go to **Settings → Add-ons → Add-on Store**
 2. Click the three-dot menu (⋮) → **Repositories**
-3. Add: `https://github.com/robinrottier/MqttDashboard`
-4. Find **Mqtt Dashboard** in the store and click **Install**
+3. Add: `https://github.com/robinrottier/PSTT.Dashboard`
+4. Find **PSTT Dashboard** in the store and click **Install**
 5. Configure the add-on options (MQTT broker, credentials) then click **Start**
 6. Open the Web UI on port 8080
 

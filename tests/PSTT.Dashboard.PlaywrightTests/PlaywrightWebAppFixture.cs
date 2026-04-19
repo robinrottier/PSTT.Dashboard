@@ -23,7 +23,7 @@ public sealed class PlaywrightWebAppFixture : IAsyncLifetime
     private Process? _serverProcess;
     private readonly StringBuilder _serverLog = new();
     private readonly string _tempDataDir =
-        Path.Combine(Path.GetTempPath(), "pw_mqttdashboard_" + Guid.NewGuid().ToString("N"));
+        Path.Combine(Path.GetTempPath(), "pw_dashboard_" + Guid.NewGuid().ToString("N"));
 
     public string BaseUrl { get; private set; } = "";
     public IPlaywright? Playwright { get; private set; }

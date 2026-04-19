@@ -1,222 +1,218 @@
-using Microsoft.AspNetCore.SignalR.Client;
+using PSTT.Data;
+using PSTT.Remote;
+using PSTT.Dashboard.Services;
 
 namespace PSTT.Dashboard.IntegrationTests;
 
 /// <summary>
-/// Tier A integration tests for <c>DataHub</c>.
-/// Use <see cref="IntegrationWebApplicationFactory"/> — no real MQTT broker needed.
-/// Messages are injected via <see cref="FakeMqttClientService.TriggerIncomingMessageAsync"/>.
+/// Tier A integration tests for <c>CacheHub</c>.
+/// Uses <see cref="IntegrationWebApplicationFactory"/> — no real MQTT broker needed.
+/// Values are injected via <see cref="FakeMqttClientService.TriggerIncomingMessageAsync"/>.
+/// Clients connect via <see cref="RemoteCache{TValue}"/> using the PSTT SignalR transport.
 /// </summary>
-public class MqttDataHubTests : IClassFixture<IntegrationWebApplicationFactory>, IAsyncDisposable
+public class CacheHubTests : IClassFixture<IntegrationWebApplicationFactory>, IAsyncDisposable
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
 
     private readonly IntegrationWebApplicationFactory _factory;
+    private readonly List<RemoteCache<string>> _caches = new();
 
-    public MqttDataHubTests(IntegrationWebApplicationFactory factory)
+    public CacheHubTests(IntegrationWebApplicationFactory factory)
     {
         _factory = factory;
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private HubConnection CreateConnection() => HubConnectionHelper.Create(_factory);
+    private async Task<RemoteCache<string>> ConnectedCacheAsync()
+    {
+        var cache = HubConnectionHelper.CreateRemoteCache(_factory);
+        _caches.Add(cache);
+        await cache.ConnectAsync();
+        return cache;
+    }
 
     // ── Tests ─────────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task OnConnect_ReceivesMqttConnectionStatus()
+    public async Task Subscribe_ReceivesValue_WhenPublished()
     {
-        await using var conn = CreateConnection();
+        var cache = await ConnectedCacheAsync();
+        var tcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        // Register handler BEFORE StartAsync so we don't miss the push from OnConnectedAsync.
-        var received = HubConnectionHelper.WaitForAsync<string, int>(conn, "MqttConnectionStatus", Timeout);
+        cache.Subscribe("sensors/temperature", sub =>
+        {
+            tcs.TrySetResult(sub.Value);
+            return Task.CompletedTask;
+        });
 
-        await conn.StartAsync();
-
-        var (state, _) = await received;
-        Assert.False(string.IsNullOrEmpty(state));
-    }
-
-    [Fact]
-    public async Task SubscribeToTopic_ConfirmationReceived()
-    {
-        await using var conn = CreateConnection();
-        await conn.StartAsync();
-
-        var confirmed = HubConnectionHelper.WaitForAsync<string>(conn, "SubscriptionConfirmed", Timeout);
-        await conn.InvokeAsync("SubscribeToTopic", "test/topic");
-
-        var topic = await confirmed;
-        Assert.Equal("test/topic", topic);
-    }
-
-    [Fact]
-    public async Task SubscribeToTopic_Then_TriggerMessage_ClientReceivesData()
-    {
-        await using var conn = CreateConnection();
-        await conn.StartAsync();
-
-        // Subscribe first
-        var confirmed = HubConnectionHelper.WaitForAsync<string>(conn, "SubscriptionConfirmed", Timeout);
-        await conn.InvokeAsync("SubscribeToTopic", "sensors/temperature");
-        await confirmed;
-
-        // Set up listener for data
-        var dataReceived = HubConnectionHelper.WaitForAsync<string, string, DateTime>(
-            conn, "ReceiveMqttData", Timeout);
-
-        // Inject a fake MQTT message
         await _factory.FakeMqttService.TriggerIncomingMessageAsync("sensors/temperature", "23.5");
 
-        var (topic, payload, _) = await dataReceived;
-        Assert.Equal("sensors/temperature", topic);
-        Assert.Equal("23.5", payload);
+        var value = await tcs.Task.WaitAsync(Timeout);
+        Assert.Equal("23.5", value);
     }
 
     [Fact]
-    public async Task UnsubscribedClient_DoesNotReceiveData()
+    public async Task Subscribe_ReceivesCurrentValue_WhenAlreadyCached()
     {
-        await using var subscribedConn = CreateConnection();
-        await using var unsubscribedConn = CreateConnection();
+        await _factory.FakeMqttService.SeedLastKnownValueAsync("snapshot/sensor", "42.0");
+        await _factory.FakeMqttService.SeedLastKnownValueAsync("snapshot/other", "on");
 
-        await subscribedConn.StartAsync();
-        await unsubscribedConn.StartAsync();
+        var cache = await ConnectedCacheAsync();
 
-        // Only subscribedConn subscribes
-        var confirmed = HubConnectionHelper.WaitForAsync<string>(subscribedConn, "SubscriptionConfirmed", Timeout);
-        await subscribedConn.InvokeAsync("SubscribeToTopic", "only/subscribed");
-        await confirmed;
+        var received = new Dictionary<string, string>();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        // Track whether unsubscribedConn receives anything
-        var unexpectedData = false;
-        unsubscribedConn.On<string, string, DateTime>("ReceiveMqttData", (_, __, ___) =>
-            unexpectedData = true);
+        cache.Subscribe("snapshot/sensor", sub =>
+        {
+            lock (received) { received[sub.Key] = sub.Value; }
+            if (received.Count >= 2) tcs.TrySetResult();
+            return Task.CompletedTask;
+        });
+        cache.Subscribe("snapshot/other", sub =>
+        {
+            lock (received) { received[sub.Key] = sub.Value; }
+            if (received.Count >= 2) tcs.TrySetResult();
+            return Task.CompletedTask;
+        });
 
-        await _factory.FakeMqttService.TriggerIncomingMessageAsync("only/subscribed", "hello");
+        await tcs.Task.WaitAsync(Timeout);
 
-        // Give a moment for any erroneous delivery
+        Assert.True(received.ContainsKey("snapshot/sensor"), "Should have snapshot/sensor");
+        Assert.Equal("42.0", received["snapshot/sensor"]);
+        Assert.True(received.ContainsKey("snapshot/other"), "Should have snapshot/other");
+        Assert.Equal("on", received["snapshot/other"]);
+    }
+
+    [Fact]
+    public async Task Unsubscribe_StopsReceivingData()
+    {
+        var cache = await ConnectedCacheAsync();
+
+        var callCount = 0;
+        var firstCallTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var sub = cache.Subscribe("unsub/topic", _ =>
+        {
+            if (Interlocked.Increment(ref callCount) == 1)
+                firstCallTcs.TrySetResult();
+            return Task.CompletedTask;
+        });
+
+        // Publish once and wait for confirmed delivery
+        await _factory.FakeMqttService.TriggerIncomingMessageAsync("unsub/topic", "before");
+        await firstCallTcs.Task.WaitAsync(Timeout);
+
+        // Dispose — no further callbacks should fire
+        sub.Dispose();
+
+        await _factory.FakeMqttService.TriggerIncomingMessageAsync("unsub/topic", "after");
+        await Task.Delay(300);
+
+        Assert.Equal(1, Volatile.Read(ref callCount));
+    }
+
+    [Fact]
+    public async Task MultipleClients_EachOnlyReceivesOwnSubscribedTopics()
+    {
+        var cacheA = await ConnectedCacheAsync();
+        var cacheB = await ConnectedCacheAsync();
+
+        var aTcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var bTcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        // Each cache subscribes only to its own topic
+        cacheA.Subscribe("isolation2/topic-a", sub =>
+        {
+            aTcs.TrySetResult(sub.Value);
+            return Task.CompletedTask;
+        });
+        cacheB.Subscribe("isolation2/topic-b", sub =>
+        {
+            bTcs.TrySetResult(sub.Value);
+            return Task.CompletedTask;
+        });
+
+        await _factory.FakeMqttService.TriggerIncomingMessageAsync("isolation2/topic-a", "for-a");
+        await _factory.FakeMqttService.TriggerIncomingMessageAsync("isolation2/topic-b", "for-b");
+
+        var aValue = await aTcs.Task.WaitAsync(Timeout);
+        var bValue = await bTcs.Task.WaitAsync(Timeout);
+
+        Assert.Equal("for-a", aValue);
+        Assert.Equal("for-b", bValue);
+    }
+
+    [Fact]
+    public async Task WildcardSubscription_MatchesMultipleTopics()
+    {
+        var cache = await ConnectedCacheAsync();
+
+        var received = new List<(string key, string value)>();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        cache.Subscribe("wildcard2/#", sub =>
+        {
+            lock (received)
+            {
+                received.RemoveAll(r => r.key == sub.Key); // keep only latest per key
+                received.Add((sub.Key, sub.Value));
+                if (received.Any(r => r.key == "wildcard2/a") && received.Any(r => r.key == "wildcard2/b"))
+                    tcs.TrySetResult();
+            }
+            return Task.CompletedTask;
+        });
+
+        // Give the async subscribe message time to reach the server before publishing.
         await Task.Delay(200);
-        Assert.False(unexpectedData, "Unsubscribed client should not receive data");
-    }
 
-    [Fact]
-    public async Task UnsubscribeFromTopic_ConfirmationReceived_And_NoFurtherData()
-    {
-        await using var conn = CreateConnection();
-        await conn.StartAsync();
+        await _factory.FakeMqttService.TriggerIncomingMessageAsync("wildcard2/a", "payload-a");
+        await _factory.FakeMqttService.TriggerIncomingMessageAsync("wildcard2/b", "payload-b");
 
-        // Subscribe
-        var subConfirmed = HubConnectionHelper.WaitForAsync<string>(conn, "SubscriptionConfirmed", Timeout);
-        await conn.InvokeAsync("SubscribeToTopic", "unsubtest/topic");
-        await subConfirmed;
+        await tcs.Task.WaitAsync(Timeout);
 
-        // Unsubscribe
-        var unsubConfirmed = HubConnectionHelper.WaitForAsync<string>(conn, "UnsubscriptionConfirmed", Timeout);
-        await conn.InvokeAsync("UnsubscribeFromTopic", "unsubtest/topic");
-        var unsubTopic = await unsubConfirmed;
-        Assert.Equal("unsubtest/topic", unsubTopic);
+        List<(string key, string value)> snapshot;
+        lock (received) { snapshot = received.ToList(); }
 
-        // Subsequent message should NOT arrive
-        var unexpectedData = false;
-        conn.On<string, string, DateTime>("ReceiveMqttData", (_, __, ___) => unexpectedData = true);
-        await _factory.FakeMqttService.TriggerIncomingMessageAsync("unsubtest/topic", "ignored");
-        await Task.Delay(200);
-        Assert.False(unexpectedData);
-    }
-
-    [Fact]
-    public async Task GetCurrentValuesForTopics_ReturnsCachedValues()
-    {
-        await _factory.FakeMqttService.SeedLastKnownValueAsync("cached/sensor", "42.0");
-        await _factory.FakeMqttService.SeedLastKnownValueAsync("cached/other", "on");
-
-        await using var conn = CreateConnection();
-        await conn.StartAsync();
-
-        // Subscribe so the filter matches
-        await conn.InvokeAsync("SubscribeToTopic", "cached/#");
-
-        var result = await conn.InvokeAsync<Dictionary<string, string>>(
-            "GetCurrentValuesForTopics", new List<string> { "cached/#" });
-
-        Assert.True(result.ContainsKey("cached/sensor"), "Should return cached/sensor");
-        Assert.Equal("42.0", result["cached/sensor"]);
-        Assert.True(result.ContainsKey("cached/other"), "Should return cached/other");
+        Assert.Contains(snapshot, r => r.key == "wildcard2/a" && r.value == "payload-a");
+        Assert.Contains(snapshot, r => r.key == "wildcard2/b" && r.value == "payload-b");
     }
 
     [Fact]
     public async Task DashboardTopics_ClientCountPublishedToCache()
     {
-        await using var conn1 = CreateConnection();
-        await using var conn2 = CreateConnection();
-        await conn1.StartAsync();
-        await conn2.StartAsync();
+        var cache = await ConnectedCacheAsync();
+        var tcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        // Register listener before subscribing so the immediate cache-seed fires it
-        var dataReceived = HubConnectionHelper.WaitForAsync<string, string, DateTime>(
-            conn1, "ReceiveMqttData", Timeout);
+        cache.Subscribe(DashboardTopics.ClientCount, sub =>
+        {
+            tcs.TrySetResult(sub.Value);
+            return Task.CompletedTask;
+        });
 
-        await conn1.InvokeAsync("SubscribeToTopic", "$DASHBOARD/CLIENTS/COUNT");
-
-        var (topic, payload, _) = await dataReceived;
-
-        Assert.Equal("$DASHBOARD/CLIENTS/COUNT", topic);
-        // Just verify it's a valid integer — exact count is non-deterministic in tests
-        // (the publisher tick may have fired before or after connections were established)
+        var payload = await tcs.Task.WaitAsync(Timeout);
         Assert.True(int.TryParse(payload, out _), $"Expected integer payload, got '{payload}'");
     }
 
     [Fact]
     public async Task DashboardTopics_BrokerInfoPublishedToCache()
     {
-        await using var conn = CreateConnection();
-        await conn.StartAsync();
+        var cache = await ConnectedCacheAsync();
+        var tcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        // Register listener before subscribing so the immediate cache-seed fires it
-        var dataReceived = HubConnectionHelper.WaitForAsync<string, string, DateTime>(
-            conn, "ReceiveMqttData", Timeout);
+        cache.Subscribe(DashboardTopics.MqttBroker, sub =>
+        {
+            tcs.TrySetResult(sub.Value);
+            return Task.CompletedTask;
+        });
 
-        await conn.InvokeAsync("SubscribeToTopic", "$DASHBOARD/MQTT/BROKER");
-
-        var (topic, payload, _) = await dataReceived;
-
-        Assert.Equal("$DASHBOARD/MQTT/BROKER", topic);
+        var payload = await tcs.Task.WaitAsync(Timeout);
         Assert.False(string.IsNullOrEmpty(payload));
-        // In production the format is "host:port"; in tests with a fake service it may be "unknown"
     }
 
-    [Fact]
-    public async Task MultipleClients_EachOnlyReceivesOwnSubscribedTopics()
+    public async ValueTask DisposeAsync()
     {
-        await using var connA = CreateConnection();
-        await using var connB = CreateConnection();
-        await connA.StartAsync();
-        await connB.StartAsync();
-
-        // A subscribes to topic-a, B subscribes to topic-b
-        var aConfirmed = HubConnectionHelper.WaitForAsync<string>(connA, "SubscriptionConfirmed", Timeout);
-        var bConfirmed = HubConnectionHelper.WaitForAsync<string>(connB, "SubscriptionConfirmed", Timeout);
-        await connA.InvokeAsync("SubscribeToTopic", "isolation/topic-a");
-        await connB.InvokeAsync("SubscribeToTopic", "isolation/topic-b");
-        await aConfirmed;
-        await bConfirmed;
-
-        var aReceived = HubConnectionHelper.WaitForAsync<string, string, DateTime>(connA, "ReceiveMqttData", Timeout);
-        var bReceived = HubConnectionHelper.WaitForAsync<string, string, DateTime>(connB, "ReceiveMqttData", Timeout);
-
-        // Trigger BOTH topics
-        await _factory.FakeMqttService.TriggerIncomingMessageAsync("isolation/topic-a", "for-a");
-        await _factory.FakeMqttService.TriggerIncomingMessageAsync("isolation/topic-b", "for-b");
-
-        var (aTopic, aPayload, _) = await aReceived;
-        var (bTopic, bPayload, _) = await bReceived;
-
-        Assert.Equal("isolation/topic-a", aTopic);
-        Assert.Equal("for-a", aPayload);
-        Assert.Equal("isolation/topic-b", bTopic);
-        Assert.Equal("for-b", bPayload);
+        foreach (var cache in _caches)
+            await cache.DisposeAsync();
     }
-
-    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }

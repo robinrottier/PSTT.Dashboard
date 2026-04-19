@@ -15,4 +15,5 @@ public static class DashboardTopics
     public const string MqttStatus     = "$DASHBOARD/MQTT/STATUS";
     public const string MqttBroker     = "$DASHBOARD/MQTT/BROKER";
     public const string MqttTopicCount = "$DASHBOARD/MQTT/TOPIC_COUNT";
+    public const string ClientCount    = "$DASHBOARD/CLIENTS/COUNT";
 }

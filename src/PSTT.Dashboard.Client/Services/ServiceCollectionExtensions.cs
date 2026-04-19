@@ -7,7 +7,7 @@ namespace PSTT.Dashboard.Services;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddMqttDashboardServices(this IServiceCollection services)
+    public static IServiceCollection AddDashboardServices(this IServiceCollection services)
     {
         services.AddMudServices(config =>
         {

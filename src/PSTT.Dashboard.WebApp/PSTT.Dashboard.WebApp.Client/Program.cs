@@ -5,7 +5,7 @@ using PSTT.Dashboard.Services;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
-builder.Services.AddMqttDashboardServices();
+builder.Services.AddDashboardServices();
 
 // Add HttpClient for API calls
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });

@@ -21,9 +21,9 @@ public static class WebApplicationBuilderExtensions
     /// <summary>
     /// Configures Serilog as the application logger with environment-aware console output:
     /// JSON in Production, human-readable template in Development/Test.
-    /// Call before <see cref="AddMqttDashboard"/> so startup errors are captured.
+    /// Call before <see cref="AddDashboard"/> so startup errors are captured.
     /// </summary>
-    public static WebApplicationBuilder AddMqttDashboardSerilog(this WebApplicationBuilder builder)
+    public static WebApplicationBuilder AddDashboardSerilog(this WebApplicationBuilder builder)
     {
         builder.Host.UseSerilog((ctx, services, config) =>
         {
@@ -44,10 +44,10 @@ public static class WebApplicationBuilderExtensions
     /// Resolves the data directory, creates it, migrates legacy user settings, registers
     /// <c>appsettings.user.json</c> from the data dir, and loads Home Assistant add-on options
     /// from <c>/data/options.json</c> when running inside an HA add-on container.
-    /// <para>Call this before <see cref="AddMqttDashboard"/> so that user settings and HA options
+    /// <para>Call this before <see cref="AddDashboard"/> so that user settings and HA options
     /// are available during service registration.</para>
     /// </summary>
-    public static WebApplicationBuilder AddMqttDashboardDataDirectory(this WebApplicationBuilder builder)
+    public static WebApplicationBuilder AddDashboardDataDirectory(this WebApplicationBuilder builder)
     {
         var dataDir = ResolveDataDir(builder.Configuration, builder.Environment.ContentRootPath);
         Directory.CreateDirectory(dataDir);
@@ -101,7 +101,7 @@ public static class WebApplicationBuilderExtensions
     /// <summary>
     /// Adds all services required for PSTT.Dashboard with the specified render mode.
     /// </summary>
-    public static WebApplicationBuilder AddMqttDashboard(
+    public static WebApplicationBuilder AddDashboard(
         this WebApplicationBuilder builder, 
         BlazorRenderMode renderMode)
     {
@@ -196,8 +196,8 @@ public static class WebApplicationBuilderExtensions
             !string.Equals(envName, "Production", StringComparison.OrdinalIgnoreCase))
             builder.WebHost.UseStaticWebAssets();
 
-        builder.Services.AddMqttDashboardServices();
-        builder.Services.AddMqttDashboardServerServices(builder.Configuration);
+        builder.Services.AddDashboardServices();
+        builder.Services.AddDashboardServerServices(builder.Configuration);
 
         // Add health checks
         builder.Services.AddHealthChecks()

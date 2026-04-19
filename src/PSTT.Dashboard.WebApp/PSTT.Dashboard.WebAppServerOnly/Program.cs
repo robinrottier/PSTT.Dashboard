@@ -10,13 +10,13 @@ try
 {
     var builder = WebApplication.CreateBuilder(args);
 
-    builder.AddMqttDashboardSerilog();
-    builder.AddMqttDashboardDataDirectory();
-    builder.AddMqttDashboard(BlazorRenderMode.InteractiveServer);
+    builder.AddDashboardSerilog();
+    builder.AddDashboardDataDirectory();
+    builder.AddDashboard(BlazorRenderMode.InteractiveServer);
 
     var app = builder.Build();
     app.UseSerilogRequestLogging();
-    app.UseMqttDashboard<App>(BlazorRenderMode.InteractiveServer);
+    app.UseDashboard<App>(BlazorRenderMode.InteractiveServer);
     app.Run();
 }
 catch (Exception ex) when (ex is not HostAbortedException)

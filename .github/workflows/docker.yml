@@ -8,7 +8,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: robinrottier/mqttdashboard
+  IMAGE_NAME: robinrottier/pstt-dashboard
 
 jobs:
   test:
@@ -17,24 +17,23 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0          # needed for MinVer to read git tags
+          submodules: recursive   # needed for PSTT submodule
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.x'
       - name: Restore workloads
         run: dotnet workload install wasm-tools
       - name: Build
-        run: dotnet build MqttDashboard.slnx -c Release
+        run: dotnet build PSTT.Dashboard.slnx -c Release
       - name: Test
         # Run each non-Playwright test project explicitly.
         # Playwright E2E tests require browsers + a running server — not available here.
         run: |
-          dotnet test tests/MqttDashboard.Client.Tests/MqttDashboard.Client.Tests.csproj \
+          dotnet test tests/PSTT.Dashboard.Client.Tests/PSTT.Dashboard.Client.Tests.csproj \
             -c Release --no-build --verbosity normal
-          dotnet test tests/MqttDashboard.Data.Tests/MqttDashboard.Data.Tests.csproj \
+          dotnet test tests/PSTT.Dashboard.Server.Tests/PSTT.Dashboard.Server.Tests.csproj \
             -c Release --no-build --verbosity normal
-          dotnet test tests/MqttDashboard.Server.Tests/MqttDashboard.Server.Tests.csproj \
-            -c Release --no-build --verbosity normal
-          dotnet test tests/MqttDashboard.IntegrationTests/MqttDashboard.IntegrationTests.csproj \
+          dotnet test tests/PSTT.Dashboard.IntegrationTests/PSTT.Dashboard.IntegrationTests.csproj \
             -c Release --no-build --verbosity normal
 
   build:
@@ -58,6 +57,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0          # needed for MinVer
+          submodules: recursive   # needed for PSTT submodule
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -80,7 +80,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: src/MqttDashboard.WebApp/MqttDashboard.WebApp/Dockerfile
+          file: src/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp/Dockerfile
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
           outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true

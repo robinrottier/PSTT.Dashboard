@@ -1,15 +1,17 @@
-using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.Extensions.DependencyInjection;
 using MQTTnet;
 using MQTTnet.Protocol;
+using PSTT.Mqtt;
+using PSTT.Remote;
 
 namespace PSTT.Dashboard.IntegrationTests;
 
 /// <summary>
 /// Tier B integration tests — real MQTT message flow.
 /// An in-process MQTTnet broker is started by <see cref="InProcessMqttBrokerFixture"/>;
-/// the real <see cref="PSTT.Dashboard.Server.Services.MqttClientService"/> connects to it.
-/// Tests publish messages via a separate MQTT client and verify they arrive at
-/// the SignalR <c>HubConnection</c>, exercising the full production code path.
+/// the real <see cref="PSTT.Dashboard.Server.Services.MqttHostedService"/> connects to it.
+/// Tests publish messages via a separate MQTT client and verify they arrive via
+/// a PSTT <see cref="RemoteCache{TValue}"/> client, exercising the full production code path.
 /// </summary>
 public class MqttFlowIntegrationTests : IClassFixture<InProcessMqttBrokerFixture>, IAsyncDisposable
 {
@@ -18,6 +20,7 @@ public class MqttFlowIntegrationTests : IClassFixture<InProcessMqttBrokerFixture
     private readonly InProcessMqttBrokerFixture _broker;
     private MqttBrokerIntegrationFactory? _factory;
     private IMqttClient? _publisherClient;
+    private readonly List<RemoteCache<string>> _caches = new();
 
     public MqttFlowIntegrationTests(InProcessMqttBrokerFixture broker)
     {
@@ -26,38 +29,28 @@ public class MqttFlowIntegrationTests : IClassFixture<InProcessMqttBrokerFixture
 
     // ── Setup ─────────────────────────────────────────────────────────────────
 
-    private async Task<(MqttBrokerIntegrationFactory factory, HubConnection conn)> StartAsync()
+    private async Task<(MqttBrokerIntegrationFactory factory, RemoteCache<string> cache)> StartAsync()
     {
         _factory = new MqttBrokerIntegrationFactory(_broker.Port);
+        var cache = HubConnectionHelper.CreateRemoteCache(_factory);
+        _caches.Add(cache);
+        await cache.ConnectAsync();
 
-        var conn = HubConnectionHelper.Create(_factory);
+        // Wait for MqttHostedService to connect to the in-process broker.
+        await WaitForMqttConnectedAsync(_factory);
 
-        // Register the status handler BEFORE StartAsync so we never miss the
-        // OnConnectedAsync broadcast that the hub sends immediately on connect.
-        // (On subsequent tests the broker is already up and MqttClientService
-        // connects in <5 ms — far faster than any post-StartAsync registration.)
-        var connectedTcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
-        conn.On<string, int>("MqttConnectionStatus", (status, _) =>
-        {
-            if (status == "Connected") connectedTcs.TrySetResult(status);
-        });
-
-        await conn.StartAsync();
-
-        // Wait for MqttClientService to report it is connected to the broker.
-        await WaitForConnectedAsync(connectedTcs);
-
-        return (_factory, conn);
+        return (_factory, cache);
     }
 
-    private static async Task WaitForConnectedAsync(TaskCompletionSource<string> tcs)
+    private static async Task WaitForMqttConnectedAsync(MqttBrokerIntegrationFactory factory)
     {
+        var mqttCache = factory.Services.GetRequiredService<MqttCache<string>>();
         var deadline = DateTime.UtcNow + Timeout;
-        while (!tcs.Task.IsCompleted && DateTime.UtcNow < deadline)
+        while (!mqttCache.IsConnected && DateTime.UtcNow < deadline)
             await Task.Delay(50);
 
-        if (!tcs.Task.IsCompleted)
-            throw new TimeoutException("MqttClientService did not connect to the in-process broker within the timeout.");
+        if (!mqttCache.IsConnected)
+            throw new TimeoutException("MqttHostedService did not connect to the in-process broker within the timeout.");
     }
 
     private async Task<IMqttClient> GetPublisherAsync()
@@ -91,44 +84,35 @@ public class MqttFlowIntegrationTests : IClassFixture<InProcessMqttBrokerFixture
     [Fact]
     public async Task Publish_Via_Broker_ClientReceivesData()
     {
-        var (_, conn) = await StartAsync();
-        await using var _ = conn;
+        var (_, cache) = await StartAsync();
 
-        // Subscribe via SignalR hub
-        var subConfirmed = HubConnectionHelper.WaitForAsync<string>(conn, "SubscriptionConfirmed", Timeout);
-        await conn.InvokeAsync("SubscribeToTopic", "flow/test");
-        await subConfirmed;
+        var tcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        cache.Subscribe("flow/test", sub =>
+        {
+            tcs.TrySetResult(sub.Value);
+            return Task.CompletedTask;
+        });
 
-        // Wait for data
-        var dataReceived = HubConnectionHelper.WaitForAsync<string, string, DateTime>(
-            conn, "ReceiveMqttData", Timeout);
-
-        // Publish via real MQTT client → broker → MqttClientService → SignalR
         var publisher = await GetPublisherAsync();
         await PublishAsync(publisher, "flow/test", "hello-from-broker");
 
-        var (topic, payload, _) = await dataReceived;
-        Assert.Equal("flow/test", topic);
-        Assert.Equal("hello-from-broker", payload);
+        var value = await tcs.Task.WaitAsync(Timeout);
+        Assert.Equal("hello-from-broker", value);
     }
 
     [Fact]
     public async Task WildcardSubscription_MatchesMultipleTopics()
     {
-        var (_, conn) = await StartAsync();
-        await using var _ = conn;
+        var (_, cache) = await StartAsync();
 
-        var subConfirmed = HubConnectionHelper.WaitForAsync<string>(conn, "SubscriptionConfirmed", Timeout);
-        await conn.InvokeAsync("SubscribeToTopic", "wildcard/#");
-        await subConfirmed;
-
-        // Collect multiple messages
-        var received = new List<(string topic, string payload)>();
+        var received = new List<(string key, string value)>();
         var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        conn.On<string, string, DateTime>("ReceiveMqttData", (t, p, _) =>
+
+        cache.Subscribe("wildcard/#", sub =>
         {
-            lock (received) { received.Add((t, p)); }
+            lock (received) { received.Add((sub.Key, sub.Value)); }
             if (received.Count >= 2) tcs.TrySetResult();
+            return Task.CompletedTask;
         });
 
         var publisher = await GetPublisherAsync();
@@ -137,8 +121,8 @@ public class MqttFlowIntegrationTests : IClassFixture<InProcessMqttBrokerFixture
 
         await tcs.Task.WaitAsync(Timeout);
 
-        Assert.Contains(received, r => r.topic == "wildcard/a" && r.payload == "payload-a");
-        Assert.Contains(received, r => r.topic == "wildcard/b" && r.payload == "payload-b");
+        Assert.Contains(received, r => r.key == "wildcard/a" && r.value == "payload-a");
+        Assert.Contains(received, r => r.key == "wildcard/b" && r.value == "payload-b");
     }
 
     [Fact]
@@ -153,22 +137,24 @@ public class MqttFlowIntegrationTests : IClassFixture<InProcessMqttBrokerFixture
         // Give the broker a moment to store it
         await Task.Delay(100);
 
-        var (_, conn) = await StartAsync();
-        await using var _ = conn;
+        var (_, cache) = await StartAsync();
 
-        var dataReceived = HubConnectionHelper.WaitForAsync<string, string, DateTime>(
-            conn, "ReceiveMqttData", Timeout);
+        var tcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        cache.Subscribe(retainedTopic, sub =>
+        {
+            tcs.TrySetResult(sub.Value);
+            return Task.CompletedTask;
+        });
 
-        // Subscribe — broker should immediately deliver the retained message
-        await conn.InvokeAsync("SubscribeToTopic", retainedTopic);
-
-        var (topic, payload, _) = await dataReceived;
-        Assert.Equal(retainedTopic, topic);
-        Assert.Equal("retained-value", payload);
+        var value = await tcs.Task.WaitAsync(Timeout);
+        Assert.Equal("retained-value", value);
     }
 
     public async ValueTask DisposeAsync()
     {
+        foreach (var cache in _caches)
+            await cache.DisposeAsync();
+
         if (_publisherClient != null)
         {
             if (_publisherClient.IsConnected)

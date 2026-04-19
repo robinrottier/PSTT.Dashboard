@@ -16,7 +16,7 @@ public static class WebApplicationExtensions
     /// <summary>
     /// Configures the HTTP request pipeline for PSTT.Dashboard with the specified render mode
     /// </summary>
-    public static WebApplication UseMqttDashboard<TApp>(
+    public static WebApplication UseDashboard<TApp>(
         this WebApplication app,
         BlazorRenderMode renderMode) where TApp : IComponent
     {

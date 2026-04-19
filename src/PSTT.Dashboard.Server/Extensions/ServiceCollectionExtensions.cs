@@ -13,7 +13,7 @@ namespace PSTT.Dashboard.Server.Extensions;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddMqttDashboardServerServices(
+    public static IServiceCollection AddDashboardServerServices(
         this IServiceCollection services, IConfiguration configuration)
     {
         // ── PSTT transport stack ──────────────────────────────────────────────
@@ -38,7 +38,7 @@ public static class ServiceCollectionExtensions
         var serverCache = new ServerDataCache(mqttCache);
         services.AddSingleton(serverCache);
 
-        // Register as ICache<string,string> for same-process mode (see AddMqttDashboardSameProcess)
+        // Register as ICache<string,string> for same-process mode (see AddDashboardSameProcess)
         services.AddSingleton<ICache<string,string>>(serverCache);
 
         // Reconnect loop
@@ -80,13 +80,13 @@ public static class ServiceCollectionExtensions
     /// <summary>
     /// Additional bindings for a same-process host (e.g. MAUI Blazor) where server and client
     /// run in a single DI container with no SignalR transport.
-    /// Call after <see cref="AddMqttDashboardServerServices"/> and
-    /// <see cref="PSTT.Dashboard.Services.ServiceCollectionExtensions.AddMqttDashboardServices"/>.
+    /// Call after <see cref="AddDashboardServerServices"/> and
+    /// <see cref="PSTT.Dashboard.Services.ServiceCollectionExtensions.AddDashboardServices"/>.
     /// </summary>
-    public static IServiceCollection AddMqttDashboardSameProcess(this IServiceCollection services)
+    public static IServiceCollection AddDashboardSameProcess(this IServiceCollection services)
     {
         // Nothing extra required: ICache<string,string> singleton is already registered
-        // to ServerDataCache in AddMqttDashboardServerServices, so ApplicationState picks it up directly.
+        // to ServerDataCache in AddDashboardServerServices, so ApplicationState picks it up directly.
         return services;
     }
 

@@ -2,6 +2,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PSTT.Data;
 using PSTT.Mqtt;
+using PSTT.Remote.AspNetCore.SignalR;
 using System.Reflection;
 
 namespace PSTT.Dashboard.Server.Services;
@@ -16,6 +17,8 @@ public sealed class DashboardMetricsPublisher : BackgroundService
 {
     private readonly ServerDataCache _cache;
     private readonly MqttCache<string> _mqttCache;
+    private readonly SignalRServerTransport _signalRTransport;
+    private readonly string _brokerInfo;
     private readonly UpdateCheckService _updateCheckService;
     private readonly ILogger<DashboardMetricsPublisher> _logger;
     private readonly DateTime _startTime = DateTime.UtcNow;
@@ -23,18 +26,25 @@ public sealed class DashboardMetricsPublisher : BackgroundService
     public DashboardMetricsPublisher(
         ServerDataCache cache,
         MqttCache<string> mqttCache,
+        SignalRServerTransport signalRTransport,
         UpdateCheckService updateCheckService,
-        ILogger<DashboardMetricsPublisher> logger)
+        ILogger<DashboardMetricsPublisher> logger,
+        Microsoft.Extensions.Configuration.IConfiguration configuration)
     {
         _cache = cache;
         _mqttCache = mqttCache;
+        _signalRTransport = signalRTransport;
         _updateCheckService = updateCheckService;
         _logger = logger;
+        var broker = configuration["MqttSettings:Broker"] ?? "localhost";
+        var port   = configuration["MqttSettings:Port"]   ?? "1883";
+        _brokerInfo = $"{broker}:{port}";
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _ = _cache.PublishAsync(DashboardTopics.Version, ReadVersion());
+        _ = _cache.PublishAsync(DashboardTopics.MqttBroker, _brokerInfo);
 
         try
         {
@@ -45,6 +55,7 @@ public sealed class DashboardMetricsPublisher : BackgroundService
                 _ = _cache.PublishAsync(DashboardTopics.Uptime, FormatUptime(DateTime.UtcNow - _startTime));
                 _ = _cache.PublishAsync(DashboardTopics.MqttTopicCount, _cache.Count.ToString());
                 _ = _cache.PublishAsync(DashboardTopics.MqttStatus, _mqttCache.IsConnected ? "Connected" : "Disconnected");
+                _ = _cache.PublishAsync(DashboardTopics.ClientCount, _signalRTransport.ConnectionCount.ToString());
 
                 var latest = _updateCheckService.UpdateInfo.LatestVersion;
                 if (!string.IsNullOrEmpty(latest))

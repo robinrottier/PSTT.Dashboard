@@ -10,8 +10,8 @@ try
 {
     var builder = WebApplication.CreateBuilder(args);
 
-    builder.AddMqttDashboardSerilog();
-    builder.AddMqttDashboardDataDirectory();
+    builder.AddDashboardSerilog();
+    builder.AddDashboardDataDirectory();
 
     var renderModeConfig = builder.Configuration["RenderMode"] ?? "Auto";
     var renderMode = renderModeConfig.ToLowerInvariant() switch
@@ -21,11 +21,11 @@ try
         _             => BlazorRenderMode.InteractiveAuto
     };
 
-    builder.AddMqttDashboard(renderMode);
+    builder.AddDashboard(renderMode);
 
     var app = builder.Build();
     app.UseSerilogRequestLogging();
-    app.UseMqttDashboard<App>(renderMode);
+    app.UseDashboard<App>(renderMode);
     app.Run();
 }
 catch (Exception ex) when (ex is not HostAbortedException)

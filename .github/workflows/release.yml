@@ -27,6 +27,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0          # needed for MinVer
+          submodules: recursive   # needed for PSTT submodule
 
       - uses: actions/setup-dotnet@v5
         with:
@@ -45,7 +46,7 @@ jobs:
       - name: Publish self-contained binary
         shell: bash
         run: |
-          dotnet publish src/MqttDashboard.WebApp/MqttDashboard.WebApp/MqttDashboard.WebApp.csproj \
+          dotnet publish src/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp.csproj \
             -c Release \
             -r ${{ matrix.runtime }} \
             --self-contained true \
@@ -73,19 +74,19 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           cd artifacts/${{ matrix.runtime }}
-          zip -r ../../mqttdashboard-${{ matrix.runtime }}.zip .
+          zip -r ../../pstt-dashboard-${{ matrix.runtime }}.zip .
 
       - name: Zip artifact (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          Compress-Archive -Path "artifacts\${{ matrix.runtime }}\*" -DestinationPath "mqttdashboard-${{ matrix.runtime }}.zip"
+          Compress-Archive -Path "artifacts\${{ matrix.runtime }}\*" -DestinationPath "pstt-dashboard-${{ matrix.runtime }}.zip"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: mqttdashboard-${{ matrix.runtime }}
-          path: mqttdashboard-${{ matrix.runtime }}.zip
+          name: pstt-dashboard-${{ matrix.runtime }}
+          path: pstt-dashboard-${{ matrix.runtime }}.zip
 
   create-release:
     runs-on: ubuntu-latest
