@@ -12,7 +12,7 @@
         <MudCardContent>
             <MudTextField @bind-Value="_category" 
                           Label="Logger Category" 
-                          Placeholder="e.g., MqttDashboard.Services"
+                          Placeholder="e.g., PSTT.Dashboard.Services"
                           Variant="Variant.Outlined" 
                           Class="mb-3" />
 
@@ -57,7 +57,7 @@
 </MudContainer>
 
 @code {
-    private string _category = "MqttDashboard";
+    private string _category = "PSTT.Dashboard";
     private LogLevel _selectedLevel = LogLevel.Information;
     private string _message = string.Empty;
     private ILogger? _testLogger;

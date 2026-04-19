@@ -152,7 +152,7 @@ public sealed class PlaywrightWebAppFixture : IAsyncLifetime
                 "Could not find solution root from " + AppContext.BaseDirectory);
 
         return Path.Combine(
-            dir.FullName, "src", "MqttDashboard.WebApp", "MqttDashboard.WebAppServerOnly");
+            dir.FullName, "src", "PSTT.Dashboard.WebApp", "PSTT.Dashboard.WebAppServerOnly");
     }
 
     private static int FindFreePort()

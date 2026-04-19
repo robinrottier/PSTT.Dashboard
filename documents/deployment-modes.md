@@ -1,6 +1,6 @@
 # Deployment Modes
 
-MqttDashboard supports several deployment configurations that differ in how editing is
+PSTT.Dashboard supports several deployment configurations that differ in how editing is
 controlled and in which Blazor rendering strategy is used. This document covers all options,
 when to choose each, and the future direction for even finer-grained control.
 
@@ -139,7 +139,7 @@ in-memory state — clients on the read-only port would need to reload the page 
 
 ### WebApp image — configurable via `RenderMode`
 
-The standard Docker image (`MqttDashboard.WebApp`) supports three render modes selectable at
+The standard Docker image (`PSTT.Dashboard.WebApp`) supports three render modes selectable at
 runtime via the `RenderMode` environment variable:
 
 | `RenderMode` value | Blazor strategy | WASM bundle delivered? | Notes |
@@ -158,7 +158,7 @@ unconditionally) but are never requested or sent to clients.
 
 ### WebAppServerOnly — dedicated Blazor Server project
 
-`MqttDashboard.WebAppServerOnly` is a dedicated Blazor Server project with no WASM dependency.
+`PSTT.Dashboard.WebAppServerOnly` is a dedicated Blazor Server project with no WASM dependency.
 Its Docker image is **smaller** (no WASM bundle files), builds **faster** (no `wasm-tools` workload
 required), and uses `InteractiveServer` render mode directly rather than `InteractiveAuto` falling
 through to Server.
@@ -183,9 +183,9 @@ with editing code stripped entirely.
 This becomes worthwhile as part of a broader project restructure:
 
 ```
-MqttDashboard.Core          ← pure C#, no Blazor (models, services, MQTT logic)
-MqttDashboard.View          ← Blazor components for viewing only (no editing UI)
-MqttDashboard.Client        ← adds editing UI on top of .View
+PSTT.Dashboard.Core          ← pure C#, no Blazor (models, services, MQTT logic)
+PSTT.Dashboard.View          ← Blazor components for viewing only (no editing UI)
+PSTT.Dashboard.Client        ← adds editing UI on top of .View
 ```
 
 A read-only host would reference only `.Core` + `.View`, resulting in a genuinely minimal
@@ -193,5 +193,5 @@ deployment with no editing surface at all — neither at runtime nor in the bina
 particularly valuable for Blazor WASM deployments where the bundle is downloaded by every client.
 
 The `.Core` project (pure C#, no Blazor) is distinct from `.View` (Blazor view components).
-Both differ from the current `MqttDashboard.Client` which bundles everything together.
+Both differ from the current `PSTT.Dashboard.Client` which bundles everything together.
 This split is not yet scheduled but is a natural evolution of the architecture.

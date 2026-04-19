@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Release automation helper for MqttDashboard.
+    Release automation helper for PSTT.Dashboard.
 
 .DESCRIPTION
     Performs a full patch-release workflow from local source:
@@ -324,9 +324,9 @@ function Step-CleanTree {
 # ─── Step: build-debug ───────────────────────────────────────────────────────
 function Step-BuildDebug {
     Write-Step "Building (Debug)..."
-    Assert-Cmd dotnet @('build', 'MqttDashboard.slnx', '-c', 'Debug') "Debug build failed"
+    Assert-Cmd dotnet @('build', 'PSTT.Dashboard.slnx', '-c', 'Debug') "Debug build failed"
     Write-Step "Testing (Debug) [filter: $EffTestFilter]..."
-    Assert-Cmd dotnet @('test', 'MqttDashboard.slnx', '-c', 'Debug', '--no-build', '--filter', $EffTestFilter) "Debug tests failed"
+    Assert-Cmd dotnet @('test', 'PSTT.Dashboard.slnx', '-c', 'Debug', '--no-build', '--filter', $EffTestFilter) "Debug tests failed"
     Write-Ok "Debug build + tests passed"
 }
 
@@ -337,10 +337,10 @@ function Step-BuildRelease {
         Write-Step "Building Debug + Release in parallel..."
         $dOut  = [System.IO.Path]::GetTempFileName()
         $rOut  = [System.IO.Path]::GetTempFileName()
-        $dCmd  = "dotnet build MqttDashboard.slnx -c Debug && dotnet test MqttDashboard.slnx -c Debug --no-build"
+        $dCmd  = "dotnet build PSTT.Dashboard.slnx -c Debug && dotnet test PSTT.Dashboard.slnx -c Debug --no-build"
         $filter = $EffTestFilter
-        $rTest = if ($IsSkipTests) { '' } else { " && dotnet test MqttDashboard.slnx -c Release --no-build --filter `"$filter`"" }
-        $rCmd  = "dotnet build MqttDashboard.slnx -c Release$rTest"
+        $rTest = if ($IsSkipTests) { '' } else { " && dotnet test PSTT.Dashboard.slnx -c Release --no-build --filter `"$filter`"" }
+        $rCmd  = "dotnet build PSTT.Dashboard.slnx -c Release$rTest"
         $p1 = Start-Process pwsh -ArgumentList @('-NoProfile','-Command',$dCmd) -PassThru -RedirectStandardOutput $dOut -RedirectStandardError "$dOut.err" -NoNewWindow
         $p2 = Start-Process pwsh -ArgumentList @('-NoProfile','-Command',$rCmd) -PassThru -RedirectStandardOutput $rOut -RedirectStandardError "$rOut.err" -NoNewWindow
         Wait-Process -Id $p1.Id, $p2.Id
@@ -354,17 +354,17 @@ function Step-BuildRelease {
     }
 
     Write-Step "Building (Release)..."
-    Assert-Cmd dotnet @('build', 'MqttDashboard.slnx', '-c', 'Release') "Release build failed"
+    Assert-Cmd dotnet @('build', 'PSTT.Dashboard.slnx', '-c', 'Release') "Release build failed"
     if ($IsSkipTests) { Write-Warn "Skipping Release tests (-SkipReleaseTests)"; return }
     Write-Step "Testing (Release) [filter: $EffTestFilter]..."
-    Assert-Cmd dotnet @('test', 'MqttDashboard.slnx', '-c', 'Release', '--no-build', '--filter', $EffTestFilter) "Release tests failed"
+    Assert-Cmd dotnet @('test', 'PSTT.Dashboard.slnx', '-c', 'Release', '--no-build', '--filter', $EffTestFilter) "Release tests failed"
     Write-Ok "Release build + tests passed"
 }
 
 # ─── Step: publish-check ─────────────────────────────────────────────────────
 function Step-PublishCheck {
     if ($IsSkipPublish) { Write-Warn "Skipping publish-check (-SkipPublishCheck)"; return }
-    $proj   = Join-Path $RepoRoot 'src' 'MqttDashboard.WebApp' 'MqttDashboard.WebApp' 'MqttDashboard.WebApp.csproj'
+    $proj   = Join-Path $RepoRoot 'src' 'PSTT.Dashboard.WebApp' 'PSTT.Dashboard.WebApp' 'PSTT.Dashboard.WebApp.csproj'
     $outDir = Join-Path $RepoRoot 'artifacts' 'publish-check'
     Write-Step "Publishing self-contained (Release, linux-x64)..."
     try {
@@ -387,7 +387,7 @@ function Step-DockerBuild {
         Write-Warn "Docker daemon not running — skipping docker-build"
         return
     }
-    $dockerfile = Join-Path 'src' 'MqttDashboard.WebApp' 'MqttDashboard.WebApp' 'Dockerfile'
+    $dockerfile = Join-Path 'src' 'PSTT.Dashboard.WebApp' 'PSTT.Dashboard.WebApp' 'Dockerfile'
     Write-Step "Building Docker image (local, no push)..."
     Assert-Cmd docker @('build', '-f', $dockerfile, '-t', 'mqttdashboard:local', '.') "docker build failed"
     Write-Ok "Docker image built: mqttdashboard:local"

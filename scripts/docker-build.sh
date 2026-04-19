@@ -12,7 +12,7 @@ cd "$REPO_ROOT"
 echo "Building Docker image $IMAGE:$TAG..."
 docker build \
     -t "$IMAGE:$TAG" \
-    -f MqttDashboard.WebApp/MqttDashboard.WebApp/Dockerfile \
+    -f PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp/Dockerfile \
     .
 
 if [[ "$PUSH" == "true" ]]; then

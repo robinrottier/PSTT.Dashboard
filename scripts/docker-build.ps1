@@ -8,7 +8,7 @@ $Image = "ghcr.io/robinrottier/mqttdashboard"
 
 Set-Location $RepoRoot
 Write-Host "Building $Image:$Tag..." -ForegroundColor Cyan
-docker build -t "${Image}:${Tag}" -f MqttDashboard.WebApp\MqttDashboard.WebApp\Dockerfile .
+docker build -t "${Image}:${Tag}" -f PSTT.Dashboard.WebApp\PSTT.Dashboard.WebApp\Dockerfile .
 if ($Push) {
     Write-Host "Pushing ${Image}:${Tag}..." -ForegroundColor Cyan
     docker push "${Image}:${Tag}"

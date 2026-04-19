@@ -23,8 +23,8 @@ public class UpdateInfo
 
 public class UpdateCheckService : BackgroundService
 {
-    private const string GitHubApiUrl = "https://api.github.com/repos/robinrottier/MqttDashboard/releases/latest";
-    private const string UserAgent = "MqttDashboard-UpdateChecker/1.0";
+    private const string GitHubApiUrl = "https://api.github.com/repos/robinrottier/PSTT.Dashboard/releases/latest";
+    private const string UserAgent = "PSTT.Dashboard-UpdateChecker/1.0";
     private readonly ILogger<UpdateCheckService> _logger;
     private readonly HttpClient _httpClient;
 

@@ -14,7 +14,7 @@ namespace PSTT.Dashboard.Server.Extensions;
 public static class WebApplicationExtensions
 {
     /// <summary>
-    /// Configures the HTTP request pipeline for MqttDashboard with the specified render mode
+    /// Configures the HTTP request pipeline for PSTT.Dashboard with the specified render mode
     /// </summary>
     public static WebApplication UseMqttDashboard<TApp>(
         this WebApplication app,

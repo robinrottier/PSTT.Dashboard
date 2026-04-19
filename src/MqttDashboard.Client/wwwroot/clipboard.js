@@ -1,4 +1,4 @@
-// Clipboard interop helpers for MqttDashboard node copy/paste across browser windows.
+// Clipboard interop helpers for PSTT.Dashboard node copy/paste across browser windows.
 // Uses the async Clipboard API (requires user gesture and HTTPS / localhost).
 // Both functions return null on failure so callers can fall back to the in-memory clipboard.
 

@@ -7,7 +7,7 @@ if not exist *.slnx (
 	exit /b 1
 )
 
-set sln=.\MqttDashboard.slnx
+set sln=.\PSTT.Dashboard.slnx
 if not exist "%sln%" (
 	echo Solution file "%sln%" not found.
 	exit /b 1

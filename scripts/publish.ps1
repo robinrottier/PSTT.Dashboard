@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Publish MqttDashboard as a self-contained single-file executable.
+    Publish PSTT.Dashboard as a self-contained single-file executable.
 .PARAMETER Runtime
     Target runtime (default: win-x64). Options: win-x64, win-arm64, linux-x64, linux-arm64
 .PARAMETER Configuration
@@ -16,11 +16,11 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ProjectPath = "$PSScriptRoot\..\src\MqttDashboard.WebApp\MqttDashboard.WebApp\MqttDashboard.WebApp.csproj"
+$ProjectPath = "$PSScriptRoot\..\src\PSTT.Dashboard.WebApp\PSTT.Dashboard.WebApp\PSTT.Dashboard.WebApp.csproj"
 $OutputDir = "$PSScriptRoot\..\artifacts\$Runtime"
 $ArtifactsDir = "$PSScriptRoot\..\artifacts"
 
-Write-Host "Publishing MqttDashboard for $Runtime..." -ForegroundColor Cyan
+Write-Host "Publishing PSTT.Dashboard for $Runtime..." -ForegroundColor Cyan
 
 # Build publish args
 $publishArgs = @(

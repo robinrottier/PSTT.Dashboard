@@ -104,7 +104,7 @@ public class UpdateController : ControllerBase
 
             _logger.LogInformation("Downloading update from {Url}", info.DownloadAssetUrl);
             using var http = new HttpClient();
-            http.DefaultRequestHeaders.Add("User-Agent", "MqttDashboard-Updater/1.0");
+            http.DefaultRequestHeaders.Add("User-Agent", "PSTT.Dashboard-Updater/1.0");
             var bytes = await http.GetByteArrayAsync(info.DownloadAssetUrl);
             await System.IO.File.WriteAllBytesAsync(zipPath, bytes);
 
@@ -114,7 +114,7 @@ public class UpdateController : ControllerBase
             ZipFile.ExtractToDirectory(zipPath, extractDir);
 
             // Write update script
-            var currentExe = Environment.ProcessPath ?? "MqttDashboard.WebApp";
+            var currentExe = Environment.ProcessPath ?? "PSTT.Dashboard.WebApp";
             var newExe = Path.Combine(extractDir, Path.GetFileName(currentExe));
             string scriptPath;
 

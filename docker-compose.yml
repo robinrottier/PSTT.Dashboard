@@ -2,7 +2,7 @@ services:
   mqttdashboard:
     build:
       context: .
-      dockerfile: src/MqttDashboard.WebApp/MqttDashboard.WebApp/Dockerfile
+      dockerfile: src/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp/Dockerfile
     ports:
       - "8080:8080"   # read-only public port
       - "8081:8081"   # read-write admin port

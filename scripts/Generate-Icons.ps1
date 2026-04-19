@@ -8,11 +8,11 @@
     every <rect> and <line> element proportionally to the target PNG dimensions.
 
     AppIcons.cs (the C# MudBlazor icon constant) is generated automatically by
-    the MqttDashboard.SourceGenerators Roslyn source generator at compile time
+    the PSTT.Dashboard.SourceGenerators Roslyn source generator at compile time
     — no script needed for that file.
 
     This script is called by the MSBuild target GenerateIconPngs in
-    MqttDashboard.Client.csproj when the SVG is newer than the PNG outputs,
+    PSTT.Dashboard.Client.csproj when the SVG is newer than the PNG outputs,
     or run manually with -Force to always regenerate.
 
 .PARAMETER Force
@@ -25,7 +25,7 @@
 param([switch]$Force)
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$wwwroot  = Join-Path $repoRoot "src\MqttDashboard.Client\wwwroot"
+$wwwroot  = Join-Path $repoRoot "src\PSTT.Dashboard.Client\wwwroot"
 $svgPath  = Join-Path $wwwroot "mqttdashboard-icon.svg"
 
 $targets = @(

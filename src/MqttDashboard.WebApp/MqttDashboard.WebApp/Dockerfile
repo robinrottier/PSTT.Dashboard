@@ -10,29 +10,29 @@ RUN dotnet workload install wasm-tools
 
 # Copy all project files (for layer caching on package restore)
 COPY src/Directory.Build.props      src/
-COPY src/MqttDashboard.Client/MqttDashboard.Client.csproj                                                           src/MqttDashboard.Client/
-COPY src/MqttDashboard.Data/MqttDashboard.Data.csproj                                                               src/MqttDashboard.Data/
-COPY src/MqttDashboard.Mqtt/MqttDashboard.Mqtt.csproj                                                               src/MqttDashboard.Mqtt/
-COPY src/MqttDashboard.Server/MqttDashboard.Server.csproj                                                           src/MqttDashboard.Server/
-COPY src/MqttDashboard.SourceGenerators/MqttDashboard.SourceGenerators.csproj                                       src/MqttDashboard.SourceGenerators/
-COPY src/MqttDashboard.WebApp/MqttDashboard.WebApp.Client/MqttDashboard.WebApp.Client.csproj                        src/MqttDashboard.WebApp/MqttDashboard.WebApp.Client/
-COPY src/MqttDashboard.WebApp/MqttDashboard.WebApp/MqttDashboard.WebApp.csproj                                      src/MqttDashboard.WebApp/MqttDashboard.WebApp/
+COPY src/PSTT.Dashboard.Client/PSTT.Dashboard.Client.csproj                                                           src/PSTT.Dashboard.Client/
+COPY src/PSTT.Dashboard.Data/PSTT.Dashboard.Data.csproj                                                               src/PSTT.Dashboard.Data/
+COPY src/PSTT.Dashboard.Mqtt/PSTT.Dashboard.Mqtt.csproj                                                               src/PSTT.Dashboard.Mqtt/
+COPY src/PSTT.Dashboard.Server/PSTT.Dashboard.Server.csproj                                                           src/PSTT.Dashboard.Server/
+COPY src/PSTT.Dashboard.SourceGenerators/PSTT.Dashboard.SourceGenerators.csproj                                       src/PSTT.Dashboard.SourceGenerators/
+COPY src/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp.Client/PSTT.Dashboard.WebApp.Client.csproj                        src/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp.Client/
+COPY src/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp.csproj                                      src/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp/
 
 # Restore dependencies (after workload install so WASM targets are available)
-RUN dotnet restore src/MqttDashboard.WebApp/MqttDashboard.WebApp/MqttDashboard.WebApp.csproj
+RUN dotnet restore src/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp.csproj
 
 # Copy the rest of the source and .git so MinVer can resolve the version from tags
 COPY .git/ .git/
-COPY src/MqttDashboard.Client/      src/MqttDashboard.Client/
-COPY src/MqttDashboard.Data/        src/MqttDashboard.Data/
-COPY src/MqttDashboard.Mqtt/        src/MqttDashboard.Mqtt/
-COPY src/MqttDashboard.Server/      src/MqttDashboard.Server/
-COPY src/MqttDashboard.SourceGenerators/ src/MqttDashboard.SourceGenerators/
-COPY src/MqttDashboard.WebApp/      src/MqttDashboard.WebApp/
+COPY src/PSTT.Dashboard.Client/      src/PSTT.Dashboard.Client/
+COPY src/PSTT.Dashboard.Data/        src/PSTT.Dashboard.Data/
+COPY src/PSTT.Dashboard.Mqtt/        src/PSTT.Dashboard.Mqtt/
+COPY src/PSTT.Dashboard.Server/      src/PSTT.Dashboard.Server/
+COPY src/PSTT.Dashboard.SourceGenerators/ src/PSTT.Dashboard.SourceGenerators/
+COPY src/PSTT.Dashboard.WebApp/      src/PSTT.Dashboard.WebApp/
 
 # Publish the server project (this also builds & includes the WASM client).
 # MinVer reads .git to resolve the version from the nearest tag automatically.
-RUN dotnet publish src/MqttDashboard.WebApp/MqttDashboard.WebApp/MqttDashboard.WebApp.csproj \
+RUN dotnet publish src/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp.csproj \
     -c Release \
     -o /app/publish
 
@@ -52,4 +52,4 @@ EXPOSE 8080 8081
 ENV ASPNETCORE_URLS=http://+:8080;http://+:8081
 ENV ASPNETCORE_ENVIRONMENT=Production
 
-ENTRYPOINT ["dotnet", "MqttDashboard.WebApp.dll"]
+ENTRYPOINT ["dotnet", "PSTT.Dashboard.WebApp.dll"]

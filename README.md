@@ -1,4 +1,4 @@
-# MqttDashboard
+# PSTT.Dashboard
 
 A live, node-based dashboard editor driven by real-time MQTT data.
 
@@ -117,7 +117,7 @@ docker run -d --name mqttdashboard -p 8080:8080 \
    ```bash
    sudo mkdir -p /opt/mqttdashboard
    sudo unzip mqttdashboard-linux-arm64.zip -d /opt/mqttdashboard
-   sudo chmod +x /opt/mqttdashboard/MqttDashboard.WebApp
+   sudo chmod +x /opt/mqttdashboard/PSTT.Dashboard.WebApp
    ```
 
 3. Copy `appsettings.sample.json` to `appsettings.json` and edit your MQTT broker settings.
@@ -127,13 +127,13 @@ docker run -d --name mqttdashboard -p 8080:8080 \
    ```ini
    # /etc/systemd/system/mqttdashboard.service
    [Unit]
-   Description=MqttDashboard
+   Description=PSTT.Dashboard
    After=network.target
 
    [Service]
    Type=simple
    WorkingDirectory=/opt/mqttdashboard
-   ExecStart=/opt/mqttdashboard/MqttDashboard.WebApp
+   ExecStart=/opt/mqttdashboard/PSTT.Dashboard.WebApp
    Restart=on-failure
    Environment=ASPNETCORE_URLS=http://+:8080
    Environment=ASPNETCORE_ENVIRONMENT=Production
@@ -163,11 +163,11 @@ Extract, copy `appsettings.sample.json` to `appsettings.json`, edit your MQTT se
 
 ```bash
 # Linux / macOS
-chmod +x ./MqttDashboard.WebApp
-./MqttDashboard.WebApp
+chmod +x ./PSTT.Dashboard.WebApp
+./PSTT.Dashboard.WebApp
 
 # Windows
-MqttDashboard.WebApp.exe
+PSTT.Dashboard.WebApp.exe
 ```
 
 ### Home Assistant add-on
@@ -230,8 +230,8 @@ See [Deployment modes](documents/deployment-modes.md) for detailed guidance on a
 # Prerequisites: .NET 10 SDK
 dotnet workload install wasm-tools   # one-time
 
-dotnet build MqttDashboard.slnx
-dotnet test  MqttDashboard.slnx
+dotnet build PSTT.Dashboard.slnx
+dotnet test  PSTT.Dashboard.slnx
 
 # Run with Docker Compose (builds from source)
 docker compose up --build

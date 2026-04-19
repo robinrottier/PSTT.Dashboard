@@ -6,7 +6,7 @@ namespace PSTT.Dashboard.IntegrationTests;
 /// <summary>
 /// <see cref="WebApplicationFactory{TEntryPoint}"/> for Tier B integration tests.
 /// Configures the app to connect to an in-process MQTT broker started by
-/// <see cref="InProcessMqttBrokerFixture"/>. The real <see cref="MqttDashboard.Server.Services.MqttClientService"/>
+/// <see cref="InProcessMqttBrokerFixture"/>. The real <see cref="PSTT.Dashboard.Server.Services.MqttClientService"/>
 /// runs unmodified — tests publish via a separate MQTT client and observe SignalR output.
 /// </summary>
 public class MqttBrokerIntegrationFactory : WebApplicationFactory<Program>

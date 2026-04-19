@@ -81,7 +81,7 @@ public static class ServiceCollectionExtensions
     /// Additional bindings for a same-process host (e.g. MAUI Blazor) where server and client
     /// run in a single DI container with no SignalR transport.
     /// Call after <see cref="AddMqttDashboardServerServices"/> and
-    /// <see cref="MqttDashboard.Services.ServiceCollectionExtensions.AddMqttDashboardServices"/>.
+    /// <see cref="PSTT.Dashboard.Services.ServiceCollectionExtensions.AddMqttDashboardServices"/>.
     /// </summary>
     public static IServiceCollection AddMqttDashboardSameProcess(this IServiceCollection services)
     {

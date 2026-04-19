@@ -1,7 +1,7 @@
 namespace PSTT.Dashboard.Models;
 
 /// <summary>
-/// Returned by <see cref="MqttDashboard.Components.ImportNodesDialog"/> when the user confirms an import.
+/// Returned by <see cref="PSTT.Dashboard.Components.ImportNodesDialog"/> when the user confirms an import.
 /// </summary>
 public sealed class ImportResult
 {

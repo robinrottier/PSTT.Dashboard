@@ -7,7 +7,7 @@ CONFIGURATION="Release"
 VERSION=""
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
-PROJECT="$REPO_ROOT/src/MqttDashboard.WebApp/MqttDashboard.WebApp/MqttDashboard.WebApp.csproj"
+PROJECT="$REPO_ROOT/src/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp.csproj"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -21,7 +21,7 @@ done
 OUTPUT_DIR="$REPO_ROOT/artifacts/$RUNTIME"
 ARTIFACTS_DIR="$REPO_ROOT/artifacts"
 
-echo "Publishing MqttDashboard for $RUNTIME..."
+echo "Publishing PSTT.Dashboard for $RUNTIME..."
 
 PUBLISH_ARGS=(
     publish "$PROJECT"

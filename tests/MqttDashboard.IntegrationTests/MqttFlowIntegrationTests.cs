@@ -7,7 +7,7 @@ namespace PSTT.Dashboard.IntegrationTests;
 /// <summary>
 /// Tier B integration tests — real MQTT message flow.
 /// An in-process MQTTnet broker is started by <see cref="InProcessMqttBrokerFixture"/>;
-/// the real <see cref="MqttDashboard.Server.Services.MqttClientService"/> connects to it.
+/// the real <see cref="PSTT.Dashboard.Server.Services.MqttClientService"/> connects to it.
 /// Tests publish messages via a separate MQTT client and verify they arrive at
 /// the SignalR <c>HubConnection</c>, exercising the full production code path.
 /// </summary>

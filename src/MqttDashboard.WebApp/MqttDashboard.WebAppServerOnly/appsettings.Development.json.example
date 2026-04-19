@@ -23,9 +23,9 @@
       "Microsoft.AspNetCore": "Warning"
       //"Microsoft.AspNetCore.SignalR": "Debug",
       //"Microsoft.AspNetCore.Http.Connections": "Debug",
-      //"MqttDashboard.Server.Services.MqttClientService": "Trace",
-      //"MqttDashboard.Server.Hubs.MqttDataHub": "Debug",
-      //"MqttDashboard.Server.Hubs.MqttTopicSubscriptionManager": "Debug",
+      //"PSTT.Dashboard.Server.Services.MqttClientService": "Trace",
+      //"PSTT.Dashboard.Server.Hubs.MqttDataHub": "Debug",
+      //"PSTT.Dashboard.Server.Hubs.MqttTopicSubscriptionManager": "Debug",
     }
   },
   "DiagramStorage":

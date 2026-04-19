@@ -1,21 +1,21 @@
-# Copilot Instructions for MqttDashboard
+# Copilot Instructions for PSTT.Dashboard
 
 ## Architecture Overview
 
 ```
 Browser (InteractiveAuto — WASM preferred, server fallback)
-  └─ Blazor Client (MqttDashboard.Client RCL)
+  └─ Blazor Client (PSTT.Dashboard.Client RCL)
        └─ SignalR WebSocket
-            └─ ASP.NET Core Server (MqttDashboard.Server)
+            └─ ASP.NET Core Server (PSTT.Dashboard.Server)
                  └─ MQTT (MQTTnet 5) → Broker
 ```
 
 **Projects:**
-- **`MqttDashboard.Client`** — Razor class library: all pages, widgets, models, client services. Shared between both hosts.
-- **`MqttDashboard.Server`** — Server-side services: MQTT client, SignalR hub, REST API controllers, dashboard file storage.
-- **`MqttDashboard.WebApp`** — Primary Blazor host (`InteractiveAuto` render mode, WASM + server-side).
-- **`MqttDashboard.WebApp.Client`** — WASM-side entry point for the WebApp host.
-- **`MqttDashboard.WebAppServerOnly`** — Alternate Blazor Server-only host (no WASM download; suited to Raspberry Pi).
+- **`PSTT.Dashboard.Client`** — Razor class library: all pages, widgets, models, client services. Shared between both hosts.
+- **`PSTT.Dashboard.Server`** — Server-side services: MQTT client, SignalR hub, REST API controllers, dashboard file storage.
+- **`PSTT.Dashboard.WebApp`** — Primary Blazor host (`InteractiveAuto` render mode, WASM + server-side).
+- **`PSTT.Dashboard.WebApp.Client`** — WASM-side entry point for the WebApp host.
+- **`PSTT.Dashboard.WebAppServerOnly`** — Alternate Blazor Server-only host (no WASM download; suited to Raspberry Pi).
 
 **Data flow (MQTT → widget):**
 1. `MqttClientService` receives a message from the broker.
@@ -30,7 +30,7 @@ Browser (InteractiveAuto — WASM preferred, server fallback)
 MqttDashBoard.Client project is blazor heavy. It might make sense to add a ".Core" project for pure C# models and services that can be shared with a potential non-blazor UI (e.g. Electron.NET or Avalonia) in the future and also to aid unit testing.
 
 Likewise ".Server" has a lot of blazor and perhaps non-blazor services could be moved to other projects.
-For example all things to do with Mqtt could be in a "MqttDashboard.Mqtt" project with no blazor dependencies and then both the Blazor server and potential non-blazor hosts could reference that.
+For example all things to do with Mqtt could be in a "PSTT.Dashboard.Mqtt" project with no blazor dependencies and then both the Blazor server and potential non-blazor hosts could reference that.
 Or other functional group of code logic into other smaller discrete projects that again can be untit tsted in isolation and shared with potential other UI frameworks in the future.
 
 Perhaps "..WebServerOnly" could be combined into a single hosting project, maybe with different port for side-x-side hosting of various blazor models.
@@ -39,7 +39,7 @@ IN longer term they may be a MAUI desktop application that combines all aspect o
 
 ### Test projects
 
-Currently unit tests are in `MqttDashboard.Client.Tests` and `MqttDashboard.Server.Tests`. Both use xUnit and Moq. Test the client-side code by mocking the `SignalRService` and `MqttDataCache` to simulate incoming MQTT messages and verify widget state updates.
+Currently unit tests are in `PSTT.Dashboard.Client.Tests` and `PSTT.Dashboard.Server.Tests`. Both use xUnit and Moq. Test the client-side code by mocking the `SignalRService` and `MqttDataCache` to simulate incoming MQTT messages and verify widget state updates.
 
 Some whole system tests with a headless browser (Playwright) would be ideal to cover the full flow from MQTT message to rendered widget, but this is not implemented yet.
 
@@ -56,20 +56,20 @@ Code coverage is currently pretty light, especially on the client side due to no
 dotnet workload install wasm-tools
 
 # Build
-dotnet build MqttDashboard.slnx
+dotnet build PSTT.Dashboard.slnx
 
 # Run all tests
-dotnet test MqttDashboard.slnx
+dotnet test PSTT.Dashboard.slnx
 
 # Run a single test project
-dotnet test tests/MqttDashboard.Client.Tests/MqttDashboard.Client.Tests.csproj
-dotnet test tests/MqttDashboard.Server.Tests/MqttDashboard.Server.Tests.csproj
+dotnet test tests/PSTT.Dashboard.Client.Tests/PSTT.Dashboard.Client.Tests.csproj
+dotnet test tests/PSTT.Dashboard.Server.Tests/PSTT.Dashboard.Server.Tests.csproj
 
 # Run with Docker (builds from source)
 docker compose up --build
 ```
 
-> **Note:** `dotnet build` may fail with file-lock errors while Visual Studio has the solution open. Build the `MqttDashboard.Client` project directly as a workaround, or build from within VS.
+> **Note:** `dotnet build` may fail with file-lock errors while Visual Studio has the solution open. Build the `PSTT.Dashboard.Client` project directly as a workaround, or build from within VS.
 
 ---
 
@@ -92,7 +92,7 @@ And support for widgets in external files as some sort of addon or plugin model.
 
 Follow this checklist — every existing widget (Gauge, Log, Switch, Battery, TreeView, Image, Grid) uses the same pattern.
 
-#### 1. Create the model — `src/MqttDashboard.Client/Models/`
+#### 1. Create the model — `src/PSTT.Dashboard.Client/Models/`
 
 ```csharp
 public class MyNodeModel : MudNodeModel
@@ -111,7 +111,7 @@ public class MyNodeModel : MudNodeModel
 public string? MyProp { get; set; }
 ```
 
-#### 3. Create the widget — `src/MqttDashboard.Client/Widgets/MyNodeWidget.razor`
+#### 3. Create the widget — `src/PSTT.Dashboard.Client/Widgets/MyNodeWidget.razor`
 
 ```razor
 @inherits BaseNodeWithDataWidget<MyNodeModel>
@@ -174,9 +174,9 @@ In **`GetDiagramState()`** — add an `else if (node is MyNodeModel m)` block to
 
 ### CSS
 - MudBlazor theme handles most styling.
-- Global overrides: `src/MqttDashboard.WebApp/MqttDashboard.WebAppServerOnly/wwwroot/app.css`.
+- Global overrides: `src/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebAppServerOnly/wwwroot/app.css`.
 - Scoped widget styles: `Widgets/*.razor.css` files (CSS isolation).
-- Client-specific styles: `src/MqttDashboard.Client/wwwroot/app.css` (menu/submenu rules).
+- Client-specific styles: `src/PSTT.Dashboard.Client/wwwroot/app.css` (menu/submenu rules).
 
 ### Configuration
 - Environment variables use `__` as separator (e.g. `MqttSettings__Broker`).
@@ -214,7 +214,7 @@ Do not worry about Old saved files and backward compatiblity for now, as the for
 
 - Work through TODO items in batches. Prefer surgical, tested changes.
 - If a TODO item is too large or complex, break it into smaller items and add them to `TODO.md` with a reference to the original. Or note it as "needs discussion" with a comment.
-- Run existing tests (`dotnet test MqttDashboard.slnx`) after significant changes.
+- Run existing tests (`dotnet test PSTT.Dashboard.slnx`) after significant changes.
 
 ### At the end of a session
 

@@ -99,7 +99,7 @@ public static class WebApplicationBuilderExtensions
     }
 
     /// <summary>
-    /// Adds all services required for MqttDashboard with the specified render mode.
+    /// Adds all services required for PSTT.Dashboard with the specified render mode.
     /// </summary>
     public static WebApplicationBuilder AddMqttDashboard(
         this WebApplicationBuilder builder, 
@@ -131,7 +131,7 @@ public static class WebApplicationBuilderExtensions
             keysDirInfo.Create(); // ensure it exists
             builder.Services.AddDataProtection()
                 .PersistKeysToFileSystem(keysDirInfo)
-                .SetApplicationName("MqttDashboard");
+                .SetApplicationName("PSTT.Dashboard");
         }
 
         // Cookie authentication — always registered so that setting the admin password for the
@@ -141,7 +141,7 @@ public static class WebApplicationBuilderExtensions
         builder.Services.AddAuthentication(Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults.AuthenticationScheme)
             .AddCookie(options =>
             {
-                options.Cookie.Name = "MqttDashboard.Auth";
+                options.Cookie.Name = "PSTT.Dashboard.Auth";
                 options.Cookie.HttpOnly = true;
                 options.Cookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Strict;
                 options.ExpireTimeSpan = TimeSpan.FromDays(30);
