@@ -27,7 +27,7 @@ Browser (InteractiveAuto — WASM preferred, server fallback)
 
 ### Future plans
 
-MqttDashBoard.Client project is blazor heavy. It might make sense to add a ".Core" project for pure C# models and services that can be shared with a potential non-blazor UI (e.g. Electron.NET or Avalonia) in the future and also to aid unit testing.
+PSTT.Dashboard.Client project is blazor heavy. It might make sense to add a ".Core" project for pure C# models and services that can be shared with a potential non-blazor UI (e.g. Electron.NET or Avalonia) in the future and also to aid unit testing.
 
 Likewise ".Server" has a lot of blazor and perhaps non-blazor services could be moved to other projects.
 For example all things to do with Mqtt could be in a "PSTT.Dashboard.Mqtt" project with no blazor dependencies and then both the Blazor server and potential non-blazor hosts could reference that.

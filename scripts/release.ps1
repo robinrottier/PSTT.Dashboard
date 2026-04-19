@@ -113,7 +113,7 @@
     SSH deploy configuration (post-deploy step):
       DEPLOY_HOST            Remote host (step auto-skipped if not set)
       DEPLOY_USER            SSH user (default: current user)
-      DEPLOY_PATH            Remote working directory (default: /opt/mqttdashboard)
+      DEPLOY_PATH            Remote working directory (default: /opt/psttdashboard)
       DEPLOY_COMPOSE_FILE    Compose file name (default: docker-compose.yml)
 #>
 
@@ -389,8 +389,8 @@ function Step-DockerBuild {
     }
     $dockerfile = Join-Path 'src' 'PSTT.Dashboard.WebApp' 'PSTT.Dashboard.WebApp' 'Dockerfile'
     Write-Step "Building Docker image (local, no push)..."
-    Assert-Cmd docker @('build', '-f', $dockerfile, '-t', 'mqttdashboard:local', '.') "docker build failed"
-    Write-Ok "Docker image built: mqttdashboard:local"
+    Assert-Cmd docker @('build', '-f', $dockerfile, '-t', 'psttdashboard:local', '.') "docker build failed"
+    Write-Ok "Docker image built: psttdashboard:local"
 }
 
 # ─── Step: sync ──────────────────────────────────────────────────────────────
@@ -553,7 +553,7 @@ function Step-PostDeploy {
         return
     }
     $deployUser  = if ($env:DEPLOY_USER)         { $env:DEPLOY_USER }         else { $env:USER ?? $env:USERNAME }
-    $deployPath  = if ($env:DEPLOY_PATH)         { $env:DEPLOY_PATH }         else { '/opt/mqttdashboard' }
+    $deployPath  = if ($env:DEPLOY_PATH)         { $env:DEPLOY_PATH }         else { '/opt/psttdashboard' }
     $composeFile = if ($env:DEPLOY_COMPOSE_FILE) { $env:DEPLOY_COMPOSE_FILE } else { 'docker-compose.yml' }
     if ($deployUser -and $deployUser -ne '-') {
         $sshTarget   = "$deployUser@$deployHost"

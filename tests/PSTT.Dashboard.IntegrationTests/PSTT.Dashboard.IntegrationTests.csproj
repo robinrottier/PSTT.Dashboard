@@ -37,4 +37,8 @@
     <ProjectReference Include="..\..\src\PSTT.Dashboard.Server\PSTT.Dashboard.Server.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="TestResults\" />
+  </ItemGroup>
+
 </Project>

@@ -9,7 +9,7 @@
   "orientation": "any",
   "icons": [
     {
-      "src": "mqttdashboard-icon.svg",
+      "src": "dashboard-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"

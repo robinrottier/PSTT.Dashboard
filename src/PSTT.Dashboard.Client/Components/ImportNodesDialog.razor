@@ -96,9 +96,9 @@
             using var doc = System.Text.Json.JsonDocument.Parse(_json);
             var root = doc.RootElement;
 
-            if (!root.TryGetProperty("mqttdashboard", out var tagEl))
+            if (!root.TryGetProperty("psttdashboard", out var tagEl))
             {
-                _parseError = "Not a valid Mqtt Dashboard export — missing 'mqttdashboard' field.";
+                _parseError = "Not a valid PSTT Dashboard export — missing 'psttdashboard' field.";
                 return;
             }
 

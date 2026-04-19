@@ -76,7 +76,7 @@ else
         </MudPaper>
     }
     <MudPaper @key="_diagram" Elevation="2" Style="@($"padding:0;{CanvasStyle}")">
-        <div class="mqttdashboard-canvas" tabindex="0" style="width:100%;height:100%;position:relative;" @onkeydown="HandleKeyDown" @ref="_canvasRef">
+        <div class="dashboard-canvas" tabindex="0" style="width:100%;height:100%;position:relative;" @onkeydown="HandleKeyDown" @ref="_canvasRef">
         @if (AppState.IsEditMode && AppState.IsMultiSelected)
         {
             <MudPaper Elevation="1" Style="position:absolute;z-index:1000;top:4px;left:50%;transform:translateX(-50%);display:flex;gap:2px;padding:2px 4px;border-radius:8px;">

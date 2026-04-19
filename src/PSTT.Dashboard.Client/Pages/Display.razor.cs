@@ -68,7 +68,7 @@ public partial class Display : IDisposable
     private readonly List<(NodeModel Node, Action<Blazor.Diagrams.Core.Models.Base.Model> Handler)> _nodeChangedSubscriptions = new();
     private IDisposable? _locationChangingRegistration;
 
-    private const string LastDashboardKey = "mqttdashboard_lastDiagram";
+    private const string LastDashboardKey = "psttdashboard_lastDiagram";
     private ElementReference _canvasRef;
 
     private async Task HandleKeyDown(KeyboardEventArgs e)
@@ -830,7 +830,7 @@ public partial class Display : IDisposable
         return Task.CompletedTask;
     }
     // Clipboard tag written to the OS clipboard so we can recognise our own data on paste.
-    private const string ClipboardTag = """{"mqttdashboard":"nodes",""";
+    private const string ClipboardTag = """{"psttdashboard":"nodes",""";
 
     private static List<NodeData> BuildSnapshots(IEnumerable<TextNodeModel> selected)
         => selected.Select(n => n.ToData()).ToList();
@@ -847,8 +847,8 @@ public partial class Display : IDisposable
         AppState.SetClipboard(snapshots);
 
         // Also write to the OS clipboard so paste works across browser windows.
-        var json = System.Text.Json.JsonSerializer.Serialize(new { mqttdashboard = "nodes", data = snapshots });
-        _ = JSRuntime.InvokeAsync<bool>("mqttClipboard.writeText", json).AsTask()
+        var json = System.Text.Json.JsonSerializer.Serialize(new { psttdashboard = "nodes", data = snapshots });
+        _ = JSRuntime.InvokeAsync<bool>("psttClipboard.writeText", json).AsTask()
               .ContinueWith(_ => { });
 
         if (showSnackbar)
@@ -881,8 +881,8 @@ public partial class Display : IDisposable
         List<NodeData>? toPaste = null;
         try
         {
-            var text = await JSRuntime.InvokeAsync<string?>("mqttClipboard.readText");
-            if (!string.IsNullOrWhiteSpace(text) && text.StartsWith("{\"mqttdashboard\":\"nodes\"", StringComparison.Ordinal))
+            var text = await JSRuntime.InvokeAsync<string?>("psttClipboard.readText");
+            if (!string.IsNullOrWhiteSpace(text) && text.StartsWith("{\"psttdashboard\":\"nodes\"", StringComparison.Ordinal))
             {
                 using var doc = System.Text.Json.JsonDocument.Parse(text);
                 if (doc.RootElement.TryGetProperty("data", out var dataEl))

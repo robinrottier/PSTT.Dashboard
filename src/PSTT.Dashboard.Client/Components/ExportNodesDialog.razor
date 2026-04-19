@@ -41,9 +41,9 @@
 
     private string Json => _mode == "page" && PageData != null
         ? System.Text.Json.JsonSerializer.Serialize(
-            new { mqttdashboard = "page", data = PageData }, _jsonOpts)
+            new { psttdashboard = "page", data = PageData }, _jsonOpts)
         : System.Text.Json.JsonSerializer.Serialize(
-            new { mqttdashboard = "nodes", data = SelectedNodes }, _jsonOpts);
+            new { psttdashboard = "nodes", data = SelectedNodes }, _jsonOpts);
 
     protected override void OnInitialized()
     {

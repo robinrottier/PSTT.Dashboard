@@ -33,20 +33,16 @@
     <ProjectReference Include="..\..\libs\PSTT\src\PSTT.Remote\PSTT.Remote.csproj" />
     <ProjectReference Include="..\PSTT.Dashboard.SourceGenerators\PSTT.Dashboard.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 	<!-- The SVG must be listed as AdditionalFiles for the generator to see it -->
-	<AdditionalFiles Include="wwwroot\mqttdashboard-icon.svg" />
-  </ItemGroup>
-
-  <ItemGroup>
-	<Folder Include="wwwroot\" />
+	<AdditionalFiles Include="wwwroot\dashboard-icon.svg" />
   </ItemGroup>
 
   <!--
-    Auto-regenerate PNG icons when mqttdashboard-icon.svg is newer than the outputs.
+    Auto-regenerate PNG icons when dashboard-icon.svg is newer than the outputs.
     AppIcons.cs is now handled by the source generator — no longer listed here.
     Requires pwsh (PowerShell 7+). Skips silently on error (CI without pwsh).
   -->
-  <Target Name="GenerateIconPngs" BeforeTargets="Build" Inputs="$(MSBuildThisFileDirectory)wwwroot\mqttdashboard-icon.svg" Outputs="$(MSBuildThisFileDirectory)wwwroot\icon-192.png;$(MSBuildThisFileDirectory)wwwroot\icon-512.png">
-    <Message Text="mqttdashboard-icon.svg changed — regenerating PNG icons..." Importance="High" />
+  <Target Name="GenerateIconPngs" BeforeTargets="Build" Inputs="$(MSBuildThisFileDirectory)wwwroot\dashboard-icon.svg" Outputs="$(MSBuildThisFileDirectory)wwwroot\icon-192.png;$(MSBuildThisFileDirectory)wwwroot\icon-512.png">
+    <Message Text="dashboard-icon.svg changed — regenerating PNG icons..." Importance="High" />
     <Exec Command="pwsh -NonInteractive -NoProfile -File &quot;$(MSBuildThisFileDirectory)..\..\scripts\Generate-Icons.ps1&quot;" ContinueOnError="true" IgnoreExitCode="false" WorkingDirectory="$(MSBuildThisFileDirectory)" />
   </Target>
 

@@ -100,7 +100,7 @@ public class UpdateController : ControllerBase
         {
             var updatesDir = Path.Combine(AppContext.BaseDirectory, "updates");
             Directory.CreateDirectory(updatesDir);
-            var zipPath = Path.Combine(updatesDir, "mqttdashboard-update.zip");
+            var zipPath = Path.Combine(updatesDir, "psttdashboard-update.zip");
 
             _logger.LogInformation("Downloading update from {Url}", info.DownloadAssetUrl);
             using var http = new HttpClient();

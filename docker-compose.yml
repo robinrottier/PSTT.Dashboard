@@ -1,5 +1,5 @@
 services:
-  mqttdashboard:
+  psttdashboard:
     build:
       context: .
       dockerfile: src/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp/Dockerfile

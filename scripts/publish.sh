@@ -56,7 +56,7 @@ cat > "$OUTPUT_DIR/appsettings.sample.json" <<'EOF'
 EOF
 
 # Create zip
-ZIP_NAME="mqttdashboard-$RUNTIME.zip"
+ZIP_NAME="psttdashboard-$RUNTIME.zip"
 ZIP_PATH="$ARTIFACTS_DIR/$ZIP_NAME"
 mkdir -p "$ARTIFACTS_DIR"
 cd "$OUTPUT_DIR" && zip -r "$ZIP_PATH" . && cd -

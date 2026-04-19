@@ -1,6 +1,6 @@
 
 /* Visual focus styling for the canvas when it receives keyboard focus */
-.mqttdashboard-canvas:focus {
+.dashboard-canvas:focus {
     outline: 2px solid var(--mud-palette-primary);
     outline-offset: 2px;
 }

@@ -72,8 +72,8 @@ Docker Compose example:
 
 ```yaml
 services:
-  mqttdashboard:
-    image: ghcr.io/robinrottier/mqttdashboard:latest
+  psttdashboard:
+    image: ghcr.io/robinrottier/psttdashboard:latest
     ports:
       - "8080:8080"   # public
       - "8081:8081"   # admin
@@ -108,8 +108,8 @@ Run two instances of the image with different env vars, sharing the same data vo
 
 ```yaml
 services:
-  mqttdashboard-admin:
-    image: ghcr.io/robinrottier/mqttdashboard:latest
+  psttdashboard-admin:
+    image: ghcr.io/robinrottier/psttdashboard:latest
     ports: ["8081:8080"]
     environment:
       - ReadOnly=false
@@ -117,8 +117,8 @@ services:
       - DiagramStorage__DataDirectory=/app/data
     volumes: ["./data:/app/data"]
 
-  mqttdashboard-public:
-    image: ghcr.io/robinrottier/mqttdashboard:latest
+  psttdashboard-public:
+    image: ghcr.io/robinrottier/psttdashboard:latest
     ports: ["8080:8080"]
     environment:
       - ReadOnly=true

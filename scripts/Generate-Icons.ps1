@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Generates raster PNG icons from mqttdashboard-icon.svg by parsing the SVG
+    Generates raster PNG icons from dashboard-icon.svg by parsing the SVG
     XML and rendering its <rect> and <line> elements scaled to each target size.
 
 .DESCRIPTION
@@ -26,7 +26,7 @@ param([switch]$Force)
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $wwwroot  = Join-Path $repoRoot "src\PSTT.Dashboard.Client\wwwroot"
-$svgPath  = Join-Path $wwwroot "mqttdashboard-icon.svg"
+$svgPath  = Join-Path $wwwroot "dashboard-icon.svg"
 
 $targets = @(
     @{ Size = 192; File = "icon-192.png" }

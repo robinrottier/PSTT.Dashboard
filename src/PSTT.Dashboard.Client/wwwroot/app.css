@@ -14,7 +14,7 @@ html, body {
 }
 
 /* Allow the app layout to shrink below component defaults on narrow viewports */
-html, body, .mud-layout, .mud-main-content, main, .page, .sidebar, .mqttdashboard-canvas {
+html, body, .mud-layout, .mud-main-content, main, .page, .sidebar, .dashboard-canvas {
     min-width: 0 !important;
 }
 

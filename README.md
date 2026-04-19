@@ -51,15 +51,15 @@ The server subscribes to MQTT topics and forwards incoming messages to connected
 The pre-built multi-arch image (linux/amd64 and linux/arm64) is published to the GitHub Container Registry:
 
 ```
-ghcr.io/robinrottier/mqttdashboard:latest
+ghcr.io/robinrottier/psttdashboard:latest
 ```
 
 **Quick start with Docker Compose** — copy the sample below to a `docker-compose.yml` file and edit the MQTT settings:
 
 ```yaml
 services:
-  mqttdashboard:
-    image: ghcr.io/robinrottier/mqttdashboard:latest
+  psttdashboard:
+    image: ghcr.io/robinrottier/psttdashboard:latest
     ports:
       - "8080:8080"
     volumes:
@@ -83,17 +83,17 @@ Open <http://localhost:8080>.
 **Pull and run with the Docker CLI** (no compose file):
 
 ```bash
-docker pull ghcr.io/robinrottier/mqttdashboard:latest
+docker pull ghcr.io/robinrottier/psttdashboard:latest
 
 docker run -d \
-  --name mqttdashboard \
+  --name psttdashboard \
   -p 8080:8080 \
   -v $(pwd)/data:/app/data \
   -e MqttSettings__Broker=your-mqtt-broker-host \
   -e MqttSettings__Port=1883 \
   -e DiagramStorage__DataDirectory=/app/data \
   --restart unless-stopped \
-  ghcr.io/robinrottier/mqttdashboard:latest
+  ghcr.io/robinrottier/psttdashboard:latest
 ```
 
 ### Raspberry Pi
@@ -101,23 +101,23 @@ docker run -d \
 The Docker image is built for both `linux/amd64` and `linux/arm64`, so it runs natively on a Raspberry Pi 3/4/5 (64-bit OS).
 
 ```bash
-docker pull ghcr.io/robinrottier/mqttdashboard:latest
-docker run -d --name mqttdashboard -p 8080:8080 \
+docker pull ghcr.io/robinrottier/psttdashboard:latest
+docker run -d --name psttdashboard -p 8080:8080 \
   -v $(pwd)/data:/app/data \
   -e MqttSettings__Broker=your-mqtt-broker-host \
   --restart unless-stopped \
-  ghcr.io/robinrottier/mqttdashboard:latest
+  ghcr.io/robinrottier/psttdashboard:latest
 ```
 
 **Alternatively, install the self-contained binary:**
 
-1. Download `mqttdashboard-linux-arm64.zip` from the [latest release](../../releases/latest).
+1. Download `psttdashboard-linux-arm64.zip` from the [latest release](../../releases/latest).
 2. Extract and make executable:
 
    ```bash
-   sudo mkdir -p /opt/mqttdashboard
-   sudo unzip mqttdashboard-linux-arm64.zip -d /opt/mqttdashboard
-   sudo chmod +x /opt/mqttdashboard/PSTT.Dashboard.WebApp
+   sudo mkdir -p /opt/psttdashboard
+   sudo unzip psttdashboard-linux-arm64.zip -d /opt/psttdashboard
+   sudo chmod +x /opt/psttdashboard/PSTT.Dashboard.WebApp
    ```
 
 3. Copy `appsettings.sample.json` to `appsettings.json` and edit your MQTT broker settings.
@@ -125,15 +125,15 @@ docker run -d --name mqttdashboard -p 8080:8080 \
 4. Create a systemd service so it starts automatically:
 
    ```ini
-   # /etc/systemd/system/mqttdashboard.service
+   # /etc/systemd/system/psttdashboard.service
    [Unit]
    Description=PSTT.Dashboard
    After=network.target
 
    [Service]
    Type=simple
-   WorkingDirectory=/opt/mqttdashboard
-   ExecStart=/opt/mqttdashboard/PSTT.Dashboard.WebApp
+   WorkingDirectory=/opt/psttdashboard
+   ExecStart=/opt/psttdashboard/PSTT.Dashboard.WebApp
    Restart=on-failure
    Environment=ASPNETCORE_URLS=http://+:8080
    Environment=ASPNETCORE_ENVIRONMENT=Production
@@ -144,7 +144,7 @@ docker run -d --name mqttdashboard -p 8080:8080 \
 
    ```bash
    sudo systemctl daemon-reload
-   sudo systemctl enable --now mqttdashboard
+   sudo systemctl enable --now psttdashboard
    ```
 
 Open <http://raspberry-pi-hostname:8080>.
@@ -155,9 +155,9 @@ Download the zip for your platform from the [latest release](../../releases/late
 
 | File | Platform |
 |---|---|
-| `mqttdashboard-win-x64.zip` | Windows 64-bit |
-| `mqttdashboard-linux-x64.zip` | Linux 64-bit |
-| `mqttdashboard-linux-arm64.zip` | Linux ARM64 (Raspberry Pi, etc.) |
+| `psttdashboard-win-x64.zip` | Windows 64-bit |
+| `psttdashboard-linux-x64.zip` | Linux 64-bit |
+| `psttdashboard-linux-arm64.zip` | Linux ARM64 (Raspberry Pi, etc.) |
 
 Extract, copy `appsettings.sample.json` to `appsettings.json`, edit your MQTT settings, then run:
 

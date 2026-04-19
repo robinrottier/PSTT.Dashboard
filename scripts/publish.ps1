@@ -65,7 +65,7 @@ if (Test-Path "$OutputDir\appsettings.json") {
 }
 
 # Create zip
-$zipName = "mqttdashboard-$Runtime.zip"
+$zipName = "psttdashboard-$Runtime.zip"
 $zipPath = "$ArtifactsDir\$zipName"
 if (Test-Path $zipPath) { Remove-Item $zipPath }
 Compress-Archive -Path "$OutputDir\*" -DestinationPath $zipPath
