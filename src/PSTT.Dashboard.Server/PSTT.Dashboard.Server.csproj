@@ -18,6 +18,6 @@
     <ProjectReference Include="..\..\libs\PSTT\src\PSTT.Mqtt\PSTT.Mqtt.csproj" />
     <ProjectReference Include="..\..\libs\PSTT\src\PSTT.Remote\PSTT.Remote.csproj" />
     <ProjectReference Include="..\..\libs\PSTT\src\PSTT.Remote.AspNetCore\PSTT.Remote.AspNetCore.csproj" />
-    <ProjectReference Include="..\MqttDashboard.Client\PSTT.Dashboard.Client.csproj" />
+    <ProjectReference Include="..\PSTT.Dashboard.Client\PSTT.Dashboard.Client.csproj" />
   </ItemGroup>
 </Project>

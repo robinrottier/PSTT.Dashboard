@@ -31,7 +31,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\libs\PSTT\src\PSTT.Data\PSTT.Data.csproj" />
     <ProjectReference Include="..\..\libs\PSTT\src\PSTT.Remote\PSTT.Remote.csproj" />
-    <ProjectReference Include="..\MqttDashboard.SourceGenerators\PSTT.Dashboard.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\PSTT.Dashboard.SourceGenerators\PSTT.Dashboard.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 	<!-- The SVG must be listed as AdditionalFiles for the generator to see it -->
 	<AdditionalFiles Include="wwwroot\mqttdashboard-icon.svg" />
   </ItemGroup>

@@ -13,8 +13,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\MqttDashboard.Client\PSTT.Dashboard.Client.csproj" />
-    <ProjectReference Include="..\..\MqttDashboard.Server\PSTT.Dashboard.Server.csproj" />
+    <ProjectReference Include="..\..\PSTT.Dashboard.Client\PSTT.Dashboard.Client.csproj" />
+    <ProjectReference Include="..\..\PSTT.Dashboard.Server\PSTT.Dashboard.Server.csproj" />
     <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
   </ItemGroup>
 

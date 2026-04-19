@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\MqttDashboard.Client\PSTT.Dashboard.Client.csproj" />
+    <ProjectReference Include="..\..\src\PSTT.Dashboard.Client\PSTT.Dashboard.Client.csproj" />
   </ItemGroup>
 
 </Project>
