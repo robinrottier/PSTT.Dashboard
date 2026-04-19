@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.AspNetCore.Http.Connections;
 
-namespace MqttDashboard.IntegrationTests;
+namespace PSTT.Dashboard.IntegrationTests;
 
 /// <summary>
 /// Helpers for creating <see cref="HubConnection"/> instances that connect to the

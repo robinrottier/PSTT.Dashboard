@@ -1,4 +1,4 @@
-namespace MqttDashboard.Models;
+namespace PSTT.Dashboard.Models;
 
 public static class ColorTransitionHelper
 {

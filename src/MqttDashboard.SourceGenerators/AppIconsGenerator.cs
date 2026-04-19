@@ -3,7 +3,7 @@ using System.Text;
 using System.Xml.Linq;
 using Microsoft.CodeAnalysis;
 
-namespace MqttDashboard.SourceGenerators;
+namespace PSTT.Dashboard.SourceGenerators;
 
 /// <summary>
 /// Incremental source generator that reads wwwroot/mqttdashboard-icon.svg
@@ -124,7 +124,7 @@ public sealed class AppIconsGenerator : IIncrementalGenerator
         sb.AppendLine("// </auto-generated>");
         sb.AppendLine("#nullable enable");
         sb.AppendLine();
-        sb.AppendLine("namespace MqttDashboard;");
+        sb.AppendLine("namespace PSTT.Dashboard;");
         sb.AppendLine();
         sb.AppendLine("/// <summary>");
         sb.AppendLine("/// Custom SVG icon strings for MudBlazor's Icon parameter.");

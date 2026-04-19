@@ -1,4 +1,4 @@
-namespace MqttDashboard.Models;
+namespace PSTT.Dashboard.Models;
 
 /// <summary>
 /// Base for all node-property attributes. Controls how a model property

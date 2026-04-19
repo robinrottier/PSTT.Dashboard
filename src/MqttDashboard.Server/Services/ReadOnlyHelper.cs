@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 
-namespace MqttDashboard.Server.Services;
+namespace PSTT.Dashboard.Server.Services;
 
 /// <summary>
 /// Centralised read-only check used by controllers and filters.

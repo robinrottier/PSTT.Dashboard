@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Text;
 using Microsoft.Playwright;
 
-namespace MqttDashboard.PlaywrightTests;
+namespace PSTT.Dashboard.PlaywrightTests;
 
 /// <summary>
 /// xUnit class fixture that starts a real Kestrel instance of the server-only app

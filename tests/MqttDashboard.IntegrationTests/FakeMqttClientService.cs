@@ -1,7 +1,7 @@
 using PSTT.Data;
-using MqttDashboard.Server.Services;
+using PSTT.Dashboard.Server.Services;
 
-namespace MqttDashboard.IntegrationTests;
+namespace PSTT.Dashboard.IntegrationTests;
 
 /// <summary>
 /// Test double that replaces live MQTT with direct cache injection.

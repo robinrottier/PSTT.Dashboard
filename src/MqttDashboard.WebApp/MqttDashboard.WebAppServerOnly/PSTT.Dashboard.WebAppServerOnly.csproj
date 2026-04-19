@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -7,17 +7,14 @@
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
   </PropertyGroup>
 
-  <!-- Single-file packaging only when publishing for a specific RID (release binaries).
-       Docker publishes without -r and uses the standard .dll + aspnet runtime image. -->
   <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
     <PublishSingleFile>true</PublishSingleFile>
     <UseAppHost>true</UseAppHost>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\MqttDashboard.WebApp.Client\MqttDashboard.WebApp.Client.csproj" />
-    <ProjectReference Include="..\..\MqttDashboard.Server\MqttDashboard.Server.csproj" />
-    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.3" />
+    <ProjectReference Include="..\..\MqttDashboard.Client\PSTT.Dashboard.Client.csproj" />
+    <ProjectReference Include="..\..\MqttDashboard.Server\PSTT.Dashboard.Server.csproj" />
     <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
   </ItemGroup>
 

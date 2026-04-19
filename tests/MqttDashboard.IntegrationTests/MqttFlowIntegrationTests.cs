@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.SignalR.Client;
 using MQTTnet;
 using MQTTnet.Protocol;
 
-namespace MqttDashboard.IntegrationTests;
+namespace PSTT.Dashboard.IntegrationTests;
 
 /// <summary>
 /// Tier B integration tests — real MQTT message flow.

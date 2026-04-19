@@ -1,4 +1,4 @@
-namespace MqttDashboard.Services;
+namespace PSTT.Dashboard.Services;
 
 /// <summary>
 /// Singleton options describing the render mode and caching the loopback port for

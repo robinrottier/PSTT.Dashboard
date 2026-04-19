@@ -1,4 +1,4 @@
-namespace MqttDashboard.Services;
+namespace PSTT.Dashboard.Services;
 
 /// <summary>
 /// Constants for virtual $DASHBOARD/* topics published by the metrics publisher

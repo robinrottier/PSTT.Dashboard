@@ -1,4 +1,4 @@
-namespace MqttDashboard.Models;
+namespace PSTT.Dashboard.Models;
 
 /// <summary>
 /// Shared settings for numeric range visualization: min, max, an optional midpoint/origin,

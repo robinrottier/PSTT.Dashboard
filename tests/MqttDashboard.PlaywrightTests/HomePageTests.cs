@@ -1,6 +1,6 @@
 using Microsoft.Playwright;
 
-namespace MqttDashboard.PlaywrightTests;
+namespace PSTT.Dashboard.PlaywrightTests;
 
 /// <summary>
 /// Smoke tests: verifies the home page loads and key toolbar elements are present.

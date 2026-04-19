@@ -1,15 +1,15 @@
-using MqttDashboard.Server.Services;
-using MqttDashboard.Server.Filters;
+using PSTT.Dashboard.Server.Services;
+using PSTT.Dashboard.Server.Filters;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
-using MqttDashboard.Services;
+using PSTT.Dashboard.Services;
 using PSTT.Data;
 using PSTT.Mqtt;
 using PSTT.Remote.AspNetCore.Extensions;
 using System.Text;
 
-namespace MqttDashboard.Server.Extensions;
+namespace PSTT.Dashboard.Server.Extensions;
 
 public static class ServiceCollectionExtensions
 {
@@ -95,7 +95,7 @@ public static class ServiceCollectionExtensions
         var ctx = sp.GetService<IHttpContextAccessor>()?.HttpContext;
         var port = ctx?.Connection.LocalPort ?? 0;
         if (port == 0)
-            port = sp.GetService<MqttDashboard.Services.RenderModeOptions>()?.LoopbackPort ?? 0;
+            port = sp.GetService<PSTT.Dashboard.Services.RenderModeOptions>()?.LoopbackPort ?? 0;
         return new HttpClient
         {
             BaseAddress = port > 0 ? new Uri($"http://localhost:{port}/") : null

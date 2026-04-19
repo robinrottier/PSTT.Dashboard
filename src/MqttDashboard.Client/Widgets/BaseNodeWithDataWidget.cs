@@ -1,9 +1,9 @@
 using Blazor.Diagrams.Core.Anchors;
 using Blazor.Diagrams.Core.Models;
 using Microsoft.AspNetCore.Components;
-using MqttDashboard.Models;
+using PSTT.Dashboard.Models;
 
-namespace MqttDashboard.Widgets;
+namespace PSTT.Dashboard.Widgets;
 
 /// <summary>
 /// Extends <see cref="BaseNodeWidget{TNode}"/> with automatic MQTT data setup

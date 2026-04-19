@@ -2,7 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace MqttDashboard.Services;
+namespace PSTT.Dashboard.Services;
 
 /// <summary>
 /// Wraps an <see cref="IJSRuntime"/> to silently absorb two failure cases that would

@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Configuration;
-using MqttDashboard.Server.Services;
+using PSTT.Dashboard.Server.Services;
 
-namespace MqttDashboard.Server.Filters;
+namespace PSTT.Dashboard.Server.Filters;
 
 /// <summary>
 /// Action filter that returns 403 in read-only mode, or 401 for unauthenticated write

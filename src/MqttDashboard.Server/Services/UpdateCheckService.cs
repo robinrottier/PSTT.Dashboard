@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace MqttDashboard.Server.Services;
+namespace PSTT.Dashboard.Server.Services;
 
 public enum DeploymentType { Development, Docker, HomeAssistant, Standalone }
 

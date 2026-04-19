@@ -1,5 +1,5 @@
-using MqttDashboard.WebApp.Components;
-using MqttDashboard.Server.Extensions;
+using PSTT.Dashboard.WebApp.Components;
+using PSTT.Dashboard.Server.Extensions;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()

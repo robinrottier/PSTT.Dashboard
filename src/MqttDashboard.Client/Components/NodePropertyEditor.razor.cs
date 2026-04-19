@@ -1,9 +1,9 @@
-using MqttDashboard.Models;
+using PSTT.Dashboard.Models;
 using MudBlazor;
 using Microsoft.AspNetCore.Components;
 using System.Reflection;
 
-namespace MqttDashboard.Components;
+namespace PSTT.Dashboard.Components;
 
 public partial class NodePropertyEditor
 {

@@ -1,6 +1,6 @@
 using MudBlazor;
 
-namespace MqttDashboard.Models;
+namespace PSTT.Dashboard.Models;
 
 /// <summary>
 /// Represents a node in the MQTT topic tree

@@ -1,7 +1,7 @@
 using PSTT.Data;
 using PSTT.Mqtt;
 
-namespace MqttDashboard.Server.Services;
+namespace PSTT.Dashboard.Server.Services;
 
 /// <summary>
 /// Singleton server-side cache that accumulates all MQTT values.

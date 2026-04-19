@@ -1,9 +1,9 @@
 using Blazor.Diagrams.Core.Models;
 using Microsoft.AspNetCore.Components;
-using MqttDashboard.Models;
-using MqttDashboard.Services;
+using PSTT.Dashboard.Models;
+using PSTT.Dashboard.Services;
 
-namespace MqttDashboard.Widgets;
+namespace PSTT.Dashboard.Widgets;
 
 /// <summary>
 /// Base class for all node widgets. Provides container styling, CSS classes,

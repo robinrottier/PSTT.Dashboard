@@ -1,4 +1,4 @@
-namespace MqttDashboard.Server.Models;
+namespace PSTT.Dashboard.Server.Models;
 
 public class HostUpdateRequest
 {

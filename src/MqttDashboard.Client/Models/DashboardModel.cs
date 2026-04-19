@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace MqttDashboard.Models;
+namespace PSTT.Dashboard.Models;
 
 // ── Root document ─────────────────────────────────────────────────────────────
 

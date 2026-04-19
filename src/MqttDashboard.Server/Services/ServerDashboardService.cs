@@ -1,10 +1,10 @@
-using MqttDashboard.Models;
-using MqttDashboard.Services;
+using PSTT.Dashboard.Models;
+using PSTT.Dashboard.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace MqttDashboard.Server.Services;
+namespace PSTT.Dashboard.Server.Services;
 
 /// <summary>
 /// In-process implementation of IDashboardService for server-only deployments.

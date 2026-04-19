@@ -1,4 +1,4 @@
-using MqttDashboard.Services;
+using PSTT.Dashboard.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Hosting;
@@ -7,7 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 
-namespace MqttDashboard.Server.Extensions;
+namespace PSTT.Dashboard.Server.Extensions;
 
 public enum BlazorRenderMode
 {
@@ -182,7 +182,7 @@ public static class WebApplicationBuilderExtensions
 
         // Register render mode options so client services can distinguish SSR from Blazor Server circuits
         // and can find the loopback port when IHttpContextAccessor is unavailable.
-        builder.Services.AddSingleton(new MqttDashboard.Services.RenderModeOptions
+        builder.Services.AddSingleton(new PSTT.Dashboard.Services.RenderModeOptions
         {
             IsWasmCapable = renderMode is BlazorRenderMode.InteractiveAuto or BlazorRenderMode.InteractiveWebAssembly
         });
@@ -201,7 +201,7 @@ public static class WebApplicationBuilderExtensions
 
         // Add health checks
         builder.Services.AddHealthChecks()
-            .AddCheck<MqttDashboard.Server.Health.MqttConnectionHealthCheck>("mqtt");
+            .AddCheck<PSTT.Dashboard.Server.Health.MqttConnectionHealthCheck>("mqtt");
 
         // Add Controllers for API endpoints
         builder.Services.AddControllers(options =>
@@ -209,7 +209,7 @@ public static class WebApplicationBuilderExtensions
             // Disable antiforgery validation for API controllers
             options.Filters.Add(new Microsoft.AspNetCore.Mvc.IgnoreAntiforgeryTokenAttribute());
         })
-        .AddApplicationPart(typeof(MqttDashboard.Server.Controllers.DashboardController).Assembly)
+        .AddApplicationPart(typeof(PSTT.Dashboard.Server.Controllers.DashboardController).Assembly)
         .AddControllersAsServices();
 
         return builder;

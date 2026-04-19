@@ -1,7 +1,7 @@
 using Blazor.Diagrams.Core.Geometry;
-using MqttDashboard.Components;
+using PSTT.Dashboard.Components;
 
-namespace MqttDashboard.Models;
+namespace PSTT.Dashboard.Models;
 
 public class GaugeNodeModel : TextNodeModel
 {

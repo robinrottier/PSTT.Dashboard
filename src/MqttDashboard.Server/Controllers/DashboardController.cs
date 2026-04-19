@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
-using MqttDashboard.Models;
-using MqttDashboard.Server.Services;
-using MqttDashboard.Server.Filters;
+using PSTT.Dashboard.Models;
+using PSTT.Dashboard.Server.Services;
+using PSTT.Dashboard.Server.Filters;
 using Microsoft.Extensions.Logging;
 
-namespace MqttDashboard.Server.Controllers;
+namespace PSTT.Dashboard.Server.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]

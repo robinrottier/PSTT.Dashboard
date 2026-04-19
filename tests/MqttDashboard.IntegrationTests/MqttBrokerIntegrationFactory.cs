@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 
-namespace MqttDashboard.IntegrationTests;
+namespace PSTT.Dashboard.IntegrationTests;
 
 /// <summary>
 /// <see cref="WebApplicationFactory{TEntryPoint}"/> for Tier B integration tests.

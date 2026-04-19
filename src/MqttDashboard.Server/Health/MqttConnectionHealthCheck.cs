@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using PSTT.Mqtt;
 
-namespace MqttDashboard.Server.Health;
+namespace PSTT.Dashboard.Server.Health;
 
 public class MqttConnectionHealthCheck : IHealthCheck
 {

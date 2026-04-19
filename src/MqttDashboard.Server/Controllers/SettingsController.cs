@@ -1,11 +1,11 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
-using MqttDashboard.Server.Services;
+using PSTT.Dashboard.Server.Services;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace MqttDashboard.Server.Controllers;
+namespace PSTT.Dashboard.Server.Controllers;
 
 [ApiController]
 [Route("api/settings")]

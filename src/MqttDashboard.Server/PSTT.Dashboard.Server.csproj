@@ -14,10 +14,10 @@
     <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\MqttDashboard.Client\MqttDashboard.Client.csproj" />
     <ProjectReference Include="..\..\libs\PSTT\src\PSTT.Data\PSTT.Data.csproj" />
     <ProjectReference Include="..\..\libs\PSTT\src\PSTT.Mqtt\PSTT.Mqtt.csproj" />
     <ProjectReference Include="..\..\libs\PSTT\src\PSTT.Remote\PSTT.Remote.csproj" />
     <ProjectReference Include="..\..\libs\PSTT\src\PSTT.Remote.AspNetCore\PSTT.Remote.AspNetCore.csproj" />
+    <ProjectReference Include="..\MqttDashboard.Client\PSTT.Dashboard.Client.csproj" />
   </ItemGroup>
 </Project>

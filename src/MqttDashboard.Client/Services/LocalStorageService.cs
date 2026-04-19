@@ -1,7 +1,7 @@
 using Microsoft.JSInterop;
 using System.Text.Json;
 
-namespace MqttDashboard.Services;
+namespace PSTT.Dashboard.Services;
 
 public class LocalStorageService
 {

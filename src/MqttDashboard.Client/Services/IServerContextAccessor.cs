@@ -1,4 +1,4 @@
-namespace MqttDashboard.Services;
+namespace PSTT.Dashboard.Services;
 
 /// <summary>
 /// Server-side abstraction that tells client services whether there is an active HTTP request

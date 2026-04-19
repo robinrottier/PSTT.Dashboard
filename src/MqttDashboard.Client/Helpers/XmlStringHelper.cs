@@ -1,6 +1,6 @@
 using System.Net;
 
-namespace MqttDashboard.Helpers;
+namespace PSTT.Dashboard.Helpers;
 
 /// <summary>
 /// XML payload utilities for sanitising MQTT strings before embedding in XML/HTML contexts.

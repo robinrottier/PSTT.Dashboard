@@ -8,12 +8,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Moq;
-using MqttDashboard.Server.Controllers;
-using MqttDashboard.Server.Models;
-using MqttDashboard.Server.Services;
+using PSTT.Dashboard.Server.Controllers;
+using PSTT.Dashboard.Server.Models;
+using PSTT.Dashboard.Server.Services;
 using Xunit;
 
-namespace MqttDashboard.Server.Tests;
+namespace PSTT.Dashboard.Server.Tests;
 
 public class UpdateControllerTests
 {
@@ -33,8 +33,8 @@ public class UpdateControllerTests
         // Create a mock environment and pass real IConfiguration and logger to the mocked service proxy.
         var envMock = new Mock<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>();
         envMock.Setup(e => e.ContentRootPath).Returns(System.IO.Path.GetTempPath());
-        var storageLogger = Mock.Of<ILogger<MqttDashboard.Server.Services.DashboardStorageService>>();
-        var storageMock = new Mock<MqttDashboard.Server.Services.DashboardStorageService>(MockBehavior.Loose, envMock.Object, config, storageLogger);
+        var storageLogger = Mock.Of<ILogger<PSTT.Dashboard.Server.Services.DashboardStorageService>>();
+        var storageMock = new Mock<PSTT.Dashboard.Server.Services.DashboardStorageService>(MockBehavior.Loose, envMock.Object, config, storageLogger);
         var logger = Mock.Of<ILogger<UpdateController>>();
         var lifetime = Mock.Of<IHostApplicationLifetime>();
 

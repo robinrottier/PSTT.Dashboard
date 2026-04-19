@@ -1,8 +1,8 @@
-using MqttDashboard.Services;
-using MqttDashboard.Models;
+using PSTT.Dashboard.Services;
+using PSTT.Dashboard.Models;
 using Microsoft.Extensions.Configuration;
 
-namespace MqttDashboard.Client.Tests;
+namespace PSTT.Dashboard.Client.Tests;
 
 public class ApplicationStateTests
 {

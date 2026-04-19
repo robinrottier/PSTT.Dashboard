@@ -1,6 +1,6 @@
-using MqttDashboard.Models;
+using PSTT.Dashboard.Models;
 
-namespace MqttDashboard.Services;
+namespace PSTT.Dashboard.Services;
 
 public interface IDashboardService
 {

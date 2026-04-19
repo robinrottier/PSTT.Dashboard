@@ -1,7 +1,7 @@
-using MqttDashboard.Services;
+using PSTT.Dashboard.Services;
 using Microsoft.AspNetCore.Http;
 
-namespace MqttDashboard.Server.Services;
+namespace PSTT.Dashboard.Server.Services;
 
 /// <summary>
 /// Provides server-side HTTP context information to client services without exposing

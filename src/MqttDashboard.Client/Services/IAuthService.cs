@@ -1,4 +1,4 @@
-namespace MqttDashboard.Services;
+namespace PSTT.Dashboard.Services;
 
 public interface IAuthService
 {

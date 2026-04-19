@@ -3,15 +3,15 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Hosting;
-using MqttDashboard.Server.Services;
+using PSTT.Dashboard.Server.Services;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
-using MqttDashboard.Server.Models;
+using PSTT.Dashboard.Server.Models;
 
-namespace MqttDashboard.Server.Controllers;
+namespace PSTT.Dashboard.Server.Controllers;
 
 [ApiController]
 [Route("api/update")]

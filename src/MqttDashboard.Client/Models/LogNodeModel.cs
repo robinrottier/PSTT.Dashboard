@@ -1,6 +1,6 @@
 using Blazor.Diagrams.Core.Geometry;
 
-namespace MqttDashboard.Models;
+namespace PSTT.Dashboard.Models;
 
 public class LogNodeModel : TextNodeModel
 {

@@ -5,17 +5,17 @@ using Blazor.Diagrams.Core.Models;
 using Blazor.Diagrams.Core.PathGenerators;
 using Blazor.Diagrams.Core.Routers;
 using Blazor.Diagrams.Options;
-using MqttDashboard.Models;
-using MqttDashboard.Services;
-using MqttDashboard.Widgets;
-using MqttDashboard.Components;
+using PSTT.Dashboard.Models;
+using PSTT.Dashboard.Services;
+using PSTT.Dashboard.Widgets;
+using PSTT.Dashboard.Components;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.JSInterop;
 using MudBlazor;
 
-namespace MqttDashboard.Pages;
+namespace PSTT.Dashboard.Pages;
 
 public partial class Display : IDisposable
 {

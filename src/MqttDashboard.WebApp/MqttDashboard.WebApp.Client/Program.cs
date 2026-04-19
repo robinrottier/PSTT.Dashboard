@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using PSTT.Data;
 using PSTT.Remote;
-using MqttDashboard.Services;
+using PSTT.Dashboard.Services;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 

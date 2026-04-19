@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 using System.Linq;
 using System.Text;
 
-namespace MqttDashboard.Server.Services;
+namespace PSTT.Dashboard.Server.Services;
 
 /// <summary>
 /// Short-lived one-use tokens issued by ServerAuthService for the Blazor Server login flow.

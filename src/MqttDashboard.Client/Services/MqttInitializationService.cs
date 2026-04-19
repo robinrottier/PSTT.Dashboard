@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 using PSTT.Data;
 using PSTT.Remote;
 
-namespace MqttDashboard.Services;
+namespace PSTT.Dashboard.Services;
 
 /// <summary>
 /// Service to initialize the PSTT data connection and restore topic subscriptions on startup.

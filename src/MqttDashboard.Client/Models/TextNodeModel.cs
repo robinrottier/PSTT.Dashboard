@@ -1,5 +1,5 @@
 
-namespace MqttDashboard.Models
+namespace PSTT.Dashboard.Models
 {
     public class TextNodeModel : Blazor.Diagrams.Core.Models.NodeModel
     {

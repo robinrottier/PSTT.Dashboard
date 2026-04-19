@@ -2,7 +2,7 @@ using MudBlazor;
 using MudBlazor.Utilities;
 using Microsoft.AspNetCore.Components;
 
-namespace MqttDashboard.Components;
+namespace PSTT.Dashboard.Components;
 
 public enum ColorPickerMode
 {

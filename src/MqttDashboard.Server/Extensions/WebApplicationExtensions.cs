@@ -9,7 +9,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using PSTT.Remote.AspNetCore.Extensions;
 
-namespace MqttDashboard.Server.Extensions;
+namespace PSTT.Dashboard.Server.Extensions;
 
 public static class WebApplicationExtensions
 {
@@ -23,7 +23,7 @@ public static class WebApplicationExtensions
         // At startup, proactively cache the HTTP (non-TLS) loopback port from Kestrel's address
         // features. We prefer HTTP to avoid TLS overhead and certificate issues for server-to-self
         // SignalR connections from Blazor Server circuits.
-        var renderModeOptions = app.Services.GetService<MqttDashboard.Services.RenderModeOptions>();
+        var renderModeOptions = app.Services.GetService<PSTT.Dashboard.Services.RenderModeOptions>();
         app.Lifetime.ApplicationStarted.Register(() =>
         {
             try
@@ -52,7 +52,7 @@ public static class WebApplicationExtensions
         // (CompareExchange), so this won't overwrite the port already set by the startup callback.
         app.Use(async (ctx, next) =>
         {
-            ctx.RequestServices.GetService<MqttDashboard.Services.RenderModeOptions>()
+            ctx.RequestServices.GetService<PSTT.Dashboard.Services.RenderModeOptions>()
                 ?.CacheLoopbackPort(ctx.Connection.LocalPort);
             await next();
         });
@@ -164,7 +164,7 @@ public static class WebApplicationExtensions
         }
 
         // Add additional assemblies
-        razorComponentsEndpoint.AddAdditionalAssemblies(typeof(MqttDashboard._Imports).Assembly);
+        razorComponentsEndpoint.AddAdditionalAssemblies(typeof(PSTT.Dashboard._Imports).Assembly);
 
         return app;
     }

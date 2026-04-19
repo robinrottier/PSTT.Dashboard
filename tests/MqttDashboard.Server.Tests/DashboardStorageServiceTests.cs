@@ -1,11 +1,11 @@
-using MqttDashboard.Server.Services;
-using MqttDashboard.Models;
+using PSTT.Dashboard.Server.Services;
+using PSTT.Dashboard.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.AspNetCore.Hosting;
 using Moq;
 
-namespace MqttDashboard.Server.Tests;
+namespace PSTT.Dashboard.Server.Tests;
 
 public class DashboardStorageServiceTests : IDisposable
 {

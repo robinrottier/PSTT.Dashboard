@@ -8,12 +8,12 @@ using Blazor.Diagrams.Core.Positions.Resizing;
 using Blazor.Diagrams.Core.Routers;
 using Blazor.Diagrams.Options;
 using PSTT.Data;
-using MqttDashboard.Models;
-using MqttDashboard.Widgets;
+using PSTT.Dashboard.Models;
+using PSTT.Dashboard.Widgets;
 using System.Collections.Concurrent;
 using System.Reflection;
 
-namespace MqttDashboard.Services;
+namespace PSTT.Dashboard.Services;
 
 public enum ThemeMode { Light, Dark, Auto }
 

@@ -3,9 +3,9 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
-using MqttDashboard.Server.Services;
+using PSTT.Dashboard.Server.Services;
 
-namespace MqttDashboard.IntegrationTests;
+namespace PSTT.Dashboard.IntegrationTests;
 
 /// <summary>
 /// <see cref="WebApplicationFactory{TEntryPoint}"/> for Tier A integration tests.

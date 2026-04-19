@@ -3,7 +3,7 @@ using MudBlazor.Services;
 using MudBlazor;
 using PSTT.Data;
 
-namespace MqttDashboard.Services;
+namespace PSTT.Dashboard.Services;
 
 public static class ServiceCollectionExtensions
 {

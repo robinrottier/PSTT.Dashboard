@@ -1,6 +1,6 @@
 using Microsoft.Playwright;
 
-namespace MqttDashboard.PlaywrightTests;
+namespace PSTT.Dashboard.PlaywrightTests;
 
 /// <summary>
 /// Tests the responsive AppBar behaviour at different viewport widths.

@@ -1,7 +1,7 @@
 using MudBlazor;
 using Microsoft.AspNetCore.Components;
 
-namespace MqttDashboard.Components;
+namespace PSTT.Dashboard.Components;
 
 public partial class IconPickerDialog
 {

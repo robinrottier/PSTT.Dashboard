@@ -1,6 +1,6 @@
 using MQTTnet.Server;
 
-namespace MqttDashboard.IntegrationTests;
+namespace PSTT.Dashboard.IntegrationTests;
 
 /// <summary>
 /// xUnit class fixture that starts a real in-process MQTTnet broker for the duration of a

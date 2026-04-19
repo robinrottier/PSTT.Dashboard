@@ -1,7 +1,7 @@
 using System.Net.Http.Json;
 using Microsoft.Extensions.Logging;
 
-namespace MqttDashboard.Services;
+namespace PSTT.Dashboard.Services;
 
 public class AuthService : IAuthService
 {

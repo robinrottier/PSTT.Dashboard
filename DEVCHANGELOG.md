@@ -296,7 +296,7 @@ Namespace changed from `MqttDashboard.Server.Services` → `MqttDashboard.Mqtt` 
 
 ### 4. Using statement updates in `.Server`
 
-Files that reference the moved types now add `using MqttDashboard.Mqtt;`:
+Files that reference the moved types now add `using PSTT.Dashboard.Mqtt;`:
 - `Hubs/DataHub.cs` — `MqttConnectionMonitor`, `IMqttClientService`
 - `Hubs/MqttStatusBroadcaster.cs` — `MqttConnectionMonitor`
 - `Services/MqttDataServer.cs` — `MqttClientService`, `MqttTopicSubscriptionManager`, `MqttConnectionMonitor`
@@ -306,7 +306,7 @@ Files that reference the moved types now add `using MqttDashboard.Mqtt;`:
 
 ### 5. Update: test projects
 
-`tests/MqttDashboard.IntegrationTests/FakeMqttClientService.cs` and `IntegrationWebApplicationFactory.cs` — `using MqttDashboard.Server.Services` → `using MqttDashboard.Mqtt` (plus keep `.Server.Services` where other non-moved types are still used).
+`tests/MqttDashboard.IntegrationTests/FakeMqttClientService.cs` and `IntegrationWebApplicationFactory.cs` — `using PSTT.Dashboard.Server.Services` → `using PSTT.Dashboard.Mqtt` (plus keep `.Server.Services` where other non-moved types are still used).
 
 ### 6. Updated `MqttDashboard.slnx`
 
@@ -345,7 +345,7 @@ Instantiated eagerly in `WebApplicationExtensions.UseMqttDashboard` via `Applica
 ### 2. Update: `src/MqttDashboard.Server/Services/MqttClientService.cs`
 
 - Removed `IHubContext<DataHub>` field and constructor parameter.
-- Removed `using Microsoft.AspNetCore.SignalR;` and `using MqttDashboard.Server.Hubs;`.
+- Removed `using Microsoft.AspNetCore.SignalR;` and `using PSTT.Dashboard.Server.Hubs;`.
 - Removed the `_connectionMonitor.OnStateChanged` lambda that broadcast to hub clients.
 - `MqttClientService` now has **zero SignalR references** — pure MQTT concern.
 
@@ -363,7 +363,7 @@ Removed `IHubContext<DataHub>` from the test double constructor to match the upd
 
 ### Result
 
-`MqttClientService` imports: was `using Microsoft.AspNetCore.SignalR` + `using MqttDashboard.Server.Hubs` — both gone. The MQTT files (`MqttClientService`, `MqttDataServer`, `MqttConnectionMonitor`, `MqttTopicSubscriptionManager`, `IMqttClientService`) now have no SignalR dependencies, removing the main blocker to extracting them into a standalone `MqttDashboard.Mqtt` project.
+`MqttClientService` imports: was `using Microsoft.AspNetCore.SignalR` + `using PSTT.Dashboard.Server.Hubs` — both gone. The MQTT files (`MqttClientService`, `MqttDataServer`, `MqttConnectionMonitor`, `MqttTopicSubscriptionManager`, `IMqttClientService`) now have no SignalR dependencies, removing the main blocker to extracting them into a standalone `MqttDashboard.Mqtt` project.
 
 ---
 
@@ -441,7 +441,7 @@ Updated doc comment reference from `MqttDataHub` → `DataHub`.
 
 Tracks connected SignalR clients — that's a hub concern, not a general service concern. Moved to `Hubs/`, renamed to `HubConnectionTracker`, namespace changed to `MqttDashboard.Server.Hubs`.
 Updated refs in: `DataHub.cs`, `MqttDataServer.cs`, `DashboardMetricsPublisher.cs`, `ServiceCollectionExtensions.cs`.
-`DashboardMetricsPublisher.cs` gained `using MqttDashboard.Server.Hubs;`.
+`DashboardMetricsPublisher.cs` gained `using PSTT.Dashboard.Server.Hubs;`.
 
 ### 4. `Hubs/MqttTopicSubscriptionManager.cs` → `Services/MqttTopicSubscriptionManager.cs`
 
@@ -810,14 +810,14 @@ and tested in isolation without any framework dependencies.
 
 - Added `<ProjectReference>` to `MqttDashboard.Data`
 - `MqttDataCache.cs` deleted — entirely replaced by `TopicCache` from the new project
-- `ApplicationState.cs`: `public MqttDataCache DataCache` → `public ITopicCache DataCache = new TopicCache()` + added `using MqttDashboard.Data`
+- `ApplicationState.cs`: `public MqttDataCache DataCache` → `public ITopicCache DataCache = new TopicCache()` + added `using PSTT.Dashboard.Data`
 - `Helpers/XmlStringHelper.cs` reduced to a thin forwarding shim delegating to `XmlPayloadHelper` (retained for any code that references it by the old name; only the internal `MqttDataCache.cs` used it, which is now gone, but kept for safety)
 
 ### 3. `MqttDashboard.Server` changes
 
 - Added `<ProjectReference>` to `MqttDashboard.Data`
 - `MqttTopicSubscriptionManager.cs`: replaced the private `TopicMatches(filter, topic)` method (40+ lines) with `TopicMatcher.Matches(filter, topic)` from the new project. `TopicMatchesFilter` also delegates to `TopicMatcher.Matches`.
-- Added `using MqttDashboard.Data;`
+- Added `using PSTT.Dashboard.Data;`
 
 ### 4. New test project: `tests/MqttDashboard.Data.Tests/`
 
@@ -1246,7 +1246,7 @@ process serves public read-only on 8080 and admin editing on 8081, sharing all s
 **Files changed:**
 - `src/MqttDashboard.Server/Services/ReadOnlyHelper.cs` (new) — static `IsReadOnly(IConfiguration, HttpContext?)` checks `ReadOnly` global flag first, then compares `LocalPort` against `ReadOnlyPorts` list
 - `src/MqttDashboard.Server/Controllers/AuthController.cs` — `GetStatus()` uses `ReadOnlyHelper`
-- `src/MqttDashboard.Server/Filters/RequireAdminFilter.cs` — uses `ReadOnlyHelper`; added `using MqttDashboard.Server.Services`
+- `src/MqttDashboard.Server/Filters/RequireAdminFilter.cs` — uses `ReadOnlyHelper`; added `using PSTT.Dashboard.Server.Services`
 - `src/MqttDashboard.Server/Controllers/SettingsController.cs` — uses `ReadOnlyHelper`
 - `src/MqttDashboard.Server/Services/ServerAuthService.cs` — uses `ReadOnlyHelper`; removed duplicate `var httpContext` declaration
 - `src/MqttDashboard.WebApp/MqttDashboard.WebApp/appsettings.json` — added `"ReadOnlyPorts": ""`
@@ -1796,7 +1796,7 @@ The existing `if (IsEditMode) MarkEdited()` guard in `ApplicationState.cs` is co
 ### Fix: `MqttDataCache.UpdateValue` — client-side gateway sanitization
 
 **`src/MqttDashboard.Client/Services/MqttDataCache.cs`**
-- Added `using MqttDashboard.Helpers`
+- Added `using PSTT.Dashboard.Helpers`
 - `UpdateValue()` now calls `XmlStringHelper.StripInvalidXmlChars(s)` when the incoming value is a string
 - This is the single entry point for ALL MQTT data on the client side — covers both live data and server-replayed cached values
 
@@ -1809,11 +1809,11 @@ The existing `if (IsEditMode) MarkEdited()` guard in `ApplicationState.cs` is co
 ### Fix: `GaugeNodeWidget` and `BatteryNodeWidget` SVG encoding
 
 **`src/MqttDashboard.Client/Widgets/GaugeNodeWidget.razor`**
-- `@using MqttDashboard.Helpers` added
+- `@using PSTT.Dashboard.Helpers` added
 - `RenderSvgLabels()` now calls `XmlStringHelper.XmlSafeEncode()` for the gauge value text and unit text (was `System.Net.WebUtility.HtmlEncode`)
 
 **`src/MqttDashboard.Client/Widgets/BatteryNodeWidget.razor`**
-- `@using MqttDashboard.Helpers` added
+- `@using PSTT.Dashboard.Helpers` added
 - SVG `<text>` content now uses `XmlStringHelper.XmlSafeEncode(FormatPercent())` (was `HtmlEncode`)
 
 ⚠️ The `DataValueTooltipContent.razor` tooltip already had its own `SanitizeForDisplay()` from a previous session — that path was protected. The crash path was the SVG MarkupString re-render on tooltip hover, not the tooltip content itself.

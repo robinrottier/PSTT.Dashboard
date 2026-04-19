@@ -1,8 +1,8 @@
 using System.Net.Http.Json;
-using MqttDashboard.Models;
+using PSTT.Dashboard.Models;
 using Microsoft.Extensions.Logging;
 
-namespace MqttDashboard.Services;
+namespace PSTT.Dashboard.Services;
 
 public class DashboardService : IDashboardService
 {

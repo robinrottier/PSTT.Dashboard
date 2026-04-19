@@ -4,7 +4,7 @@ using PSTT.Data;
 using PSTT.Mqtt;
 using System.Reflection;
 
-namespace MqttDashboard.Server.Services;
+namespace PSTT.Dashboard.Server.Services;
 
 /// <summary>
 /// Hosted service that publishes live diagnostic data as virtual

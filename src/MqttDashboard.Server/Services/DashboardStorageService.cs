@@ -1,10 +1,10 @@
 using System.Text.Json;
-using MqttDashboard.Models;
+using PSTT.Dashboard.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Hosting;
 
-namespace MqttDashboard.Server.Services;
+namespace PSTT.Dashboard.Server.Services;
 
 public class DashboardStorageService
 {
