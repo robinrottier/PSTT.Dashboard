@@ -85,11 +85,10 @@
 
 .PARAMETER LightBackground
     Use darker colours suitable for white/light-theme terminal backgrounds.
-    Auto-detection via $Host.UI.RawUI.BackgroundColor is attempted as a
-    best-effort fallback; pass this flag (or set LIGHT_BACKGROUND=1) when your
-    terminal has a light background and auto-detection does not fire correctly.
-    You can also set it permanently in your profile:
-        $env:LIGHT_BACKGROUND = '1'
+    Auto-detection via OSC 11 terminal query is attempted first (supported by
+    Windows Terminal, iTerm2, and most modern emulators); the ConsoleColor enum
+    is tried as a secondary fallback. Pass this flag (or set LIGHT_BACKGROUND=1)
+    only if auto-detection still does not fire correctly for your terminal.
 
 .EXAMPLE
     pwsh ./scripts/release.ps1 -h
@@ -175,12 +174,35 @@ $RepoRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $RepoRoot
 
 # ─── Console color scheme ─────────────────────────────────────────────────────
-# -LightBackground (or LIGHT_BACKGROUND=1) is the authoritative override for
-# light-theme terminals. As a best-effort fallback, BackgroundColor is probed;
-# Windows Terminal and many other emulators may not report the actual theme, so
-# the explicit flag is always preferred.
+# -LightBackground (or LIGHT_BACKGROUND=1) is the authoritative override.
+# Auto-detection: first try OSC 11 (works in Windows Terminal, iTerm2, etc.),
+# then fall back to the ConsoleColor enum (works in some legacy hosts).
 $_light = $LightBackground -or $env:LIGHT_BACKGROUND -eq '1'
+if (-not $_light -and -not [Console]::IsInputRedirected -and -not [Console]::IsOutputRedirected) {
+    try {
+        # OSC 11 query — terminal replies with actual background RGB
+        [Console]::Write("`e]11;?`a")
+        $sb = [System.Text.StringBuilder]::new()
+        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+        while ($sw.ElapsedMilliseconds -lt 200) {
+            if ([Console]::KeyAvailable) {
+                $null = $sb.Append([Console]::ReadKey($true).KeyChar)
+                if ($sb.ToString() -match 'rgb:([0-9a-fA-F]+)/([0-9a-fA-F]+)/([0-9a-fA-F]+)') {
+                    # Components are 4-digit hex (0000–ffff); first 2 digits = 0–255
+                    $r = [Convert]::ToInt32($Matches[1].Substring(0, [Math]::Min(2, $Matches[1].Length)), 16)
+                    $g = [Convert]::ToInt32($Matches[2].Substring(0, [Math]::Min(2, $Matches[2].Length)), 16)
+                    $b = [Convert]::ToInt32($Matches[3].Substring(0, [Math]::Min(2, $Matches[3].Length)), 16)
+                    $_light = (0.2126 * $r + 0.7152 * $g + 0.0722 * $b) -gt 127
+                    break
+                }
+            } else { [System.Threading.Thread]::Sleep(5) }
+        }
+        # Drain any leftover response chars so they don't pollute the menu prompt
+        while ([Console]::KeyAvailable) { $null = [Console]::ReadKey($true) }
+    } catch { }
+}
 if (-not $_light) {
+    # Legacy fallback: ConsoleColor enum (unreliable in Windows Terminal but works in some hosts)
     try {
         $_bg    = $Host.UI.RawUI.BackgroundColor
         $_light = $_bg -in @(
