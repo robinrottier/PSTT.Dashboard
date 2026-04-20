@@ -7,7 +7,7 @@ For reviewing work item by item and moving anything back to [TODO.md](TODO.md) i
 
 ## 2025-07-15 — FEAT-E: Data Explorer overhaul (tree view, wildcard subscription, topic assign, toolbar in tab row)
 
-### Commit: TBD · branch: develop
+### Commit: 1ea74b6 · branch: develop
 
 ### 1. DataExplorerPanel — full rewrite replacing DataBrowserPanel
 
