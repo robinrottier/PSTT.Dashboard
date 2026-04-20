@@ -118,6 +118,11 @@
       DEPLOY_USER            SSH user (default: current user)
       DEPLOY_PATH            Remote working directory (default: /opt/psttdashboard)
       DEPLOY_COMPOSE_FILE    Compose file name (default: docker-compose.yml)
+      GHCR_TOKEN             GitHub PAT with read:packages scope — used to run
+                             'docker login ghcr.io' on the remote host before
+                             pulling. Required if the container image is private.
+      GHCR_USER              GitHub username for the registry login
+                             (default: parsed from git remote URL)
 #>
 
 [CmdletBinding()]
@@ -733,9 +738,25 @@ function Step-PostDeploy {
     } else {
         $sshTarget   = $deployHost
     }
-    $remoteCmd   = "cd '$deployPath' && docker compose -f '$composeFile' pull && docker compose -f '$composeFile' up -d"
+
+    # Optional: log in to ghcr.io on the remote host before pulling (required for private images)
+    $ghcrToken = $env:GHCR_TOKEN
+    $ghcrUser  = if ($env:GHCR_USER) { $env:GHCR_USER } else {
+        # Try to derive from git remote URL (github.com/<user>/<repo>)
+        $remoteUrl = Get-CmdOutput git @('remote', 'get-url', 'origin')
+        if ($remoteUrl -match 'github\.com[:/]([^/]+)/') { $Matches[1] } else { '' }
+    }
+    $loginCmd = if ($ghcrToken -and $ghcrUser) {
+        "echo '$ghcrToken' | docker login ghcr.io -u '$ghcrUser' --password-stdin && "
+    } else { '' }
+    if ($ghcrToken -and -not $ghcrUser) {
+        Write-Warn "GHCR_TOKEN set but GHCR_USER could not be determined — skipping registry login"
+    }
+
+    $remoteCmd = "${loginCmd}cd '$deployPath' && docker compose -f '$composeFile' pull && docker compose -f '$composeFile' up -d"
 
     Write-Step "Deploying to $sshTarget : $deployPath ($composeFile)"
+    if ($ghcrToken -and $ghcrUser) { Write-Step "  ghcr.io login: $ghcrUser" }
     if ($IsDryRun) { Write-Warn "DRYRUN: skipping SSH deploy"; return }
 
     Assert-Cmd ssh @($sshTarget, $remoteCmd) "SSH deploy failed"
