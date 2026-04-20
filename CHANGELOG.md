@@ -7,9 +7,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [v0.1.0] - 2026-04-20
+
+### Added
+- **Blazor.Diagrams git submodule** — `rrSoft.Blazor.Diagrams` NuGet package replaced with a local
+  `ProjectReference` to a Git submodule at `libs/Blazor.Diagrams` (fork: `robinrottier/Blazor.Diagrams`).
+  Allows direct edits to the diagram engine during active dashboard development.
+- **`release.ps1` — submodule test steps** — new `test-pstt` and `test-blazor-diagrams` steps run
+  the submodule test suites as part of the build pipeline (also included in `-Verify` local mode).
+
 ### Changed
-- **Dual-port Docker setup** — Dockerfile now exposes ports 8080 (read-only public) and 8081 (read-write admin). Both ports share one process, one MQTT connection, and one data cache. `appsettings.json` defaults `ReadOnlyPorts` to `8080`; docker-compose files updated to map both ports.
-- **`Program.cs` deduplication** — Common startup code (Serilog, data directory resolution, user settings migration, HA add-on options) extracted from both `WebApp` and `WebAppServerOnly` into shared extension methods `AddMqttDashboardSerilog()` and `AddMqttDashboardDataDirectory()` in `MqttDashboard.Server`. Both Program.cs files reduced from ~100 lines to ~20 lines.
+- **`release.ps1` — visual step groups** — the interactive step menu now groups steps under headers
+  (Preflight / Build & Test / Version / GitHub Release / Deploy) with `[✓]`/`[-]`/`[ ]` indicators.
+- **`release.ps1` — richer menu input** — new commands: `N-M` range toggle, `all`, `none`/`clear`,
+  `exit`/`quit`, and group keywords with prefix matching (`bui` for Build & Test, `ver` for Version, etc.).
+- **`release.ps1` — light background auto-detection** — terminal background colour is probed
+  automatically (OSC 11 query, then PSReadLine colour heuristic) so light-theme users no longer get
+  white-on-white text without passing `-LightBackground`.
+- **`release.ps1` — spinner output** — long-running commands now show a braille spinner + elapsed
+  time on one overwriting line while running. On success: single `✓` summary line. On failure: last
+  50 lines of captured output. Terminal stays clean instead of scrolling hundreds of build lines.
+- **Dockerfile** — added `COPY` steps for `libs/Blazor.Diagrams/` so Docker builds resolve the
+  submodule `ProjectReference` correctly.
 
 ## [v0.1.17] - 2026-04-03
 

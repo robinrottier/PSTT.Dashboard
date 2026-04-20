@@ -1,8 +1,9 @@
 # PSTT.Dashboard
 
-A live, node-based dashboard editor driven by real-time MQTT data.
+A live, widget-based dashboard editor driven by real-time data sourced from MQTT.
 
-Draw diagrams that show how things are connected in your system — and watch the values update in real time as MQTT messages arrive. Typical use cases include:
+Draw diagrams that show how things are connected in your system — and watch the values update in real time as data update messages arrive.
+Typical use cases include:
 
 - **Energy flow** — solar panels → battery → inverter → grid, with live power and state-of-charge values on each node
 - **Device state** — home automation sensors, switches, and actuators displayed as a connected graph
@@ -14,8 +15,8 @@ Dashboards are fully editable in the browser. Multiple dashboard files can be sa
 
 ## Features
 
-- Node-based canvas — drag, connect, and label nodes
-- Live data — MQTT values displayed directly on nodes, updated via SignalR push
+- Widget-based design canvas — drag, connect, and label nodes
+- Live data — MQTT values displayed directly on widgets, updated via SignalR push
 - Edit / view modes — share a read-only view with no edit controls
 - Optional admin authentication — password-protect editing
 - **Read-only deployment mode** — `ReadOnly=true` disables all edit UI and blocks all write APIs; ideal for public or shared displays
@@ -35,12 +36,15 @@ Dashboards are fully editable in the browser. Multiple dashboard files can be sa
 |---|---|
 | UI framework | [Blazor Web App](https://learn.microsoft.com/aspnet/core/blazor/) (.NET 10, InteractiveAuto render mode) |
 | Component library | [MudBlazor](https://mudblazor.com/) |
-| Diagram canvas | [Blazor.Diagrams](https://blazor-diagrams.zouri.fr/) |
+| Diagram canvas | [Blazor.Diagrams](https://github.com/robinrottier/Blazor.Diagrams) forked from [Z.Blazor.Diagrams](https://blazor-diagrams.zouri.fr/) |
+| Data library | [PSTT](https://github.com/robinrottier/PSTT) in-process and cross-process retained-value pub/sub cache |
 | Real-time push | ASP.NET Core SignalR |
 | MQTT client | [MQTTnet](https://github.com/dotnet/MQTTnet) |
 | Versioning | [MinVer](https://github.com/adamralph/minver) (from git tags) |
 
-The server subscribes to MQTT topics and forwards incoming messages to connected browser clients over SignalR. Dashboards are persisted as JSON files.
+The server subscribes to MQTT topics and forwards incoming messages to connected browser clients over SignalR.
+Other backend sources of data will become available with further plug-ins.
+Dashboards are persisted as JSON files.
 
 ---
 
@@ -111,7 +115,7 @@ docker run -d --name psttdashboard -p 8080:8080 \
 
 **Alternatively, install the self-contained binary:**
 
-1. Download `psttdashboard-linux-arm64.zip` from the [latest release](../../releases/latest).
+1. Download `pstt-dashboard-linux-arm64.zip` from the [latest release](../../releases/latest).
 2. Extract and make executable:
 
    ```bash
@@ -155,9 +159,9 @@ Download the zip for your platform from the [latest release](../../releases/late
 
 | File | Platform |
 |---|---|
-| `psttdashboard-win-x64.zip` | Windows 64-bit |
-| `psttdashboard-linux-x64.zip` | Linux 64-bit |
-| `psttdashboard-linux-arm64.zip` | Linux ARM64 (Raspberry Pi, etc.) |
+| `pstt-dashboard-win-x64.zip` | Windows 64-bit |
+| `pstt-dashboard-linux-x64.zip` | Linux 64-bit |
+| `pstt-dashboard-linux-arm64.zip` | Linux ARM64 (Raspberry Pi, etc.) |
 
 Extract, copy `appsettings.sample.json` to `appsettings.json`, edit your MQTT settings, then run:
 

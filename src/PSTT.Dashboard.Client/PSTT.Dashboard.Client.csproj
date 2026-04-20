@@ -25,7 +25,7 @@
   <ItemGroup>
 	<PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.3" />
 	<PackageReference Include="MudBlazor" Version="9.1.0" />
-	<PackageReference Include="rrSoft.Blazor.Diagrams" Version="0.1.2" />
+	<ProjectReference Include="..\..\libs\Blazor.Diagrams\src\Blazor.Diagrams\Blazor.Diagrams.csproj" />
   </ItemGroup>
 
   <ItemGroup>
