@@ -18,7 +18,9 @@ else
     @if (AppState.PageNames.Count > 1 || AppState.IsEditMode)
     {
         <MudPaper Elevation="0" Class="d-flex align-center px-1 py-0"
-                  Style="border-bottom:1px solid var(--mud-palette-divider);flex-wrap:nowrap;overflow-x:auto;gap:2px;">
+                  Style="border-bottom:1px solid var(--mud-palette-divider);flex-wrap:nowrap;gap:2px;">
+            @* Scrollable page tabs *@
+            <div style="display:flex;align-items:center;flex:1;min-width:0;overflow-x:auto;gap:2px;">
             @for (int i = 0; i < AppState.PageNames.Count; i++)
             {
                 var idx = i;
@@ -73,25 +75,27 @@ else
                                Color="Color.Default" Style="opacity:0.7;"
                                OnClick="@(async () => await AddPageAsync())" />
             }
+            </div>
+            @* Non-scrolling edit toolbar at right end *@
+            @if (AppState.IsEditMode)
+            {
+                <div style="display:flex;flex-shrink:0;gap:0;border-left:1px solid var(--mud-palette-divider);padding-left:4px;margin-left:2px;">
+                    <MudTooltip Text="Add Node (Ctrl+Shift+A)">
+                        <MudIconButton Icon="@Icons.Material.Filled.AddBox" Size="Size.Small"
+                                       Color="@(_isAddNodeOpen ? Color.Primary : Color.Default)"
+                                       OnClick="@(() => { _isAddNodeOpen = !_isAddNodeOpen; StateHasChanged(); })" />
+                    </MudTooltip>
+                    <MudTooltip Text="Data Explorer (Ctrl+Shift+D)">
+                        <MudIconButton Icon="@Icons.Material.Filled.AccountTree" Size="Size.Small"
+                                       Color="@(_isDataExplorerOpen ? Color.Primary : Color.Default)"
+                                       OnClick="@(() => { _isDataExplorerOpen = !_isDataExplorerOpen; StateHasChanged(); })" />
+                    </MudTooltip>
+                </div>
+            }
         </MudPaper>
     }
     <MudPaper @key="_diagram" Elevation="2" Style="@($"padding:0;{CanvasStyle}")">
         <div class="dashboard-canvas" tabindex="0" style="width:100%;height:100%;position:relative;" @onkeydown="HandleKeyDown" @ref="_canvasRef">
-        @if (AppState.IsEditMode)
-        {
-            <MudPaper Elevation="2" Style="position:absolute;z-index:1001;top:4px;left:4px;display:flex;gap:2px;padding:2px 4px;border-radius:8px;">
-                <MudTooltip Text="Add Node Panel (Ctrl+Shift+A)">
-                    <MudIconButton Icon="@Icons.Material.Filled.AddBox" Size="Size.Small"
-                                   Color="@(_isAddNodeOpen ? Color.Primary : Color.Default)"
-                                   OnClick="@(() => { _isAddNodeOpen = !_isAddNodeOpen; StateHasChanged(); })" />
-                </MudTooltip>
-                <MudTooltip Text="Data Browser (Ctrl+Shift+D)">
-                    <MudIconButton Icon="@Icons.Material.Filled.AccountTree" Size="Size.Small"
-                                   Color="@(_isDataBrowserOpen ? Color.Primary : Color.Default)"
-                                   OnClick="@(() => { _isDataBrowserOpen = !_isDataBrowserOpen; StateHasChanged(); })" />
-                </MudTooltip>
-            </MudPaper>
-        }
         @if (AppState.IsEditMode && AppState.IsMultiSelected)
         {
             <MudPaper Elevation="1" Style="position:absolute;z-index:1000;top:4px;left:50%;transform:translateX(-50%);display:flex;gap:2px;padding:2px 4px;border-radius:8px;">
@@ -159,7 +163,13 @@ else
             <AddNodePanelContent OnNodeTypeSelected="OnAddNodeTypeSelected" />
         </FloatingPanel>
 
-        <DataBrowserPanel AppState="AppState" @bind-IsOpen="_isDataBrowserOpen" InitialLeft="900" InitialTop="160" />
+        <DataExplorerPanel AppState="AppState"
+                           IsOpen="_isDataExplorerOpen"
+                           IsOpenChanged="@(v => { _isDataExplorerOpen = v; StateHasChanged(); })"
+                           HasSelectedNode="AppState.HasSingleSelectedNode"
+                           SelectedNodeTopics="SelectedNodeTopics"
+                           OnTopicAssigned="AssignTopicToSelectedNode"
+                           InitialLeft="900" InitialTop="160" />
 
         </div>
     </MudPaper>

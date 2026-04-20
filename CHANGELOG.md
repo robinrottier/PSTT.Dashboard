@@ -9,15 +9,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - **Floating Add Node panel** — replaces the modal dialog. In edit mode, a draggable floating panel
-  appears at top-left of canvas with a 6-type node picker (Text, Gauge, Switch, Battery, Log, TreeView).
-  Toggle via the `+` toolbar button, "Add Node" menu, or `Ctrl+Shift+A`. Panel stays open for repeated use.
-- **Floating Data Browser panel** — shows all live MQTT topics and their current values in a searchable
-  table. Seeds from current cache snapshot; updates live via wildcard subscription. Toggle via the
-  `⋮` toolbar button, "Data Browser" menu (Edit menu), or `Ctrl+Shift+D`.
-- **Edit-mode panel toolbar** — two icon buttons (`+` and tree icon) appear top-left of canvas in edit mode
-  to toggle the two floating panels. Active panel highlighted in primary colour.
+  with a 6-type node picker (Text, Gauge, Switch, Battery, Log, TreeView).
+  Toggle via the toolbar button in the tab row, "Add Node" menu, or `Ctrl+Shift+A`. Panel stays open for repeated use.
+- **Floating Data Explorer panel** — shows all live MQTT topics as a collapsible tree with current values.
+  Enter any MQTT wildcard pattern (default `#`) to filter the subscription; history dropdown remembers last 10 patterns.
+  Select a node on the canvas then click the assign button on any leaf to add that topic to the node.
+  Toggle via toolbar in tab row, "Data Explorer" menu, or `Ctrl+Shift+D`.
+- **Edit-mode toolbar in tab row** — `+` (Add Node) and tree (Data Explorer) icon buttons now live at the
+  right end of the page tab row, separated by a divider. No longer overlaid on the canvas.
 - **`ICache.GetSnapshot()`** — new method on `ICache<TKey,TValue>` and `Cache<TKey,TValue>` returning
-  a point-in-time snapshot of all non-pending entries. Used to seed the Data Browser on open.
+  a point-in-time snapshot of all non-pending entries. Used to seed the Data Explorer on open.
 
 ### Changed
 - **`release.ps1` — group names in `-Only`/`-From`** — `-Only deploy` runs all Deploy group steps;

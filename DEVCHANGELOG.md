@@ -5,6 +5,57 @@ For reviewing work item by item and moving anything back to [TODO.md](TODO.md) i
 
 ---
 
+## 2025-07-15 — FEAT-E: Data Explorer overhaul (tree view, wildcard subscription, topic assign, toolbar in tab row)
+
+### Commit: TBD · branch: develop
+
+### 1. DataExplorerPanel — full rewrite replacing DataBrowserPanel
+
+**File:** `src/PSTT.Dashboard.Client/Components/DataExplorerPanel.razor` (renamed/rewritten)  
+**Deleted:** `src/PSTT.Dashboard.Client/Components/DataBrowserPanel.razor`
+
+Complete overhaul of the data panel:
+- **MQTT wildcard subscription input** — `MudTextField` defaulting to `#`. `MudMenu` dropdown remembers last 10 patterns (stored in `_history`, populated on apply). Applying a new pattern unsubscribes the old one and resubscribes.
+- **Generation token** — `int _subscriptionGeneration` incremented on each `ApplySubscription`. Lambda captures `gen`; callback checks `if (gen != _subscriptionGeneration) return` to discard stale callbacks after pattern change or disposal.
+- **Collapsible tree view** — topics split by `/` into a `TopicNode` hierarchy. Rendered by recursive `TopicTreeNode` component. Expand/collapse state kept in parent `HashSet<string> _expandedPaths` so it survives Blazor component reuse (`@key="child.FullTopic"` set on recursive items). Roots auto-expanded on first subscription.
+- **No text wrapping** — tree rows use `white-space:nowrap;overflow:hidden;text-overflow:ellipsis`.
+- **Topic assign button** — each leaf shows an assign-to-selected-node button. If topic already assigned, shows a checkmark. `OnTopicAssigned` callback fires to parent.
+- **Status bar** — topic count + subscription pattern shown at bottom.
+- **Filtering** — uses `MqttWildcardMatcher.Matches(pattern, topic)` for wildcard patterns; `string.Equals` for exact topics.
+
+### 2. TopicNode + TopicTreeNode components
+
+**Files:** `src/PSTT.Dashboard.Client/Components/TopicNode.cs`, `TopicTreeNode.razor` (new)
+
+- `TopicNode` — standalone class with `Label`, `FullTopic`, `Value`, `IsLeaf`, `Children`, `ChildMap`.
+- `TopicTreeNode` — recursive Razor component. Parameters: `Node`, `HasSelectedNode`, `SelectedNodeTopics`, `OnTopicAssigned`, `ExpandedPaths`, `OnToggleExpand`. Renders expand/collapse arrow for branches, value + assign button for leaves.
+
+### 3. ApplicationState + AppMenu — rename DataBrowser → DataExplorer
+
+**Files:** `src/PSTT.Dashboard.Client/Services/ApplicationState.cs`, `src/PSTT.Dashboard.Client/Layout/AppMenu.razor`
+
+- `MenuToggleDataBrowser` → `MenuToggleDataExplorer`, `RaiseMenuToggleDataBrowser()` → `RaiseMenuToggleDataExplorer()`.
+- Menu item label "Data Browser" → "Data Explorer".
+
+### 4. Display.razor — toolbar moved to tab row, canvas toolbar removed
+
+**File:** `src/PSTT.Dashboard.Client/Pages/Display.razor`
+
+- Tab row restructured: outer `MudPaper` no longer has `overflow-x:auto`. Scrollable page tabs now wrapped in inner `<div style="flex:1;min-width:0;overflow-x:auto">`. Non-scrolling edit toolbar (`flex-shrink:0`) appended after, separated by a divider line.
+- Canvas `position:absolute` toolbar block removed (the `<MudPaper>` with AddBox + AccountTree buttons at top-left).
+- `<DataBrowserPanel>` → `<DataExplorerPanel>` with new params: `HasSelectedNode`, `SelectedNodeTopics`, `OnTopicAssigned`.
+
+### 5. Display.razor.cs — rename + new methods
+
+**File:** `src/PSTT.Dashboard.Client/Pages/Display.razor.cs`
+
+- `_isDataBrowserOpen` → `_isDataExplorerOpen`; `_onMenuToggleDataBrowser` → `_onMenuToggleDataExplorer`.
+- All subscribe/unsubscribe references updated.
+- New property `SelectedNodeTopics` — returns `DataTopics` of first selected `TextNodeModel`.
+- New method `AssignTopicToSelectedNode(string topic)` — calls `PushUndoSnapshot()`, adds topic if not present, calls `node.Refresh()` + `AppState.MarkEdited()`.
+
+---
+
 ## 2025-07-14 — FEAT-E: Floating modeless panels (Add Node + Data Browser)
 
 ### Commits: 1c45fdf (PSTT submodule), 1aed23c · branch: develop

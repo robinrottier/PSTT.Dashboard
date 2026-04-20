@@ -1,0 +1,78 @@
+@namespace PSTT.Dashboard.Components
+
+<div style="user-select:none;">
+    @if (Node.IsLeaf)
+    {
+        <div class="de-row de-leaf @(_highlight ? "de-row-hover" : "")"
+             style="display:flex;align-items:center;padding:1px 2px;gap:2px;white-space:nowrap;overflow:hidden;"
+             @onmouseenter="@(() => _highlight = true)"
+             @onmouseleave="@(() => _highlight = false)">
+            <span style="flex-shrink:0;width:14px;"></span>
+            <MudIcon Icon="@Icons.Material.Filled.Circle" Size="Size.Small"
+                     Style="font-size:6px;flex-shrink:0;opacity:0.5;" />
+            <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;font-family:monospace;font-size:0.72rem;"
+                  title="@Node.FullTopic">@Node.Label</span>
+            <span style="flex-shrink:0;max-width:100px;overflow:hidden;text-overflow:ellipsis;opacity:0.7;font-size:0.72rem;text-align:right;padding-right:2px;"
+                  title="@Node.Value">@Node.Value</span>
+            @if (HasSelectedNode)
+            {
+                @if (SelectedNodeTopics != null && SelectedNodeTopics.Contains(Node.FullTopic))
+                {
+                    <MudTooltip Text="Already assigned">
+                        <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small"
+                                 Color="Color.Success" Style="font-size:14px;flex-shrink:0;" />
+                    </MudTooltip>
+                }
+                else
+                {
+                    <MudTooltip Text="@($"Assign to selected node")">
+                        <MudIconButton Icon="@Icons.Material.Filled.AddLink" Size="Size.Small"
+                                       Style="padding:0;width:20px;height:20px;flex-shrink:0;"
+                                       OnClick="@(() => OnTopicAssigned.InvokeAsync(Node.FullTopic))" />
+                    </MudTooltip>
+                }
+            }
+        </div>
+    }
+    else
+    {
+        var isExpanded = ExpandedPaths.Contains(Node.FullTopic);
+        <div class="de-row"
+             style="display:flex;align-items:center;padding:1px 2px;gap:2px;white-space:nowrap;overflow:hidden;cursor:pointer;"
+             @onclick="@(() => OnToggleExpand.InvokeAsync(Node.FullTopic))">
+            <span style="flex-shrink:0;width:14px;display:flex;align-items:center;">
+                <MudIcon Icon="@(isExpanded ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
+                         Size="Size.Small" Style="font-size:14px;" />
+            </span>
+            <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;font-weight:500;font-size:0.72rem;"
+                  title="@Node.FullTopic">@Node.Label</span>
+            <span style="flex-shrink:0;opacity:0.4;font-size:0.68rem;padding-right:4px;">(@Node.Children.Count)</span>
+        </div>
+        @if (isExpanded)
+        {
+            <div style="padding-left:12px;">
+                @foreach (var child in Node.Children)
+                {
+                    <TopicTreeNode @key="@child.FullTopic"
+                                   Node="child"
+                                   HasSelectedNode="HasSelectedNode"
+                                   SelectedNodeTopics="SelectedNodeTopics"
+                                   OnTopicAssigned="OnTopicAssigned"
+                                   ExpandedPaths="ExpandedPaths"
+                                   OnToggleExpand="OnToggleExpand" />
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public TopicNode Node { get; set; } = default!;
+    [Parameter] public bool HasSelectedNode { get; set; }
+    [Parameter] public IReadOnlyCollection<string>? SelectedNodeTopics { get; set; }
+    [Parameter] public EventCallback<string> OnTopicAssigned { get; set; }
+    [Parameter] public HashSet<string> ExpandedPaths { get; set; } = new();
+    [Parameter] public EventCallback<string> OnToggleExpand { get; set; }
+
+    private bool _highlight;
+}

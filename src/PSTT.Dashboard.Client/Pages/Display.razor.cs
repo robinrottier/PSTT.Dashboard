@@ -51,7 +51,7 @@ public partial class Display : IDisposable
 
     // Floating panel state
     private bool _isAddNodeOpen;
-    private bool _isDataBrowserOpen;
+    private bool _isDataExplorerOpen;
 
     // Stored handler references for clean unsubscription
     private Action? _onMenuSaveDiagram;
@@ -63,7 +63,7 @@ public partial class Display : IDisposable
     private Action? _onMenuRedo;
     private Action? _onMenuUndoAll;
     private Action? _onMenuDiagramProperties;
-    private Action? _onMenuToggleDataBrowser;
+    private Action? _onMenuToggleDataExplorer;
     private Action? _onMenuPaste;
     private Action? _onMenuExportNodes;
     private Action? _onMenuImportNodes;
@@ -120,7 +120,7 @@ public partial class Display : IDisposable
                     StateHasChanged();
                     break;
                 case "D" when e.ShiftKey:
-                    _isDataBrowserOpen = !_isDataBrowserOpen;
+                    _isDataExplorerOpen = !_isDataExplorerOpen;
                     StateHasChanged();
                     break;
             }
@@ -481,8 +481,8 @@ public partial class Display : IDisposable
         _onMenuDiagramProperties = () => InvokeAsync(ShowDiagramPropertiesAsync);
         AppState.MenuDiagramProperties += _onMenuDiagramProperties;
 
-        _onMenuToggleDataBrowser = () => InvokeAsync(() => { _isDataBrowserOpen = !_isDataBrowserOpen; StateHasChanged(); return Task.CompletedTask; });
-        AppState.MenuToggleDataBrowser += _onMenuToggleDataBrowser;
+        _onMenuToggleDataExplorer = () => InvokeAsync(() => { _isDataExplorerOpen = !_isDataExplorerOpen; StateHasChanged(); return Task.CompletedTask; });
+        AppState.MenuToggleDataExplorer += _onMenuToggleDataExplorer;
 
         _onMenuAddPage = () => InvokeAsync(AddPageAsync);
         AppState.MenuAddPage += _onMenuAddPage;
@@ -519,7 +519,7 @@ public partial class Display : IDisposable
         if (_onMenuUndoAll        != null) AppState.MenuUndoAll        -= _onMenuUndoAll;
 
         if (_onMenuDiagramProperties != null) AppState.MenuDiagramProperties -= _onMenuDiagramProperties;
-        if (_onMenuToggleDataBrowser != null) AppState.MenuToggleDataBrowser  -= _onMenuToggleDataBrowser;
+        if (_onMenuToggleDataExplorer != null) AppState.MenuToggleDataExplorer -= _onMenuToggleDataExplorer;
         if (_onMenuAddPage           != null) AppState.MenuAddPage           -= _onMenuAddPage;
 
         _diagram?.Nodes.Added -= OnNodeAddedInEditMode;
@@ -529,7 +529,7 @@ public partial class Display : IDisposable
 
         _onMenuSaveDiagram = _onMenuReloadDiagram = _onMenuEditProperties = null;
         _onMenuSaveAs = _onMenuUndo = _onMenuRedo = _onMenuUndoAll = _onMenuDiagramProperties = _onMenuAddPage = null;
-        _onMenuExportNodes = _onMenuImportNodes = _onMenuToggleDataBrowser = null;
+        _onMenuExportNodes = _onMenuImportNodes = _onMenuToggleDataExplorer = null;
     }
 
     // ── Diagram event handlers ────────────────────────────────────────────────
@@ -604,6 +604,22 @@ public partial class Display : IDisposable
         _diagram.Controls.AddFor(node).Add(new Blazor.Diagrams.Core.Controls.Default.ResizeControl(new Blazor.Diagrams.Core.Positions.Resizing.BottomRightResizerProvider()));
         _diagram.SelectModel(node, false);
         UpdateSelectionState();
+        StateHasChanged();
+    }
+
+    private IReadOnlyCollection<string>? SelectedNodeTopics =>
+        _diagram?.GetSelectedModels().OfType<TextNodeModel>().FirstOrDefault()?.DataTopics;
+
+    private void AssignTopicToSelectedNode(string topic)
+    {
+        var node = _diagram?.GetSelectedModels().OfType<TextNodeModel>().FirstOrDefault();
+        if (node == null) return;
+        if (node.DataTopics.Contains(topic)) return;
+
+        PushUndoSnapshot();
+        node.DataTopics.Add(topic);
+        node.Refresh();
+        AppState.MarkEdited();
         StateHasChanged();
     }
 
