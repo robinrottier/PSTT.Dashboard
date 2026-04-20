@@ -11,12 +11,15 @@ RUN dotnet workload install wasm-tools
 # Copy all project files (for layer caching on package restore)
 COPY src/Directory.Build.props      src/
 COPY src/PSTT.Dashboard.Client/PSTT.Dashboard.Client.csproj                                                           src/PSTT.Dashboard.Client/
-COPY src/PSTT.Dashboard.Data/PSTT.Dashboard.Data.csproj                                                               src/PSTT.Dashboard.Data/
-COPY src/PSTT.Dashboard.Mqtt/PSTT.Dashboard.Mqtt.csproj                                                               src/PSTT.Dashboard.Mqtt/
 COPY src/PSTT.Dashboard.Server/PSTT.Dashboard.Server.csproj                                                           src/PSTT.Dashboard.Server/
 COPY src/PSTT.Dashboard.SourceGenerators/PSTT.Dashboard.SourceGenerators.csproj                                       src/PSTT.Dashboard.SourceGenerators/
 COPY src/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp.Client/PSTT.Dashboard.WebApp.Client.csproj                        src/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp.Client/
 COPY src/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp.csproj                                      src/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp/
+COPY libs/PSTT/src/Directory.Build.props                                                                              libs/PSTT/src/
+COPY libs/PSTT/src/PSTT.Data/PSTT.Data.csproj                                                                          libs/PSTT/src/PSTT.Data/
+COPY libs/PSTT/src/PSTT.Mqtt/PSTT.Mqtt.csproj                                                                          libs/PSTT/src/PSTT.Mqtt/
+COPY libs/PSTT/src/PSTT.Remote/PSTT.Remote.csproj                                                                      libs/PSTT/src/PSTT.Remote/
+COPY libs/PSTT/src/PSTT.Remote.AspNetCore/PSTT.Remote.AspNetCore.csproj                                              libs/PSTT/src/PSTT.Remote.AspNetCore/
 
 # Restore dependencies (after workload install so WASM targets are available)
 RUN dotnet restore src/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp.csproj
@@ -24,11 +27,10 @@ RUN dotnet restore src/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp/PSTT.Dashboar
 # Copy the rest of the source and .git so MinVer can resolve the version from tags
 COPY .git/ .git/
 COPY src/PSTT.Dashboard.Client/      src/PSTT.Dashboard.Client/
-COPY src/PSTT.Dashboard.Data/        src/PSTT.Dashboard.Data/
-COPY src/PSTT.Dashboard.Mqtt/        src/PSTT.Dashboard.Mqtt/
 COPY src/PSTT.Dashboard.Server/      src/PSTT.Dashboard.Server/
 COPY src/PSTT.Dashboard.SourceGenerators/ src/PSTT.Dashboard.SourceGenerators/
 COPY src/PSTT.Dashboard.WebApp/      src/PSTT.Dashboard.WebApp/
+COPY libs/PSTT/src/                  libs/PSTT/src/
 
 # Publish the server project (this also builds & includes the WASM client).
 # MinVer reads .git to resolve the version from the nearest tag automatically.

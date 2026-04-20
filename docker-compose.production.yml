@@ -1,8 +1,8 @@
 # Production compose: pulls pre-built image from GHCR.
 # Usage: docker compose -f docker-compose.production.yml up -d
 services:
-  mqttdashboard:
-    image: ghcr.io/robinrottier/mqttdashboard:latest
+  psttdashboard:
+    image: ghcr.io/robinrottier/psttdashboard:latest
     ports:
       - "8080:8080"   # read-only public port
       - "8081:8081"   # read-write admin port
