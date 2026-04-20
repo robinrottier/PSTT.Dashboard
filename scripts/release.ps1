@@ -7,22 +7,24 @@
 
       1.  preflight       Verify required tools (git, dotnet, gh)
       2.  clean           Auto-commit TODO.md if the only dirty file; else abort
-      3.  build-debug     Build + test (Debug configuration)
-      4.  build-release   Build + test (Release configuration)
-      5.  publish-check   dotnet publish (Release, linux-x64, self-contained)
-      6.  docker-build    docker build (local only, no push; skipped if Docker unavailable)
-      7.  sync            Fetch + pull --rebase from origin
-      8.  version         Compute next semver tag from latest git tag
-      9.  changelog       Insert versioned section into CHANGELOG.md
-      10. push-changelog  Commit + push the changelog update
-      11. pr              Create PR → main, wait for CI checks, merge
-      12. tag             Create annotated tag and push it
-      13. wait-workflows  Wait for release workflows triggered by the tag
-      14. post-deploy     SSH deploy: docker compose pull + up -d (skipped if DEPLOY_HOST not set)
+      3.  test-pstt       Build + test PSTT submodule (libs/PSTT)
+      4.  test-blazor-diagrams  Build + test Blazor.Diagrams submodule (libs/Blazor.Diagrams)
+      5.  build-debug     Build + test (Debug configuration)
+      6.  build-release   Build + test (Release configuration)
+      7.  publish-check   dotnet publish (Release, linux-x64, self-contained)
+      8.  docker-build    docker build (local only, no push; skipped if Docker unavailable)
+      9.  sync            Fetch + pull --rebase from origin
+      10. version         Compute next semver tag from latest git tag
+      11. changelog       Insert versioned section into CHANGELOG.md
+      12. push-changelog  Commit + push the changelog update
+      13. pr              Create PR → main, wait for CI checks, merge
+      14. tag             Create annotated tag and push it
+      15. wait-workflows  Wait for release workflows triggered by the tag
+      16. post-deploy     SSH deploy: docker compose pull + up -d (skipped if DEPLOY_HOST not set)
 
-    Steps 1–6 are purely local; steps 7–14 require git remote and/or gh CLI.
+    Steps 1–8 are purely local; steps 9–16 require git remote and/or gh CLI.
 
-    Use -Verify to run only steps 1–6 as a quick local CI mirror — no git state
+    Use -Verify to run only steps 1–8 as a quick local CI mirror — no git state
     changes, no gh required. Suitable as a Copilot post-change verification gate.
 
     Runs on pwsh 7+ (Windows, Linux, WSL).
@@ -64,7 +66,8 @@
 .PARAMETER From
     Start from a named step, skipping all earlier ones. Useful to resume after
     a failure without re-running build/test.
-    Step names: preflight clean build-debug build-release publish-check docker-build
+    Step names: preflight clean test-pstt test-blazor-diagrams
+                build-debug build-release publish-check docker-build
                 sync version changelog push-changelog pr tag wait-workflows post-deploy
 
 .PARAMETER Only
@@ -82,9 +85,10 @@
 
 .PARAMETER LightBackground
     Use darker colours suitable for white/light-theme terminal backgrounds.
-    Auto-detection is unreliable in Windows Terminal and many other emulators,
-    so pass this flag (or set LIGHT_BACKGROUND=1) when your terminal has a light
-    background. You can also set it permanently in your profile:
+    Auto-detection via $Host.UI.RawUI.BackgroundColor is attempted as a
+    best-effort fallback; pass this flag (or set LIGHT_BACKGROUND=1) when your
+    terminal has a light background and auto-detection does not fire correctly.
+    You can also set it permanently in your profile:
         $env:LIGHT_BACKGROUND = '1'
 
 .EXAMPLE
@@ -171,10 +175,20 @@ $RepoRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $RepoRoot
 
 # ─── Console color scheme ─────────────────────────────────────────────────────
-# Auto-detection of terminal background is unreliable in Windows Terminal and
-# many other terminal emulators. Use -LightBackground (or LIGHT_BACKGROUND=1)
-# for white/light-theme terminals; default palette assumes dark background.
+# -LightBackground (or LIGHT_BACKGROUND=1) is the authoritative override for
+# light-theme terminals. As a best-effort fallback, BackgroundColor is probed;
+# Windows Terminal and many other emulators may not report the actual theme, so
+# the explicit flag is always preferred.
 $_light = $LightBackground -or $env:LIGHT_BACKGROUND -eq '1'
+if (-not $_light) {
+    try {
+        $_bg    = $Host.UI.RawUI.BackgroundColor
+        $_light = $_bg -in @(
+            [ConsoleColor]::White, [ConsoleColor]::Gray,
+            [ConsoleColor]::Yellow, [ConsoleColor]::Cyan, [ConsoleColor]::Green
+        )
+    } catch { }
+}
 $C = @{
     Header  = if ($_light) { 'DarkCyan'    } else { 'Cyan'   }
     Step    = 'DarkGray'    # readable on both
@@ -211,28 +225,51 @@ $IsInteractive = -not $NonInteractive -and
 
 # ─── Step catalogue ───────────────────────────────────────────────────────────
 $StepOrder = @(
-    'preflight', 'clean', 'build-debug', 'build-release', 'publish-check', 'docker-build',
+    'preflight', 'clean',
+    'test-pstt', 'test-blazor-diagrams',
+    'build-debug', 'build-release', 'publish-check', 'docker-build',
     'sync', 'version', 'changelog', 'push-changelog',
     'pr', 'tag', 'wait-workflows', 'post-deploy'
 )
 # Steps that are purely local (no git remote / gh required)
-$LocalSteps = @('preflight', 'clean', 'build-debug', 'build-release', 'publish-check', 'docker-build')
+$LocalSteps = @('preflight', 'clean', 'test-pstt', 'test-blazor-diagrams', 'build-debug', 'build-release', 'publish-check', 'docker-build')
 
 $StepDesc = @{
-    'preflight'      = 'Preflight checks (tools, git remote)'
-    'clean'          = 'Ensure clean working tree'
-    'build-debug'    = 'Build and test (Debug)'
-    'build-release'  = 'Build and test (Release)'
-    'publish-check'  = 'dotnet publish (Release, linux-x64, self-contained)'
-    'docker-build'   = 'docker build (local verify, no push)'
-    'sync'           = 'Pull and sync with remote'
-    'version'        = 'Compute next version'
-    'changelog'      = 'Update CHANGELOG.md'
-    'push-changelog' = 'Commit and push changelog'
-    'pr'             = 'Create PR → wait for CI → merge'
-    'tag'            = 'Create and push release tag'
-    'wait-workflows' = 'Wait for release workflows'
-    'post-deploy'    = 'SSH deploy: docker compose pull + up -d'
+    'preflight'            = 'Preflight checks (tools, git remote)'
+    'clean'                = 'Ensure clean working tree'
+    'test-pstt'            = 'Build and test PSTT submodule (libs/PSTT)'
+    'test-blazor-diagrams' = 'Build and test Blazor.Diagrams submodule (libs/Blazor.Diagrams)'
+    'build-debug'          = 'Build and test (Debug)'
+    'build-release'        = 'Build and test (Release)'
+    'publish-check'        = 'dotnet publish (Release, linux-x64, self-contained)'
+    'docker-build'         = 'docker build (local verify, no push)'
+    'sync'                 = 'Pull and sync with remote'
+    'version'              = 'Compute next version'
+    'changelog'            = 'Update CHANGELOG.md'
+    'push-changelog'       = 'Commit and push changelog'
+    'pr'                   = 'Create PR → wait for CI → merge'
+    'tag'                  = 'Create and push release tag'
+    'wait-workflows'       = 'Wait for release workflows'
+    'post-deploy'          = 'SSH deploy: docker compose pull + up -d'
+}
+
+# ─── Step groups (used by the interactive menu) ───────────────────────────────
+$StepGroups = [ordered]@{
+    'Preflight'      = @('preflight', 'clean')
+    'Build & Test'   = @('test-pstt', 'test-blazor-diagrams', 'build-debug', 'build-release', 'publish-check', 'docker-build')
+    'Version'        = @('sync', 'version', 'changelog', 'push-changelog')
+    'GitHub Release' = @('pr', 'tag', 'wait-workflows')
+    'Deploy'         = @('post-deploy')
+}
+# Keywords accepted in the menu to toggle an entire group
+$GroupKeywords = @{
+    'preflight' = 'Preflight'
+    'build'     = 'Build & Test'
+    'test'      = 'Build & Test'
+    'version'   = 'Version'
+    'release'   = 'GitHub Release'
+    'github'    = 'GitHub Release'
+    'deploy'    = 'Deploy'
 }
 
 # Resolve skip set (accepts array or comma-separated strings)
@@ -319,6 +356,28 @@ function Step-CleanTree {
     } else {
         throw "Working tree is dirty. Commit or stash changes before releasing.`n$status"
     }
+}
+
+# ─── Step: test-pstt ─────────────────────────────────────────────────────────
+function Step-TestPstt {
+    $slnx = Join-Path $RepoRoot 'libs' 'PSTT' 'PSTT.slnx'
+    Write-Step "Building PSTT submodule..."
+    Assert-Cmd dotnet @('build', $slnx, '-c', 'Debug') "PSTT submodule build failed"
+    Write-Step "Testing PSTT submodule..."
+    Assert-Cmd dotnet @('test', $slnx, '-c', 'Debug', '--no-build') "PSTT submodule tests failed"
+    Write-Ok "PSTT submodule build + tests passed"
+}
+
+# ─── Step: test-blazor-diagrams ──────────────────────────────────────────────
+function Step-TestBlazorDiagrams {
+    $testRoot  = Join-Path $RepoRoot 'libs' 'Blazor.Diagrams' 'tests'
+    $coreTests = Join-Path $testRoot 'Blazor.Diagrams.Core.Tests' 'Blazor.Diagrams.Core.Tests.csproj'
+    $mainTests = Join-Path $testRoot 'Blazor.Diagrams.Tests'      'Blazor.Diagrams.Tests.csproj'
+    foreach ($proj in @($coreTests, $mainTests)) {
+        Write-Step "Testing $(Split-Path -Leaf $proj)..."
+        Assert-Cmd dotnet @('test', $proj, '-c', 'Debug') "Tests failed: $(Split-Path -Leaf $proj)"
+    }
+    Write-Ok "Blazor.Diagrams submodule tests passed"
 }
 
 # ─── Step: build-debug ───────────────────────────────────────────────────────
@@ -578,39 +637,87 @@ function Get-RepoSlug {
 
 # ─── Interactive step menu ────────────────────────────────────────────────────
 function Show-StepMenu([string[]]$planned) {
-    # Mutable set of currently-selected steps; HashSet gives O(1) toggle
+    # Validate groups cover exactly the steps in $StepOrder — fail fast on drift
+    $allGroupedSteps = $StepGroups.Values | ForEach-Object { $_ }
+    $inOrderNotGrouped = $StepOrder | Where-Object { $_ -notin $allGroupedSteps }
+    $inGroupNotOrder   = $allGroupedSteps | Where-Object { $_ -notin $StepOrder }
+    if ($inOrderNotGrouped) { throw "BUG: steps in `$StepOrder but not in any `$StepGroups group: $($inOrderNotGrouped -join ', ')" }
+    if ($inGroupNotOrder)   { throw "BUG: steps in `$StepGroups but not in `$StepOrder: $($inGroupNotOrder -join ', ')" }
+
     $selected = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     foreach ($s in $planned) { [void]$selected.Add($s) }
 
+    # Build stable 1-based number lookup
+    $stepNums = @{}
+    $i = 1
+    foreach ($s in $StepOrder) { $stepNums[$s] = $i++ }
+
     while ($true) {
-        Write-Host "`nStep plan — [✓] will run  [ ] skipped:" -ForegroundColor $C.Cyan
-        $i = 1
-        foreach ($s in $StepOrder) {
-            $on     = $selected.Contains($s)
-            $marker = if ($on) { '[✓]' } else { '[ ]' }
-            $color  = if ($on) { $C.Active } else { $C.Dim }
-            Write-Host ("  {0,2}. {1} {2,-20} {3}" -f $i, $marker, $s, $StepDesc[$s]) -ForegroundColor $color
-            $i++
+        Write-Host "`nStep plan — [✓] will run  [-] partial  [ ] skipped:" -ForegroundColor $C.Cyan
+
+        foreach ($groupLabel in $StepGroups.Keys) {
+            $groupSteps = $StepGroups[$groupLabel]
+            $onCount    = @($groupSteps | Where-Object { $selected.Contains($_) }).Count
+            $allOn      = $onCount -eq $groupSteps.Count
+            $someOn     = $onCount -gt 0 -and -not $allOn
+            $groupMarker = if ($allOn) { '[✓]' } elseif ($someOn) { '[-]' } else { '[ ]' }
+            $gcolor      = if ($allOn) { $C.Header } elseif ($someOn) { $C.Warn } else { $C.Dim }
+            $fill        = '─' * [Math]::Max(0, 46 - $groupLabel.Length)
+            Write-Host " $groupMarker ── $groupLabel $fill" -ForegroundColor $gcolor
+
+            foreach ($s in $groupSteps) {
+                $on     = $selected.Contains($s)
+                $marker = if ($on) { '[✓]' } else { '[ ]' }
+                $color  = if ($on) { $C.Active } else { $C.Dim }
+                Write-Host ("  {0,2}. {1} {2,-26} {3}" -f $stepNums[$s], $marker, $s, $StepDesc[$s]) -ForegroundColor $color
+            }
         }
+
         Write-Host ""
-        Write-Host "  Enter number(s) to toggle include/skip (e.g. 1,3), or press Enter to run:" -ForegroundColor $C.Yellow
+        Write-Host "  Commands (comma-separate multiple):" -ForegroundColor $C.Yellow
+        Write-Host "    1,3,5      toggle steps by number  |  9-14     toggle a range" -ForegroundColor $C.Dim
+        Write-Host "    build      toggle a group          |  all      select all" -ForegroundColor $C.Dim
+        Write-Host "    none/clear deselect all            |  exit     quit" -ForegroundColor $C.Dim
+        Write-Host "    <Enter>  run selected steps" -ForegroundColor $C.Dim
         $rawInput = Read-Host '  >'
 
         if ([string]::IsNullOrWhiteSpace($rawInput)) { break }
 
-        $nums = $rawInput -split ',' |
-            ForEach-Object { $_.Trim() } |
-            Where-Object   { $_ -match '^\d+$' } |
-            ForEach-Object { [int]$_ }
+        foreach ($token in ($rawInput -split ',')) {
+            $t = $token.Trim().ToLower()
+            if ([string]::IsNullOrEmpty($t)) { continue }
 
-        foreach ($n in $nums) {
-            if ($n -ge 1 -and $n -le $StepOrder.Count) {
-                $step = $StepOrder[$n - 1]
-                if ($selected.Contains($step)) { [void]$selected.Remove($step) }
-                else                           { [void]$selected.Add($step)    }
+            if ($t -eq 'exit' -or $t -eq 'quit') {
+                exit 0
+            } elseif ($t -eq 'all') {
+                foreach ($s in $StepOrder) { [void]$selected.Add($s) }
+            } elseif ($t -eq 'none' -or $t -eq 'clear') {
+                $selected.Clear()
+            } elseif ($GroupKeywords.ContainsKey($t)) {
+                $gLabel  = $GroupKeywords[$t]
+                $gSteps  = $StepGroups[$gLabel]
+                $allSel  = @($gSteps | Where-Object { $selected.Contains($_) }).Count -eq $gSteps.Count
+                foreach ($s in $gSteps) {
+                    if ($allSel) { [void]$selected.Remove($s) }
+                    else         { [void]$selected.Add($s)    }
+                }
+            } elseif ($t -match '^(\d+)-(\d+)$') {
+                $lo = [Math]::Max(1,                  [Math]::Min([int]$Matches[1], [int]$Matches[2]))
+                $hi = [Math]::Min($StepOrder.Count,   [Math]::Max([int]$Matches[1], [int]$Matches[2]))
+                for ($n = $lo; $n -le $hi; $n++) {
+                    $s = $StepOrder[$n - 1]
+                    if ($selected.Contains($s)) { [void]$selected.Remove($s) }
+                    else                         { [void]$selected.Add($s)    }
+                }
+            } elseif ($t -match '^\d+$') {
+                $n = [int]$t
+                if ($n -ge 1 -and $n -le $StepOrder.Count) {
+                    $s = $StepOrder[$n - 1]
+                    if ($selected.Contains($s)) { [void]$selected.Remove($s) }
+                    else                         { [void]$selected.Add($s)    }
+                }
             }
         }
-        # Loop back — user sees updated markers before confirming
     }
 
     # Return in canonical step order
@@ -633,10 +740,12 @@ function Prompt-OnFailure([string]$stepName) {
 
 # ─── Step dispatch table ─────────────────────────────────────────────────────
 $StepFns = @{
-    'preflight'      = { Step-Preflight }
-    'clean'          = { Step-CleanTree }
-    'build-debug'    = { Step-BuildDebug }
-    'build-release'  = { Step-BuildRelease }
+    'preflight'            = { Step-Preflight }
+    'clean'                = { Step-CleanTree }
+    'test-pstt'            = { Step-TestPstt }
+    'test-blazor-diagrams' = { Step-TestBlazorDiagrams }
+    'build-debug'          = { Step-BuildDebug }
+    'build-release'        = { Step-BuildRelease }
     'publish-check'  = { Step-PublishCheck }
     'docker-build'   = { Step-DockerBuild }
     'sync'           = { Step-GitSync }
