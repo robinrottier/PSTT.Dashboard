@@ -693,8 +693,10 @@ function Show-StepMenu([string[]]$planned) {
                 foreach ($s in $StepOrder) { [void]$selected.Add($s) }
             } elseif ($t -eq 'none' -or $t -eq 'clear') {
                 $selected.Clear()
-            } elseif ($GroupKeywords.ContainsKey($t)) {
-                $gLabel  = $GroupKeywords[$t]
+            } elseif ($gKey = $GroupKeywords.Keys |
+                              Where-Object { $_.StartsWith($t, [System.StringComparison]::OrdinalIgnoreCase) } |
+                              Select-Object -First 1) {
+                $gLabel  = $GroupKeywords[$gKey]
                 $gSteps  = $StepGroups[$gLabel]
                 $allSel  = @($gSteps | Where-Object { $selected.Contains($_) }).Count -eq $gSteps.Count
                 foreach ($s in $gSteps) {
