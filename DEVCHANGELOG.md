@@ -7,7 +7,7 @@ For reviewing work item by item and moving anything back to [TODO.md](TODO.md) i
 
 ## 2025-05-xx — Blazor.Diagrams submodule + release.ps1 step menu overhaul + spinner output + Dockerfile fix
 
-### Commits: 86bc124, 7d3b78d, ce6dbe0, b2a1375, c9b42da, ff806bc, 3e6978e · branch: develop
+### Commits: 86bc124, 7d3b78d, ce6dbe0, b2a1375, c9b42da, ff806bc, 3e6978e, 73af24b, 0830319, 720d9d9, c1921e0, db800ee · branch: develop
 
 #### `libs/Blazor.Diagrams` — new git submodule
 
@@ -86,6 +86,15 @@ Non-interactive / CI path unchanged: streams verbosely with `Write-Step` prefix.
 
 ⚠️ Dep resolution is direct-only (not transitive). If you select `tag` and `changelog` without `version`,
 both will be flagged independently. Transitive resolution is a future TODO.
+
+**`post-deploy` dependency removed + group names in `-Only`/`-From` (db800ee):**
+- Removed `post-deploy → wait-workflows` from `$StepDeps`. Deploy is a standalone step that can be
+  re-run any time without a fresh release run having just completed.
+- `Resolve-StepName` renamed to `Resolve-Steps` (returns `[string[]]`) and extended to handle group
+  keywords (prefix-matched via `$GroupKeywords`). `-Only deploy` now runs all Deploy group steps;
+  `-From bui` starts from the first Build & Test step (`test-pstt`). Numeric refs unchanged.
+- `@(...)[0]` wrapping guards against PowerShell single-element array unwrap when resolving `-From` to
+  the first step of a group.
 
 ---
 

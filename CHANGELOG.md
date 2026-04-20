@@ -7,6 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- **`release.ps1` — group names in `-Only`/`-From`** — `-Only deploy` runs all Deploy group steps;
+  `-From bui` starts from the first Build & Test step. Prefix matching uses the same `$GroupKeywords`
+  table as the interactive menu. Numeric refs still work.
+- **`release.ps1` — `post-deploy` standalone** — removed `post-deploy → wait-workflows` dependency;
+  deploy can be re-run independently any number of times.
+
 ### Changed
 - **`release.ps1` — default selection none** — menu opens with no steps selected; user explicitly
   picks what to run each session.
