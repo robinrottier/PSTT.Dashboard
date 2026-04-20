@@ -20,6 +20,10 @@ COPY libs/PSTT/src/PSTT.Data/PSTT.Data.csproj                                   
 COPY libs/PSTT/src/PSTT.Mqtt/PSTT.Mqtt.csproj                                                                          libs/PSTT/src/PSTT.Mqtt/
 COPY libs/PSTT/src/PSTT.Remote/PSTT.Remote.csproj                                                                      libs/PSTT/src/PSTT.Remote/
 COPY libs/PSTT/src/PSTT.Remote.AspNetCore/PSTT.Remote.AspNetCore.csproj                                              libs/PSTT/src/PSTT.Remote.AspNetCore/
+COPY libs/Blazor.Diagrams/Directory.Packages.props                                                                    libs/Blazor.Diagrams/
+COPY libs/Blazor.Diagrams/src/Directory.Build.props                                                                   libs/Blazor.Diagrams/src/
+COPY libs/Blazor.Diagrams/src/Blazor.Diagrams.Core/Blazor.Diagrams.Core.csproj                                        libs/Blazor.Diagrams/src/Blazor.Diagrams.Core/
+COPY libs/Blazor.Diagrams/src/Blazor.Diagrams/Blazor.Diagrams.csproj                                                  libs/Blazor.Diagrams/src/Blazor.Diagrams/
 
 # Restore dependencies (after workload install so WASM targets are available)
 RUN dotnet restore src/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp.csproj
@@ -31,6 +35,8 @@ COPY src/PSTT.Dashboard.Server/      src/PSTT.Dashboard.Server/
 COPY src/PSTT.Dashboard.SourceGenerators/ src/PSTT.Dashboard.SourceGenerators/
 COPY src/PSTT.Dashboard.WebApp/      src/PSTT.Dashboard.WebApp/
 COPY libs/PSTT/src/                  libs/PSTT/src/
+COPY libs/Blazor.Diagrams/Directory.Packages.props  libs/Blazor.Diagrams/
+COPY libs/Blazor.Diagrams/src/       libs/Blazor.Diagrams/src/
 
 # Publish the server project (this also builds & includes the WASM client).
 # MinVer reads .git to resolve the version from the nearest tag automatically.
