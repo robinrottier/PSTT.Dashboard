@@ -5,6 +5,60 @@ For reviewing work item by item and moving anything back to [TODO.md](TODO.md) i
 
 ---
 
+## 2025-05-xx — Blazor.Diagrams submodule + release.ps1 step menu overhaul
+
+### Commits: 86bc124, 7d3b78d · branch: develop
+
+#### `libs/Blazor.Diagrams` — new git submodule
+
+Replaced the `rrSoft.Blazor.Diagrams` NuGet package reference with a local Git submodule pointing
+to `robinrottier/Blazor.Diagrams` (the fork used by this project). This allows direct edits to the
+diagram engine without publishing a new package first — important while the dashboard is evolving
+rapidly.
+
+- `git submodule add https://github.com/robinrottier/Blazor.Diagrams.git libs/Blazor.Diagrams`
+- `PSTT.Dashboard.Client.csproj` — `PackageReference` for `rrSoft.Blazor.Diagrams` replaced with
+  `ProjectReference` to `libs/Blazor.Diagrams/src/Blazor.Diagrams/Blazor.Diagrams.csproj`
+- `PSTT.Dashboard.slnx` — added `/libs/Blazor.Diagrams/` folder with both `Blazor.Diagrams.Core.csproj`
+  and `Blazor.Diagrams.csproj` so Visual Studio can open/edit submodule code in the solution
+- The submodule's `Directory.Build.props` / `Directory.Packages.props` are self-contained and isolated
+  from the parent solution's build props — no interference with MinVer, etc.
+- Build verified (0 errors, 1 pre-existing warning in PSTT.Data)
+
+#### `scripts/release.ps1` — step menu overhaul + color auto-detection
+
+**New test steps (submodules):**
+- `test-pstt` — builds and runs tests for the PSTT submodule (`libs/PSTT/PSTT.slnx`)
+- `test-blazor-diagrams` — builds and runs tests for both `Blazor.Diagrams.Core.Tests` and
+  `Blazor.Diagrams.Tests` in the submodule
+
+Both steps are in `$LocalSteps` (run in `-Verify` mode without needing git remotes).
+Step count goes from 14 → 16.
+
+**Visual groups in step menu:**
+`$StepGroups` (ordered hashtable) defines five sections:
+- Preflight, Build & Test, Version, GitHub Release, Deploy
+
+Menu renders group headers with a state indicator: `[✓]` all on, `[-]` partial, `[ ]` all off.
+Group consistency is validated at menu entry — throws an error if `$StepOrder` and `$StepGroups`
+diverge (catches developer drift).
+
+**Richer menu input tokens:**
+- `N-M` — toggle a range of steps (auto-corrects reversed `M-N`)
+- `all` — select every step
+- `none` / `clear` — deselect every step
+- `exit` / `quit` — `exit 0`
+- Group keywords (`build`, `test`, `version`, `release`, `github`, `deploy`, `preflight`) — toggle
+  all steps in the matching group (partial → all-on; all-on → all-off)
+
+**Color auto-detection:**
+`$Host.UI.RawUI.BackgroundColor` is now probed as a best-effort fallback when neither `-LightBackground`
+nor `LIGHT_BACKGROUND=1` is set. Maps White/Gray/Yellow/Cyan/Green to light mode. Wrapped in
+`try/catch` for hosts that don't expose `RawUI.BackgroundColor`. This fixes the "white text on white
+background" symptom when the flag was omitted.
+
+---
+
 ## 2026-04-03 — Program.cs dedup, dual-port Dockerfile, integration test fix, release.ps1 fixes
 
 ### Commit: deeb3a7+ · branch: develop

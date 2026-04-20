@@ -125,7 +125,7 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] We've lost the "restart" button ...might want to do a restart for other reasosns
 - [ ] More automation to speed relase process
 	- [ ] Local script to run tests, do a final commit, and push, create PR, let the various actions run, merge the PR to main and kick patch-release. Then kick deployment to test server
-	      release.ps1 - still in testing
+	      release.ps1 now covers this flow
 
 ### FEAT-M: Settings persistence _(done — settings now in data directory)_
 
