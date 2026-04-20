@@ -77,6 +77,21 @@ else
     }
     <MudPaper @key="_diagram" Elevation="2" Style="@($"padding:0;{CanvasStyle}")">
         <div class="dashboard-canvas" tabindex="0" style="width:100%;height:100%;position:relative;" @onkeydown="HandleKeyDown" @ref="_canvasRef">
+        @if (AppState.IsEditMode)
+        {
+            <MudPaper Elevation="2" Style="position:absolute;z-index:1001;top:4px;left:4px;display:flex;gap:2px;padding:2px 4px;border-radius:8px;">
+                <MudTooltip Text="Add Node Panel (Ctrl+Shift+A)">
+                    <MudIconButton Icon="@Icons.Material.Filled.AddBox" Size="Size.Small"
+                                   Color="@(_isAddNodeOpen ? Color.Primary : Color.Default)"
+                                   OnClick="@(() => { _isAddNodeOpen = !_isAddNodeOpen; StateHasChanged(); })" />
+                </MudTooltip>
+                <MudTooltip Text="Data Browser (Ctrl+Shift+D)">
+                    <MudIconButton Icon="@Icons.Material.Filled.AccountTree" Size="Size.Small"
+                                   Color="@(_isDataBrowserOpen ? Color.Primary : Color.Default)"
+                                   OnClick="@(() => { _isDataBrowserOpen = !_isDataBrowserOpen; StateHasChanged(); })" />
+                </MudTooltip>
+            </MudPaper>
+        }
         @if (AppState.IsEditMode && AppState.IsMultiSelected)
         {
             <MudPaper Elevation="1" Style="position:absolute;z-index:1000;top:4px;left:50%;transform:translateX(-50%);display:flex;gap:2px;padding:2px 4px;border-radius:8px;">
@@ -139,6 +154,13 @@ else
                 </MudAlert>
             </div>
         }
+
+        <FloatingPanel Title="Add Node" @bind-IsOpen="_isAddNodeOpen" InitialLeft="80" InitialTop="160" MinWidth="280">
+            <AddNodePanelContent OnNodeTypeSelected="OnAddNodeTypeSelected" />
+        </FloatingPanel>
+
+        <DataBrowserPanel AppState="AppState" @bind-IsOpen="_isDataBrowserOpen" InitialLeft="900" InitialTop="160" />
+
         </div>
     </MudPaper>
 }

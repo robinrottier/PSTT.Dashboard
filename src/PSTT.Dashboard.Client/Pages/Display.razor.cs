@@ -49,6 +49,10 @@ public partial class Display : IDisposable
     private int _nodeCounter = 1;
     private int _pasteGeneration = 0;
 
+    // Floating panel state
+    private bool _isAddNodeOpen;
+    private bool _isDataBrowserOpen;
+
     // Stored handler references for clean unsubscription
     private Action? _onMenuSaveDiagram;
     private Action? _onMenuReloadDiagram;
@@ -59,6 +63,7 @@ public partial class Display : IDisposable
     private Action? _onMenuRedo;
     private Action? _onMenuUndoAll;
     private Action? _onMenuDiagramProperties;
+    private Action? _onMenuToggleDataBrowser;
     private Action? _onMenuPaste;
     private Action? _onMenuExportNodes;
     private Action? _onMenuImportNodes;
@@ -109,6 +114,14 @@ public partial class Display : IDisposable
                         await SaveAsDiagram();
                     else
                         await SaveDashboard();
+                    break;
+                case "A" when e.ShiftKey:
+                    _isAddNodeOpen = !_isAddNodeOpen;
+                    StateHasChanged();
+                    break;
+                case "D" when e.ShiftKey:
+                    _isDataBrowserOpen = !_isDataBrowserOpen;
+                    StateHasChanged();
                     break;
             }
         }
@@ -468,6 +481,9 @@ public partial class Display : IDisposable
         _onMenuDiagramProperties = () => InvokeAsync(ShowDiagramPropertiesAsync);
         AppState.MenuDiagramProperties += _onMenuDiagramProperties;
 
+        _onMenuToggleDataBrowser = () => InvokeAsync(() => { _isDataBrowserOpen = !_isDataBrowserOpen; StateHasChanged(); return Task.CompletedTask; });
+        AppState.MenuToggleDataBrowser += _onMenuToggleDataBrowser;
+
         _onMenuAddPage = () => InvokeAsync(AddPageAsync);
         AppState.MenuAddPage += _onMenuAddPage;
 
@@ -503,6 +519,7 @@ public partial class Display : IDisposable
         if (_onMenuUndoAll        != null) AppState.MenuUndoAll        -= _onMenuUndoAll;
 
         if (_onMenuDiagramProperties != null) AppState.MenuDiagramProperties -= _onMenuDiagramProperties;
+        if (_onMenuToggleDataBrowser != null) AppState.MenuToggleDataBrowser  -= _onMenuToggleDataBrowser;
         if (_onMenuAddPage           != null) AppState.MenuAddPage           -= _onMenuAddPage;
 
         _diagram?.Nodes.Added -= OnNodeAddedInEditMode;
@@ -512,7 +529,7 @@ public partial class Display : IDisposable
 
         _onMenuSaveDiagram = _onMenuReloadDiagram = _onMenuEditProperties = null;
         _onMenuSaveAs = _onMenuUndo = _onMenuRedo = _onMenuUndoAll = _onMenuDiagramProperties = _onMenuAddPage = null;
-        _onMenuExportNodes = _onMenuImportNodes = null;
+        _onMenuExportNodes = _onMenuImportNodes = _onMenuToggleDataBrowser = null;
     }
 
     // ── Diagram event handlers ────────────────────────────────────────────────
@@ -559,15 +576,15 @@ public partial class Display : IDisposable
 
     // ── Node operations ───────────────────────────────────────────────────────
 
-    private async void AddNode()
+    private void AddNode()
+    {
+        _isAddNodeOpen = !_isAddNodeOpen;
+        StateHasChanged();
+    }
+
+    private void OnAddNodeTypeSelected(string nodeType)
     {
         if (_diagram == null) return;
-
-        var dialog = await DialogService.ShowAsync<NodeTypePickerDialog>("Add Node",
-            new DialogParameters(),
-            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true });
-        var result = await dialog.Result;
-        if (result == null || result.Canceled || result.Data is not string nodeType) return;
 
         PushUndoSnapshot();
         var rng = new Random();

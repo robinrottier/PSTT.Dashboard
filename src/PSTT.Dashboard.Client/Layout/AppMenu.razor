@@ -100,7 +100,13 @@
         <MudMenuItem OnClick="MenuAddNode" Disabled="@(!IsEditMode)">
             <MudStack Row="true" AlignItems="AlignItems.Center" Style="width:100%;justify-content:space-between;">
                 <span>Add Node</span>
-                <MudText Typo="Typo.caption" Class="mud-text-secondary">&nbsp;</MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Ctrl+Shift+A</MudText>
+            </MudStack>
+        </MudMenuItem>
+        <MudMenuItem OnClick="MenuToggleDataBrowser" Disabled="@(!IsEditMode)">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Style="width:100%;justify-content:space-between;">
+                <span>Data Browser</span>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Ctrl+Shift+D</MudText>
             </MudStack>
         </MudMenuItem>
         <MudMenuItem OnClick="MenuDeleteNode" Disabled="@(!AppState.HasSelectedNode)">
@@ -251,6 +257,7 @@
     private void Redo()               => AppState.TriggerRedo();
     private void UndoAll()            => AppState.TriggerUndoAll();
     private void MenuAddNode()        => AppState.TriggerAddNode();
+    private void MenuToggleDataBrowser() => AppState.RaiseMenuToggleDataBrowser();
     private void MenuDeleteNode()     => AppState.TriggerDeleteNode();
     private void MenuCutSelected()    => AppState.TriggerCutSelected();
     private void MenuCopySelected()   => AppState.TriggerCopySelected();

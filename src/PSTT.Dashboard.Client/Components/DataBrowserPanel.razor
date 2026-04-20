@@ -1,0 +1,91 @@
+@using PSTT.Dashboard.Services
+@using PSTT.Data
+@implements IDisposable
+
+<FloatingPanel Title="Data Browser" IsOpen="IsOpen" IsOpenChanged="IsOpenChanged"
+               InitialLeft="InitialLeft" InitialTop="InitialTop" MinWidth="320">
+    <div style="padding:8px;display:flex;flex-direction:column;gap:6px;width:360px;max-height:480px;">
+        <MudTextField @bind-Value="_filter" Label="Filter topics" Variant="Variant.Outlined"
+                      Margin="Margin.Dense" Clearable="true" Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search" />
+        @if (_sortedTopics.Count == 0)
+        {
+            <MudText Typo="Typo.caption" Color="Color.Secondary">No topics in cache yet.</MudText>
+        }
+        else
+        {
+            <div style="overflow-y:auto;flex:1;resize:vertical;min-height:100px;">
+                <MudSimpleTable Dense="true" Striped="true" Bordered="false" Hover="true" Style="font-size:0.75rem;">
+                    <thead>
+                        <tr>
+                            <th style="width:60%;padding:2px 6px;">Topic</th>
+                            <th style="padding:2px 6px;">Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var (topic, value) in GetFilteredTopics())
+                        {
+                            <tr>
+                                <td style="padding:2px 6px;word-break:break-all;font-family:monospace;">@topic</td>
+                                <td style="padding:2px 6px;word-break:break-all;">@value</td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            </div>
+        }
+        <MudText Typo="Typo.caption" Color="Color.Tertiary">@_sortedTopics.Count topics</MudText>
+    </div>
+</FloatingPanel>
+
+@code {
+    [Parameter] public ApplicationState AppState { get; set; } = default!;
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+    [Parameter] public int InitialLeft { get; set; } = 900;
+    [Parameter] public int InitialTop { get; set; } = 160;
+
+    private string _filter = string.Empty;
+    private readonly Dictionary<string, string> _topics = new();
+    private List<(string Topic, string Value)> _sortedTopics = new();
+    private IDisposable? _subscription;
+
+    protected override void OnInitialized()
+    {
+        var snapshot = AppState.DataCache.GetSnapshot();
+        lock (_topics)
+        {
+            foreach (var kv in snapshot)
+                _topics[kv.Key] = kv.Value;
+        }
+
+        _subscription = AppState.DataCache.Subscribe("#", async sub =>
+        {
+            if (sub.Status.IsPending) return;
+            lock (_topics) _topics[sub.Key] = sub.Value ?? string.Empty;
+            await InvokeAsync(() => { RebuildList(); StateHasChanged(); });
+        });
+
+        RebuildList();
+    }
+
+    private void RebuildList()
+    {
+        List<(string, string)> entries;
+        lock (_topics) entries = _topics.OrderBy(kv => kv.Key).Select(kv => (kv.Key, kv.Value)).ToList();
+        _sortedTopics = entries;
+    }
+
+    private IEnumerable<(string Topic, string Value)> GetFilteredTopics()
+    {
+        if (string.IsNullOrWhiteSpace(_filter)) return _sortedTopics;
+        var f = _filter.Trim();
+        return _sortedTopics.Where(t => t.Topic.Contains(f, StringComparison.OrdinalIgnoreCase)
+                                     || t.Value.Contains(f, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public void Dispose()
+    {
+        _subscription?.Dispose();
+    }
+}

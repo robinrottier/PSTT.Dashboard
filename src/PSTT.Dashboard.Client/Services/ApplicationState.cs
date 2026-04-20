@@ -211,6 +211,8 @@ public class ApplicationState
     public event Action? MenuSaveAs;
     public event Action? MenuOpen;
     public event Action? MenuDiagramProperties;
+    public event Action? MenuToggleDataBrowser;
+    public void RaiseMenuToggleDataBrowser() => MenuToggleDataBrowser?.Invoke();
 
     public event Action? OnStateChanged;
 

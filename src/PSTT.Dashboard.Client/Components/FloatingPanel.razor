@@ -1,0 +1,84 @@
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+@if (IsOpen)
+{
+    <div id="@_panelId"
+         style="position:fixed;left:@(_left)px;top:@(_top)px;z-index:2000;min-width:@(MinWidth)px;">
+        <MudPaper Elevation="8" Style="overflow:hidden;">
+            <div class="fp-header" @onmousedown="OnHeaderMouseDown" @onmousedown:preventDefault>
+                <span class="fp-title">@Title</span>
+                <div class="fp-header-actions">
+                    <MudIconButton Icon="@(_minimized ? Icons.Material.Filled.KeyboardArrowDown : Icons.Material.Filled.KeyboardArrowUp)"
+                                   Size="Size.Small"
+                                   Color="Color.Inherit"
+                                   OnClick="ToggleMinimize" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                   Size="Size.Small"
+                                   Color="Color.Inherit"
+                                   OnClick="Close" />
+                </div>
+            </div>
+            @if (!_minimized)
+            {
+                <div class="fp-body">
+                    @ChildContent
+                </div>
+            }
+        </MudPaper>
+    </div>
+}
+
+@code {
+    [Parameter] public string Title { get; set; } = "Panel";
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+    [Parameter] public int InitialLeft { get; set; } = 80;
+    [Parameter] public int InitialTop { get; set; } = 120;
+    [Parameter] public int MinWidth { get; set; } = 260;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string _panelId = "fp-" + Guid.NewGuid().ToString("N")[..8];
+    private int _left;
+    private int _top;
+    private bool _minimized;
+    private DotNetObjectReference<FloatingPanel>? _dotNetRef;
+
+    protected override void OnInitialized()
+    {
+        _left = InitialLeft;
+        _top  = InitialTop;
+    }
+
+    private async Task OnHeaderMouseDown(MouseEventArgs e)
+    {
+        if (e.Button != 0) return; // left button only
+        _dotNetRef ??= DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("FloatingPanel.startDrag", _panelId, (int)e.ClientX, (int)e.ClientY, _dotNetRef);
+    }
+
+    [JSInvokable]
+    public void OnDragEnd(int left, int top)
+    {
+        _left = left;
+        _top  = top;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ToggleMinimize()
+    {
+        _minimized = !_minimized;
+    }
+
+    private async Task Close()
+    {
+        await IsOpenChanged.InvokeAsync(false);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _dotNetRef?.Dispose();
+        await ValueTask.CompletedTask;
+    }
+}
