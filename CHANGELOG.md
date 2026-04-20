@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [v0.1.0] - 2026-04-20
+
 ### Added
 - **Blazor.Diagrams git submodule** — `rrSoft.Blazor.Diagrams` NuGet package replaced with a local
   `ProjectReference` to a Git submodule at `libs/Blazor.Diagrams` (fork: `robinrottier/Blazor.Diagrams`).
