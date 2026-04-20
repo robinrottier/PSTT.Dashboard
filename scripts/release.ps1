@@ -201,6 +201,24 @@ if (-not $_light -and -not [Console]::IsInputRedirected -and -not [Console]::IsO
         while ([Console]::KeyAvailable) { $null = [Console]::ReadKey($true) }
     } catch { }
 }
+if (-not $_light -and (Get-Command Get-PSReadLineOption -ErrorAction Ignore)) {
+    # PSReadLine heuristic: count dark (30–37, 90) vs bright (91–97) ANSI fg codes.
+    # Dark foreground codes → colours chosen for a light background; bright → dark background.
+    # DarkGray maps to code 90 (counted as dark); White/colours 91–97 counted as bright.
+    # Note: .Colors hashtable may be null; iterate named *Color properties via reflection instead.
+    try {
+        $esc = [char]27
+        $nDark = 0; $nBright = 0
+        (Get-PSReadLineOption).PSObject.Properties |
+            Where-Object { $_.Name -like '*Color' } |
+            ForEach-Object {
+                $s = "$($_.Value)"
+                if ($s -match "$esc\[(?:\d+;)*(?:3[0-6]|90)m") { $nDark++   }
+                if ($s -match "$esc\[(?:\d+;)*9[1-7]m")         { $nBright++ }
+            }
+        if (($nDark + $nBright) -gt 0) { $_light = $nDark -gt $nBright }
+    } catch { }
+}
 if (-not $_light) {
     # Legacy fallback: ConsoleColor enum (unreliable in Windows Terminal but works in some hosts)
     try {
