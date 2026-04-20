@@ -73,7 +73,23 @@ Non-interactive / CI path unchanged: streams verbosely with `Write-Step` prefix.
 
 ⚠️ `Step-BuildRelease` parallel mode uses its own `Start-Process` with temp files — does not go through `Invoke-Cmd` and is unaffected.
 
----— Program.cs dedup, dual-port Dockerfile, integration test fix, release.ps1 fixes
+**Step dependencies + default-none menu (73af24b):**
+- Menu now opens with **no steps selected** (was: all selected). User builds the run plan explicitly.
+- Added `$StepDeps` map defining hard data dependencies between steps:
+  - `changelog`, `push-changelog`, `tag` → `version` (all use `$script:NextVersion`)
+  - `wait-workflows` → `tag`
+  - `post-deploy` → `wait-workflows`
+- When the user presses Enter in the menu, any selected step with an unselected dep triggers a warning
+  and a Y/n prompt to auto-add the missing deps. Answers Y → adds and redisplays menu; N → proceeds anyway.
+- `Prompt-OnFailure` now shows the step's known deps and offers `[D]ep+retry`: runs each dep step inline,
+  then returns `retry`. If the dep step also throws, aborts with a clear message.
+
+⚠️ Dep resolution is direct-only (not transitive). If you select `tag` and `changelog` without `version`,
+both will be flagged independently. Transitive resolution is a future TODO.
+
+---
+
+## 2026-04-03 — Program.cs dedup, dual-port Dockerfile, integration test fix, release.ps1 fixes
 
 ### Commit: deeb3a7+ · branch: develop
 

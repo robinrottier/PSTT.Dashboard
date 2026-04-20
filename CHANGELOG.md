@@ -7,6 +7,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- **`release.ps1` — default selection none** — menu opens with no steps selected; user explicitly
+  picks what to run each session.
+- **`release.ps1` — step dependency validation** — selecting `tag` without `version` (etc.) now
+  warns at menu confirm and offers to auto-add missing deps. On step failure, a new `[D]ep+retry`
+  option runs the dep steps inline then retries.
+
 ## [v0.1.0] - 2026-04-20
 
 ### Added

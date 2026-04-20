@@ -10,6 +10,7 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 - [ ] release.ps1
 	- [ ] detailed output review on failure — "Show detailed" option at failure prompt to re-display full captured output (beyond the 50-line tail shown automatically)
+	- [ ] dep check at menu could also transitively resolve (e.g. selecting `tag` + `changelog` without `version` — currently only direct deps are added)
 - [ ] Need a way to share dashboards between installations (and dev). Can the API be opened up with a read/write interface to other isntallations via https??
 	- [ ] Then in "OPen" and "Save As" dialogs we could choose destaniotn respository: local file or remote dashboard repo (with list of dashboards to choose from)
 - [ ] Node Property dialog - color transition
