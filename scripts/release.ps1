@@ -567,8 +567,8 @@ function Step-DockerBuild {
     }
     $dockerfile = Join-Path 'src' 'PSTT.Dashboard.WebApp' 'PSTT.Dashboard.WebApp' 'Dockerfile'
     Write-Step "Building Docker image (local, no push)..."
-    Assert-Cmd docker @('build', '-f', $dockerfile, '-t', 'psttdashboard:local', '.') "docker build failed"
-    Write-Ok "Docker image built: psttdashboard:local"
+    Assert-Cmd docker @('build', '-f', $dockerfile, '-t', 'pstt-dashboard:local', '.') "docker build failed"
+    Write-Ok "Docker image built: pstt-dashboard:local"
 }
 
 # ─── Step: sync ──────────────────────────────────────────────────────────────
