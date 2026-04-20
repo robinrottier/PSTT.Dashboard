@@ -9,8 +9,7 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 ## 🟡 Minor Enhancements
 
 - [ ] release.ps1
-	- [ ] console output: each step shows what it's doing but then reverts to a single line if OK (like `dotnet build` can do) — currently all sub-command output is streamed verbosely
-	- [ ] detailed output review on failure — buffer step output and dump it in full only when a step fails. Could be "Show detailed" option at that last prompt
+	- [ ] detailed output review on failure — "Show detailed" option at failure prompt to re-display full captured output (beyond the 50-line tail shown automatically)
 - [ ] Need a way to share dashboards between installations (and dev). Can the API be opened up with a read/write interface to other isntallations via https??
 	- [ ] Then in "OPen" and "Save As" dialogs we could choose destaniotn respository: local file or remote dashboard repo (with list of dashboards to choose from)
 - [ ] Node Property dialog - color transition

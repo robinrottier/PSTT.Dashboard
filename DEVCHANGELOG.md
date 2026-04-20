@@ -5,9 +5,9 @@ For reviewing work item by item and moving anything back to [TODO.md](TODO.md) i
 
 ---
 
-## 2025-05-xx — Blazor.Diagrams submodule + release.ps1 step menu overhaul
+## 2025-05-xx — Blazor.Diagrams submodule + release.ps1 step menu overhaul + spinner output + Dockerfile fix
 
-### Commits: 86bc124, 7d3b78d · branch: develop
+### Commits: 86bc124, 7d3b78d, ce6dbe0, b2a1375, c9b42da, ff806bc, 3e6978e · branch: develop
 
 #### `libs/Blazor.Diagrams` — new git submodule
 
@@ -57,9 +57,23 @@ nor `LIGHT_BACKGROUND=1` is set. Maps White/Gray/Yellow/Cyan/Green to light mode
 `try/catch` for hosts that don't expose `RawUI.BackgroundColor`. This fixes the "white text on white
 background" symptom when the flag was omitted.
 
----
+**Dockerfile fix (ff806bc):**
+`libs/Blazor.Diagrams/` was never COPYed into the Docker build context. Added explicit COPY steps in
+both the restore layer and the build layer so `dotnet restore` and `dotnet build` can resolve the
+`ProjectReference` inside the container.
 
-## 2026-04-03 — Program.cs dedup, dual-port Dockerfile, integration test fix, release.ps1 fixes
+**Spinner + buffered output for `Invoke-Cmd` (3e6978e):**
+`Invoke-Cmd` was replaced with a `ProcessStartInfo`-based implementation that:
+- Reads stdout and stderr asynchronously (prevents deadlock)
+- Shows a braille spinner (`⠋⠙⠹…`) + elapsed time on a single overwriting line while the process runs
+- On success: erases spinner, prints `  ✓  <command>  [m:ss]`
+- On failure: dumps the last ≤50 lines of captured output (truncated count shown if more)
+
+Non-interactive / CI path unchanged: streams verbosely with `Write-Step` prefix.
+
+⚠️ `Step-BuildRelease` parallel mode uses its own `Start-Process` with temp files — does not go through `Invoke-Cmd` and is unaffected.
+
+---— Program.cs dedup, dual-port Dockerfile, integration test fix, release.ps1 fixes
 
 ### Commit: deeb3a7+ · branch: develop
 

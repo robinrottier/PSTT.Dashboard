@@ -18,11 +18,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **`release.ps1` — visual step groups** — the interactive step menu now groups steps under headers
   (Preflight / Build & Test / Version / GitHub Release / Deploy) with `[✓]`/`[-]`/`[ ]` indicators.
 - **`release.ps1` — richer menu input** — new commands: `N-M` range toggle, `all`, `none`/`clear`,
-  `exit`/`quit`, and group keywords (`build`, `version`, `deploy`, etc.).
+  `exit`/`quit`, and group keywords with prefix matching (`bui` for Build & Test, `ver` for Version, etc.).
 - **`release.ps1` — light background auto-detection** — terminal background colour is probed
-  automatically as a fallback so light-theme users no longer get white-on-white text without passing
-  `-LightBackground`.
-
+  automatically (OSC 11 query, then PSReadLine colour heuristic) so light-theme users no longer get
+  white-on-white text without passing `-LightBackground`.
+- **`release.ps1` — spinner output** — long-running commands now show a braille spinner + elapsed
+  time on one overwriting line while running. On success: single `✓` summary line. On failure: last
+  50 lines of captured output. Terminal stays clean instead of scrolling hundreds of build lines.
+- **Dockerfile** — added `COPY` steps for `libs/Blazor.Diagrams/` so Docker builds resolve the
+  submodule `ProjectReference` correctly.
 
 ## [v0.1.17] - 2026-04-03
 
