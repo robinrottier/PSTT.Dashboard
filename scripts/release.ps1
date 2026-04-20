@@ -327,14 +327,23 @@ foreach ($s in $Skip) { foreach ($part in ($s -split ',')) { [void]$SkipSet.Add(
 
 # Build the ordered list of steps to run
 function Get-StepsToRun {
-    if ($Only) { return @($Only.Trim()) }
+    # Resolve a value that may be a step name or a 1-based step number
+    function Resolve-StepName([string]$value) {
+        if ($value -match '^\d+$') {
+            $n = [int]$value
+            if ($n -ge 1 -and $n -le $StepOrder.Count) { return $StepOrder[$n - 1] }
+        }
+        return $value
+    }
+    if ($Only) { return @(Resolve-StepName $Only.Trim()) }
     if ($IsVerify) {
         # Local-only mode: restrict to the local steps
         return $LocalSteps | Where-Object { -not $SkipSet.Contains($_) }
     }
-    $started = [string]::IsNullOrEmpty($From)
+    $resolvedFrom = if ($From) { Resolve-StepName $From.Trim() } else { '' }
+    $started = [string]::IsNullOrEmpty($resolvedFrom)
     return $StepOrder | Where-Object {
-        if (-not $started -and ($_ -ieq $From.Trim())) { $started = $true }
+        if (-not $started -and ($_ -ieq $resolvedFrom)) { $started = $true }
         $started -and -not $SkipSet.Contains($_)
     }
 }
@@ -865,7 +874,8 @@ function Prompt-OnFailure([string]$stepName) {
     Write-Host "`n  Step '$stepName' failed." -ForegroundColor $C.Fail
 
     # Identify deps that can be run to unblock this step
-    $deps = if ($StepDeps.ContainsKey($stepName)) { $StepDeps[$stepName] } else { @() }
+    # Use [string[]] cast so an absent key gives empty array, never $null
+    [string[]]$deps = if ($StepDeps.ContainsKey($stepName)) { $StepDeps[$stepName] } else { @() }
     if ($deps.Count -gt 0) {
         Write-Host "  This step requires: $($deps -join ', ')" -ForegroundColor $C.Warn
         Write-Host "  [R]etry  [D]ep+retry (run deps first)  [S]kip  [A]bort (default)" -ForegroundColor $C.Yellow
