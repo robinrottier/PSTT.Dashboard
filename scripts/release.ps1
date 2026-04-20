@@ -312,7 +312,7 @@ $StepDeps = @{
     'push-changelog' = @('version')          # commit message uses $script:NextVersion
     'tag'            = @('version')          # throws if $script:NextVersion is null
     'wait-workflows' = @('tag')              # nothing to poll without a pushed tag
-    'post-deploy'    = @('wait-workflows')   # should follow a successful release
+    # post-deploy has no hard dep — it can be rerun independently at any time
 }
 
 # Keywords accepted in the menu to toggle an entire group
@@ -332,20 +332,30 @@ foreach ($s in $Skip) { foreach ($part in ($s -split ',')) { [void]$SkipSet.Add(
 
 # Build the ordered list of steps to run
 function Get-StepsToRun {
-    # Resolve a value that may be a step name or a 1-based step number
-    function Resolve-StepName([string]$value) {
+    # Resolve a value to one or more step names.
+    # Accepts: step name, 1-based number, or group keyword (expands to all steps in group).
+    function Resolve-Steps([string]$value) {
+        # Numeric: single step by number
         if ($value -match '^\d+$') {
             $n = [int]$value
-            if ($n -ge 1 -and $n -le $StepOrder.Count) { return $StepOrder[$n - 1] }
+            if ($n -ge 1 -and $n -le $StepOrder.Count) { return @($StepOrder[$n - 1]) }
+            return @($value)  # out-of-range: pass through so error is reported later
         }
-        return $value
+        # Group keyword prefix match (e.g. "deploy", "bui", "ver")
+        $gKey = $GroupKeywords.Keys |
+                Where-Object { $_.StartsWith($value, [System.StringComparison]::OrdinalIgnoreCase) } |
+                Select-Object -First 1
+        if ($gKey) { return @($StepGroups[$GroupKeywords[$gKey]]) }
+        # Exact step name
+        return @($value)
     }
-    if ($Only) { return @(Resolve-StepName $Only.Trim()) }
+    if ($Only) { return Resolve-Steps $Only.Trim() | Where-Object { -not $SkipSet.Contains($_) } }
     if ($IsVerify) {
         # Local-only mode: restrict to the local steps
         return $LocalSteps | Where-Object { -not $SkipSet.Contains($_) }
     }
-    $resolvedFrom = if ($From) { Resolve-StepName $From.Trim() } else { '' }
+    # -From: if it's a group keyword, start from the first step of that group
+    $resolvedFrom = if ($From) { @(Resolve-Steps $From.Trim())[0] } else { '' }
     $started = [string]::IsNullOrEmpty($resolvedFrom)
     return $StepOrder | Where-Object {
         if (-not $started -and ($_ -ieq $resolvedFrom)) { $started = $true }
