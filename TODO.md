@@ -66,9 +66,9 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] A data dialog -- tree view of all available data (we used to have it but it did not work too well).
 	- [ ] shows expanded treeview of all avaiable data currently in cache (topics and values)
 	- [ ] has buttons on right hand side to:
-		- [ ] add a new node with that topic
+		- [ ] add a new node with that topic and lets you choose which node type it adds
 		- [ ] add to existing node thne shows list of nodes to add to
-	- [ ] It would be nice if it wasnt just a modal diaglo but a modeless window ontop and lfoating and moveable
+	- [ ] It would be nice if it wasnt just a modal diaglo but a modeless window ontop and floating and moveable
 	- [ ] and then you could drag a data item to an existing node to add it to that node
 	- [ ] 
 
