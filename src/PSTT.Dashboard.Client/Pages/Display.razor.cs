@@ -623,6 +623,28 @@ public partial class Display : IDisposable
         StateHasChanged();
     }
 
+    private void AddNodeWithTopic(string topic)
+    {
+        if (_diagram == null) return;
+
+        PushUndoSnapshot();
+        var rng = new Random();
+        _diagram.UnselectAll();
+
+        var node = new TextNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400)))
+        {
+            Title = topic.Split('/').Last()
+        };
+        node.DataTopics.Add(topic);
+
+        _diagram.Nodes.Add(node);
+        _diagram.Controls.AddFor(node).Add(new Blazor.Diagrams.Core.Controls.Default.ResizeControl(new Blazor.Diagrams.Core.Positions.Resizing.BottomRightResizerProvider()));
+        _diagram.SelectModel(node, false);
+        UpdateSelectionState();
+        AppState.MarkEdited();
+        StateHasChanged();
+    }
+
     private void DeleteSelectedNode()
     {
         if (_diagram == null) return;

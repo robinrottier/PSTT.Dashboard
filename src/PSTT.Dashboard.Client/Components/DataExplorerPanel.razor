@@ -51,6 +51,7 @@
                                        HasSelectedNode="HasSelectedNode"
                                        SelectedNodeTopics="SelectedNodeTopics"
                                        OnTopicAssigned="OnTopicAssigned"
+                                       OnCreateNodeWithTopic="OnCreateNodeWithTopic"
                                        ExpandedPaths="_expandedPaths"
                                        OnToggleExpand="ToggleExpand" />
                     }
@@ -76,6 +77,7 @@
     [Parameter] public bool HasSelectedNode { get; set; }
     [Parameter] public IReadOnlyCollection<string>? SelectedNodeTopics { get; set; }
     [Parameter] public EventCallback<string> OnTopicAssigned { get; set; }
+    [Parameter] public EventCallback<string> OnCreateNodeWithTopic { get; set; }
 
     private static readonly MqttWildcardMatcher _matcher = new();
 

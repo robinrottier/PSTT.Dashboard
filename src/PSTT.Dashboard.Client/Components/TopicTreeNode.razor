@@ -25,13 +25,18 @@
                 }
                 else
                 {
-                    <MudTooltip Text="@($"Assign to selected node")">
+                    <MudTooltip Text="Assign to selected node">
                         <MudIconButton Icon="@Icons.Material.Filled.AddLink" Size="Size.Small"
                                        Style="padding:0;width:20px;height:20px;flex-shrink:0;"
                                        OnClick="@(() => OnTopicAssigned.InvokeAsync(Node.FullTopic))" />
                     </MudTooltip>
                 }
             }
+            <MudTooltip Text="Create new node with this topic">
+                <MudIconButton Icon="@Icons.Material.Filled.AddBox" Size="Size.Small"
+                               Style="padding:0;width:20px;height:20px;flex-shrink:0;"
+                               OnClick="@(() => OnCreateNodeWithTopic.InvokeAsync(Node.FullTopic))" />
+            </MudTooltip>
         </div>
     }
     else
@@ -58,6 +63,7 @@
                                    HasSelectedNode="HasSelectedNode"
                                    SelectedNodeTopics="SelectedNodeTopics"
                                    OnTopicAssigned="OnTopicAssigned"
+                                   OnCreateNodeWithTopic="OnCreateNodeWithTopic"
                                    ExpandedPaths="ExpandedPaths"
                                    OnToggleExpand="OnToggleExpand" />
                 }
@@ -71,6 +77,7 @@
     [Parameter] public bool HasSelectedNode { get; set; }
     [Parameter] public IReadOnlyCollection<string>? SelectedNodeTopics { get; set; }
     [Parameter] public EventCallback<string> OnTopicAssigned { get; set; }
+    [Parameter] public EventCallback<string> OnCreateNodeWithTopic { get; set; }
     [Parameter] public HashSet<string> ExpandedPaths { get; set; } = new();
     [Parameter] public EventCallback<string> OnToggleExpand { get; set; }
 
