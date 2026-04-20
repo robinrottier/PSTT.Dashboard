@@ -61,6 +61,8 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 ### FEAT-E: Editing improvements
 - [ ] Node-red style palette panel — drag node types from a sidebar onto the canvas
+	- [ ] Can curretn AddNode diaglog become modeless, moveable and floating, so new nodes can just 
+	      be dragged onto the canvas and positioned without loosing the dialog
 - [ ] Keyboard funcionality:
 	- [ ] arrows to move selcted nodes
 - [ ] A data dialog -- tree view of all available data (we used to have it but it did not work too well).
