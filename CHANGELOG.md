@@ -7,17 +7,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **Floating Add Node panel** — replaces the modal dialog. In edit mode, a draggable floating panel
+  appears at top-left of canvas with a 6-type node picker (Text, Gauge, Switch, Battery, Log, TreeView).
+  Toggle via the `+` toolbar button, "Add Node" menu, or `Ctrl+Shift+A`. Panel stays open for repeated use.
+- **Floating Data Browser panel** — shows all live MQTT topics and their current values in a searchable
+  table. Seeds from current cache snapshot; updates live via wildcard subscription. Toggle via the
+  `⋮` toolbar button, "Data Browser" menu (Edit menu), or `Ctrl+Shift+D`.
+- **Edit-mode panel toolbar** — two icon buttons (`+` and tree icon) appear top-left of canvas in edit mode
+  to toggle the two floating panels. Active panel highlighted in primary colour.
+- **`ICache.GetSnapshot()`** — new method on `ICache<TKey,TValue>` and `Cache<TKey,TValue>` returning
+  a point-in-time snapshot of all non-pending entries. Used to seed the Data Browser on open.
+
+### Changed
 - **`release.ps1` — group names in `-Only`/`-From`** — `-Only deploy` runs all Deploy group steps;
   `-From bui` starts from the first Build & Test step. Prefix matching uses the same `$GroupKeywords`
   table as the interactive menu. Numeric refs still work.
 - **`release.ps1` — `post-deploy` standalone** — removed `post-deploy → wait-workflows` dependency;
   deploy can be re-run independently any number of times.
 
-### Changed
-- **`release.ps1` — default selection none** — menu opens with no steps selected; user explicitly
-  picks what to run each session.
-- **`release.ps1` — step dependency validation** — selecting `tag` without `version` (etc.) now
-  warns at menu confirm and offers to auto-add missing deps. On step failure, a new `[D]ep+retry`
+
   option runs the dep steps inline then retries.
 
 ## [v0.1.0] - 2026-04-20

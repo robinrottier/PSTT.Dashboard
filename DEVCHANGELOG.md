@@ -5,6 +5,53 @@ For reviewing work item by item and moving anything back to [TODO.md](TODO.md) i
 
 ---
 
+## 2025-07-14 — FEAT-E: Floating modeless panels (Add Node + Data Browser)
+
+### Commits: 1c45fdf (PSTT submodule), 1aed23c · branch: develop
+
+### 1. FloatingPanel component + JS drag helper
+
+**Files:** `src/PSTT.Dashboard.Client/Components/FloatingPanel.razor`, `FloatingPanel.razor.css`, `src/PSTT.Dashboard.Client/wwwroot/floatingPanel.js`, `src/PSTT.Dashboard.Client/App.razor`
+
+Reusable `position:fixed` draggable container. Header acts as drag handle via `@onmousedown` → `FloatingPanel.startDrag(panelId, x, y, dotNetRef)` in JS. JS attaches one-shot `mousemove`/`mouseup` listeners; on mouseup calls `dotNetRef.invokeMethodAsync('OnDragEnd', left, top)` to persist position. Has minimize (▲/▼) and close buttons. `IAsyncDisposable` to release `DotNetObjectReference`. Script registered once in `App.razor` (shared by both hosts).
+
+### 2. AddNodePanelContent component
+
+**File:** `src/PSTT.Dashboard.Client/Components/AddNodePanelContent.razor`
+
+6-type grid (Text/Gauge/Switch/Battery/Log/TreeView) using `MudIcon` + `MudPaper` tiles. Fires `EventCallback<string> OnNodeTypeSelected` — stays open after selection for repeated use.
+
+### 3. ICache.GetSnapshot() + Cache implementation
+
+**Files:** `libs/PSTT/src/PSTT.Data/Interfaces/ICache.cs`, `libs/PSTT/src/PSTT.Data/Cache.cs`
+
+Added `IReadOnlyDictionary<TKey,TValue> GetSnapshot()` to `ICache` interface. Implemented in `Cache<TKey,TValue>` by filtering for non-Pending items from the internal `ConcurrentDictionary`. Inheriting classes (`CacheWithWildcards`, `RemoteCache`) get it for free.
+
+### 4. DataBrowserPanel component
+
+**File:** `src/PSTT.Dashboard.Client/Components/DataBrowserPanel.razor`
+
+Floating panel showing all live MQTT topics. Seeds from `AppState.DataCache.GetSnapshot()` on init, then subscribes to `#` wildcard for live updates (thread-safe `lock(_topics)` before mutating). Renders a filterable `MudSimpleTable` (topic, value columns). Filter matches both topic path and value. Passes `IsOpen`/`IsOpenChanged` through to `FloatingPanel` without `@bind-` to avoid duplicate-parameter error.
+
+### 5. Display.razor — edit-mode toolbar + floating panels
+
+**Files:** `src/PSTT.Dashboard.Client/Pages/Display.razor`, `Display.razor.cs`
+
+- Edit-mode toolbar (top-left, `position:absolute;z-index:1001`): two toggle icon buttons (Add Node / Data Browser), highlighted with `Color.Primary` when panel open.
+- `<FloatingPanel @bind-IsOpen="_isAddNodeOpen">` wrapping `AddNodePanelContent`.
+- `<DataBrowserPanel AppState="AppState" IsOpen="_isDataBrowserOpen" IsOpenChanged="...">`.
+- `AddNode()` changed from `await DialogService.ShowAsync<NodeTypePickerDialog>` to simple toggle `_isAddNodeOpen = !_isAddNodeOpen`.
+- New `OnAddNodeTypeSelected(string nodeType)` contains the node-creation switch.
+- `Ctrl+Shift+A` / `Ctrl+Shift+D` shortcuts added to `HandleKeyDown`.
+- `MenuToggleDataBrowser` event subscribed in `SubscribeEditEvents` / unsubscribed in `UnsubscribeEditEvents`.
+
+### 6. ApplicationState + AppMenu wiring
+
+**Files:** `src/PSTT.Dashboard.Client/Services/ApplicationState.cs`, `src/PSTT.Dashboard.Client/Layout/AppMenu.razor`
+
+- `ApplicationState`: added `public event Action? MenuToggleDataBrowser` + `RaiseMenuToggleDataBrowser()`.
+- `AppMenu`: added "Data Browser" `MudMenuItem` (Ctrl+Shift+D); updated "Add Node" shortcut hint to Ctrl+Shift+A.
+
 ## 2025-05-xx — Blazor.Diagrams submodule + release.ps1 step menu overhaul + spinner output + Dockerfile fix
 
 ### Commits: 86bc124, 7d3b78d, ce6dbe0, b2a1375, c9b42da, ff806bc, 3e6978e, 73af24b, 0830319, 720d9d9, c1921e0, db800ee · branch: develop
