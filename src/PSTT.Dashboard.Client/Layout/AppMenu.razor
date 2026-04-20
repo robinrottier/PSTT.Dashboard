@@ -236,7 +236,7 @@
         AppState.OnStateChanged -= OnAppStateChanged;
     }
 
-    private Task ShowAbout() => DialogService.ShowAsync<AboutDialog>("About Mqtt Dashboard",
+    private Task ShowAbout() => DialogService.ShowAsync<AboutDialog>("About PSTT Dashboard",
         new DialogParameters(),
         new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true });
     private Task ShowStartupSettings() => DialogService.ShowAsync<StartupSettingsDialog>("Startup Settings");

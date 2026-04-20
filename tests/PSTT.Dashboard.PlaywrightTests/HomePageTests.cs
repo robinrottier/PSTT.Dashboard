@@ -34,7 +34,7 @@ public class HomePageTests : IClassFixture<PlaywrightWebAppFixture>
         await header.WaitForAsync(new LocatorWaitForOptions { Timeout = 15_000 });
         await Assertions.Expect(header).ToBeVisibleAsync();
 
-        // The "MQTT Dashboard" product name should be present somewhere in the title area
+        // The "PSTT Dashboard" product name should be present somewhere in the title area
         var titleText = page.Locator(".appbar-title-inner");
         await Assertions.Expect(titleText).ToBeVisibleAsync();
         }

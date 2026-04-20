@@ -32,7 +32,7 @@ public class ApplicationState
 
     public string DisplayName => GetType().Assembly
         .GetCustomAttribute<System.Reflection.AssemblyProductAttribute>()?.Product
-        ?? "Mqtt Dashboard";
+        ?? "PSTT Dashboard";
     public int Counter { get; set; } = 0;
     public bool IsInteractive { get; private set; } = false;
 
