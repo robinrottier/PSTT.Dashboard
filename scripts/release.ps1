@@ -336,11 +336,67 @@ $script:CurrentBranch  = $null
 
 # ─── Command helpers ──────────────────────────────────────────────────────────
 
-# Run a command, streaming output to the terminal. Returns exit code.
+# Run a command with a spinner in interactive mode; stream verbosely otherwise.
+# On success: single ✓ line with elapsed time. On failure: last ≤50 lines dumped.
 function Invoke-Cmd([string]$Exe, [string[]]$ArgList) {
-    Write-Step "→ $Exe $($ArgList -join ' ')"
-    & $Exe @ArgList | Out-Host   # Out-Host bypasses pipeline so $code = Invoke-Cmd captures only the exit code
-    $ec = $LASTEXITCODE          # capture immediately before anything else can change it
+    $label = "$Exe $($ArgList -join ' ')"
+
+    if (-not $IsInteractive) {
+        Write-Step "→ $label"
+        & $Exe @ArgList | Out-Host
+        return $LASTEXITCODE
+    }
+
+    # Resolve full exe path so ProcessStartInfo can find it without UseShellExecute
+    $cmdInfo     = Get-Command $Exe -ErrorAction SilentlyContinue
+    $exeResolved = if ($cmdInfo) { $cmdInfo.Source } else { $Exe }
+
+    $psi = [System.Diagnostics.ProcessStartInfo]::new()
+    $psi.FileName               = $exeResolved
+    $psi.WorkingDirectory       = (Get-Location).Path
+    $psi.UseShellExecute        = $false
+    $psi.CreateNoWindow         = $true
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError  = $true
+    foreach ($a in $ArgList) { $psi.ArgumentList.Add($a) }
+
+    $proc = [System.Diagnostics.Process]::new()
+    $proc.StartInfo = $psi
+    $proc.Start() | Out-Null
+    $stdoutTask = $proc.StandardOutput.ReadToEndAsync()
+    $stderrTask = $proc.StandardError.ReadToEndAsync()
+
+    $width = try { [Math]::Max(40, $Host.UI.RawUI.WindowSize.Width) } catch { 80 }
+    $maxLbl = $width - 14
+    $disp   = if ($label.Length -gt $maxLbl) { $label.Substring(0, $maxLbl - 1) + '…' } else { $label }
+    $spin   = '⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'
+    $si     = 0
+    $sw     = [System.Diagnostics.Stopwatch]::StartNew()
+
+    while (-not $proc.HasExited) {
+        $elapsed  = $sw.Elapsed.ToString('m\:ss')
+        $spinLine = "  $($spin[$si % $spin.Count])  $disp  [$elapsed]"
+        $pad      = ' ' * [Math]::Max(0, $width - $spinLine.Length - 1)
+        Write-Host "`r$spinLine$pad" -NoNewline -ForegroundColor $C.Dim
+        $si++
+        Start-Sleep -Milliseconds 100
+    }
+    $proc.WaitForExit()
+    Write-Host "`r$(' ' * ($width - 1))`r" -NoNewline  # erase spinner line
+
+    $ec      = $proc.ExitCode
+    $elapsed = $sw.Elapsed.ToString('m\:ss')
+    $stdout  = $stdoutTask.Result
+    $stderr  = $stderrTask.Result
+
+    if ($ec -eq 0) {
+        Write-Host "  ✓  $disp  [$elapsed]" -ForegroundColor $C.Ok
+    } else {
+        $lines = (($stdout + "`n" + $stderr).Trim() -split "`r?\n") | Where-Object { $_ -ne '' }
+        $tail  = if ($lines.Count -gt 50) { $lines[-50..-1] } else { $lines }
+        if ($lines.Count -gt 50) { Write-Host "    ... ($($lines.Count - 50) earlier lines omitted) ..." -ForegroundColor $C.Dim }
+        foreach ($ln in $tail) { Write-Host "    $ln" -ForegroundColor $C.Dim }
+    }
     return $ec
 }
 
