@@ -301,6 +301,15 @@ $StepGroups = [ordered]@{
     'GitHub Release' = @('pr', 'tag', 'wait-workflows')
     'Deploy'         = @('post-deploy')
 }
+# Hard step dependencies (a step will throw or produce wrong output if its dep hasn't run)
+$StepDeps = @{
+    'changelog'      = @('version')          # uses $script:NextVersion
+    'push-changelog' = @('version')          # commit message uses $script:NextVersion
+    'tag'            = @('version')          # throws if $script:NextVersion is null
+    'wait-workflows' = @('tag')              # nothing to poll without a pushed tag
+    'post-deploy'    = @('wait-workflows')   # should follow a successful release
+}
+
 # Keywords accepted in the menu to toggle an entire group
 $GroupKeywords = @{
     'preflight' = 'Preflight'
@@ -741,7 +750,7 @@ function Show-StepMenu([string[]]$planned) {
     if ($inGroupNotOrder)   { throw "BUG: steps in `$StepGroups but not in `$StepOrder: $($inGroupNotOrder -join ', ')" }
 
     $selected = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-    foreach ($s in $planned) { [void]$selected.Add($s) }
+    # Start with nothing selected — user builds up the run plan explicitly
 
     # Build stable 1-based number lookup
     $stepNums = @{}
@@ -777,7 +786,35 @@ function Show-StepMenu([string[]]$planned) {
         Write-Host "    <Enter>  run selected steps" -ForegroundColor $C.Dim
         $rawInput = Read-Host '  >'
 
-        if ([string]::IsNullOrWhiteSpace($rawInput)) { break }
+        if ([string]::IsNullOrWhiteSpace($rawInput)) {
+            # Check for missing dependencies before confirming
+            $depWarnings = [System.Collections.Generic.List[string]]::new()
+            foreach ($s in $StepOrder) {
+                if (-not $selected.Contains($s)) { continue }
+                if (-not $StepDeps.ContainsKey($s)) { continue }
+                foreach ($dep in $StepDeps[$s]) {
+                    if (-not $selected.Contains($dep)) {
+                        $depWarnings.Add("  '$s' requires '$dep'")
+                    }
+                }
+            }
+            if ($depWarnings.Count -gt 0) {
+                Write-Host "`n  ⚠ Missing dependencies:" -ForegroundColor $C.Warn
+                foreach ($w in $depWarnings) { Write-Host $w -ForegroundColor $C.Warn }
+                Write-Host "  Auto-add missing steps? [Y/n] " -ForegroundColor $C.Yellow -NoNewline
+                $ans = (Read-Host).Trim().ToLower()
+                if ($ans -eq '' -or $ans -eq 'y') {
+                    foreach ($s in $StepOrder) {
+                        if (-not $selected.Contains($s)) { continue }
+                        if (-not $StepDeps.ContainsKey($s)) { continue }
+                        foreach ($dep in $StepDeps[$s]) { [void]$selected.Add($dep) }
+                    }
+                    continue  # redisplay menu with deps added
+                }
+                # User chose to proceed anyway
+            }
+            break
+        }
 
         foreach ($token in ($rawInput -split ',')) {
             $t = $token.Trim().ToLower()
@@ -822,18 +859,38 @@ function Show-StepMenu([string[]]$planned) {
     return [string[]]($StepOrder | Where-Object { $selected.Contains($_) })
 }
 
-# Interactive prompt when a step fails: Retry / Skip / Abort
+# Interactive prompt when a step fails: Retry / Dep+retry / Skip / Abort
 function Prompt-OnFailure([string]$stepName) {
     if (-not $IsInteractive) { return 'abort' }
     Write-Host "`n  Step '$stepName' failed." -ForegroundColor $C.Fail
-    Write-Host "  [R]etry  [S]kip  [A]bort (default)" -ForegroundColor $C.Yellow
-    $choice = (Read-Host '  Choice').Trim().ToLower()
-    $action = switch ($choice) {
-        'r' { 'retry' }
-        's' { 'skip'  }
-        default { 'abort' }
+
+    # Identify deps that can be run to unblock this step
+    $deps = if ($StepDeps.ContainsKey($stepName)) { $StepDeps[$stepName] } else { @() }
+    if ($deps.Count -gt 0) {
+        Write-Host "  This step requires: $($deps -join ', ')" -ForegroundColor $C.Warn
+        Write-Host "  [R]etry  [D]ep+retry (run deps first)  [S]kip  [A]bort (default)" -ForegroundColor $C.Yellow
+    } else {
+        Write-Host "  [R]etry  [S]kip  [A]bort (default)" -ForegroundColor $C.Yellow
     }
-    return $action
+    $choice = (Read-Host '  Choice').Trim().ToLower()
+
+    if ($choice -eq 'r') { return 'retry' }
+    if ($choice -eq 's') { return 'skip' }
+    if ($choice -eq 'd' -and $deps.Count -gt 0) {
+        # Run each dep step inline so the failed step can succeed on retry
+        foreach ($dep in $deps) {
+            Write-Header "[dep] $dep — $($StepDesc[$dep])"
+            try {
+                & $StepFns[$dep]
+            } catch {
+                Write-Fail "Dependency step '$dep' failed: $_"
+                Write-Warn "Aborting — fix '$dep' first, then retry '$stepName'"
+                return 'abort'
+            }
+        }
+        return 'retry'
+    }
+    return 'abort'
 }
 
 # ─── Step dispatch table ─────────────────────────────────────────────────────
