@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [v0.1.2] - 2026-04-22
+
 ### Added
 - **BridgeCache — dashboard topic scoping** (`PSTT.Data`): new `BridgeCache<TKey,TValue>` class that
   bridges specific subscription patterns from a source cache into an isolated local view.
