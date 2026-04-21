@@ -112,7 +112,7 @@
         lock (_topics)
         {
             _topics.Clear();
-            var snapshot = AppState.DataCache.GetSnapshot();
+            var snapshot = AppState.BridgedDataCache.GetSnapshot();
             foreach (var kv in snapshot)
             {
                 if (TopicMatchesPattern(pattern, kv.Key))
@@ -122,7 +122,7 @@
 
         _expandedPaths.Clear();
 
-        _subscription = AppState.DataCache.Subscribe(pattern, async sub =>
+        _subscription = AppState.BridgedDataCache.Subscribe(pattern, async sub =>
         {
             if (sub.Status.IsPending) return;
             if (gen != _subscriptionGeneration) return;

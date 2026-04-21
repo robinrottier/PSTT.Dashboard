@@ -67,7 +67,7 @@ public abstract class BaseNodeWithDataWidget<TNode> : BaseNodeWidget<TNode>
             var idx = i;
             var capturedTopic = topic;
 
-            var v = AppState.DataCache.GetValue(capturedTopic);
+            var v = AppState.BridgedDataCache.GetValue(capturedTopic);
             if (v != null)
             {
                 Node.DataValues[idx]       = v;
@@ -75,7 +75,7 @@ public abstract class BaseNodeWithDataWidget<TNode> : BaseNodeWidget<TNode>
                 if (idx == 0) { OnDataUpdated(); TriggerLinkAnimation(); }
             }
 
-            var watcher = AppState.DataCache.Subscribe(capturedTopic, async sub =>
+            var watcher = AppState.BridgedDataCache.Subscribe(capturedTopic, async sub =>
             {
                 if (sub.Status.IsPending) return;
                 if (_disposed) return;

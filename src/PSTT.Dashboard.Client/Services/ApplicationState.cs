@@ -28,6 +28,7 @@ public class ApplicationState
         var raw = configuration?["App:MaxMessageHistory"];
         _maxMessageHistory = int.TryParse(raw, out var v) && v > 0 ? v : 500;
         DataCache = dataCache ?? new Cache<string,string>();
+        BridgedDataCache = new BridgeCache<string,string>(DataCache);
     }
 
     public string DisplayName => GetType().Assembly
@@ -68,6 +69,20 @@ public class ApplicationState
 
     // MQTT Data Cache
     public ICache<string,string> DataCache { get; }
+
+    /// <summary>
+    /// A bridge cache that forwards only the dashboard-configured subscription topics (plus
+    /// $DASHBOARD/#) from <see cref="DataCache"/> into an isolated local view. All widget
+    /// subscriptions should target this cache so that they cannot observe data outside the
+    /// dashboard's configured scope. Publishes on this cache still reach the upstream broker.
+    /// </summary>
+    public BridgeCache<string,string> BridgedDataCache { get; }
+
+    /// <summary>
+    /// The local-only side of <see cref="BridgedDataCache"/>. Publishing here stays within
+    /// this dashboard session; the broker and other sessions never receive it.
+    /// </summary>
+    public ICache<string,string> LocalDataCache => BridgedDataCache.Local;
 
     // Theme & UI preferences
     public ThemeMode ThemeMode { get; private set; } = ThemeMode.Auto;
@@ -350,6 +365,7 @@ public class ApplicationState
         ShowName = model.ShowName;
         if (model.MqttSubscriptions != null)
             SubscribedTopics = new HashSet<string>(model.MqttSubscriptions);
+        BridgedDataCache.SetBridges(SubscribedTopics.Append("$DASHBOARD/#"));
         NotifyStateChangedAsync();
     }
 
@@ -526,6 +542,7 @@ public class ApplicationState
     public void SetSubscribedTopics(IEnumerable<string> topics)
     {
         SubscribedTopics = new HashSet<string>(topics);
+        BridgedDataCache.SetBridges(SubscribedTopics.Append("$DASHBOARD/#"));
         NotifyStateChangedAsync();
     }
 

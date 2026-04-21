@@ -67,6 +67,7 @@
         var payload = _isOn
             ? (string.IsNullOrEmpty(Node.OffValue) ? "0" : Node.OffValue)
             : (string.IsNullOrEmpty(Node.OnValue)  ? "1" : Node.OnValue);
-        await AppState.DataCache.PublishAsync(publishTopic, payload, null, Node.Retain);
+        var target = Node.PublishGlobally ? AppState.DataCache : AppState.LocalDataCache;
+        await target.PublishAsync(publishTopic, payload, null, Node.Retain);
     }
 }
