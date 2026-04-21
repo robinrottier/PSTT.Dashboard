@@ -17,12 +17,14 @@
       10. version         Compute next semver tag from latest git tag
       11. changelog       Insert versioned section into CHANGELOG.md
       12. push-changelog  Commit + push the changelog update
-      13. pr              Create PR → main, wait for CI checks, merge
-      14. tag             Create annotated tag and push it
-      15. wait-workflows  Wait for release workflows triggered by the tag
-      16. post-deploy     SSH deploy: docker compose pull + up -d (skipped if DEPLOY_HOST not set)
+      13. prep-submodules Merge PSTT develop→main; pin submodule to PSTT main
+      14. pr              Create PR → main, wait for CI checks, merge
+      15. restore-submodules Restore PSTT submodule back to develop tracking
+      16. tag             Create annotated tag and push it
+      17. wait-workflows  Wait for release workflows triggered by the tag
+      18. post-deploy     SSH deploy: docker compose pull + up -d (skipped if DEPLOY_HOST not set)
 
-    Steps 1–8 are purely local; steps 9–16 require git remote and/or gh CLI.
+    Steps 1–8 are purely local; steps 9–18 require git remote and/or gh CLI.
 
     Use -Verify to run only steps 1–8 as a quick local CI mirror — no git state
     changes, no gh required. Suitable as a Copilot post-change verification gate.
@@ -68,7 +70,8 @@
     a failure without re-running build/test.
     Step names: preflight clean test-pstt test-blazor-diagrams
                 build-debug build-release publish-check docker-build
-                sync version changelog push-changelog pr tag wait-workflows post-deploy
+                sync version changelog push-changelog prep-submodules
+                pr restore-submodules tag wait-workflows post-deploy
 
 .PARAMETER Only
     Run exactly one named step and exit.
@@ -274,7 +277,8 @@ $StepOrder = @(
     'test-pstt', 'test-blazor-diagrams',
     'build-debug', 'build-release', 'publish-check', 'docker-build',
     'sync', 'version', 'changelog', 'push-changelog',
-    'pr', 'tag', 'wait-workflows', 'post-deploy'
+    'prep-submodules',
+    'pr', 'restore-submodules', 'tag', 'wait-workflows', 'post-deploy'
 )
 # Steps that are purely local (no git remote / gh required)
 $LocalSteps = @('preflight', 'clean', 'test-pstt', 'test-blazor-diagrams', 'build-debug', 'build-release', 'publish-check', 'docker-build')
@@ -292,7 +296,9 @@ $StepDesc = @{
     'version'              = 'Compute next version'
     'changelog'            = 'Update CHANGELOG.md'
     'push-changelog'       = 'Commit and push changelog'
+    'prep-submodules'      = 'Merge PSTT develop→main; pin submodule to PSTT main'
     'pr'                   = 'Create PR → wait for CI → merge'
+    'restore-submodules'   = 'Restore PSTT submodule to develop tracking'
     'tag'                  = 'Create and push release tag'
     'wait-workflows'       = 'Wait for release workflows'
     'post-deploy'          = 'SSH deploy: docker compose pull + up -d'
@@ -302,8 +308,8 @@ $StepDesc = @{
 $StepGroups = [ordered]@{
     'Preflight'      = @('preflight', 'clean')
     'Build & Test'   = @('test-pstt', 'test-blazor-diagrams', 'build-debug', 'build-release', 'publish-check', 'docker-build')
-    'Version'        = @('sync', 'version', 'changelog', 'push-changelog')
-    'GitHub Release' = @('pr', 'tag', 'wait-workflows')
+    'Version'        = @('sync', 'version', 'changelog', 'push-changelog', 'prep-submodules')
+    'GitHub Release' = @('pr', 'restore-submodules', 'tag', 'wait-workflows')
     'Deploy'         = @('post-deploy')
 }
 # Hard step dependencies (a step will throw or produce wrong output if its dep hasn't run)
@@ -650,6 +656,51 @@ function Step-CommitChangelog {
     Write-Ok "Changelog committed and pushed"
 }
 
+# ─── Step: prep-submodules ───────────────────────────────────────────────────
+function Step-PrepSubmodules {
+    $psttPath = Join-Path $RepoRoot 'libs' 'PSTT'
+    Push-Location $psttPath
+    try {
+        Write-Step "Fetching PSTT remotes..."
+        Assert-Cmd git @('fetch', 'origin') "git fetch failed in PSTT"
+        Write-Step "Merging PSTT develop → main..."
+        Assert-Cmd git @('checkout', 'main') "git checkout main failed in PSTT"
+        Assert-Cmd git @('merge', 'origin/develop', '--no-edit') "Merge develop → main failed in PSTT submodule"
+        if ($IsDryRun) { Write-Warn "DRYRUN: skipping PSTT main push" }
+        else { Assert-Cmd git @('push', 'origin', 'main') "git push PSTT main failed" }
+    } finally { Pop-Location }
+
+    Write-Step "Pinning Dashboard submodule pointer to PSTT main..."
+    Assert-Cmd git @('config', '-f', '.gitmodules', 'submodule.libs/PSTT.branch', 'main') "Failed to update .gitmodules"
+    Assert-Cmd git @('add', '.gitmodules', 'libs/PSTT') "git add failed"
+    Assert-Cmd git @('commit', '-m', 'chore: pre-release — pin PSTT submodule to main') "git commit failed"
+    if ($IsDryRun) { Write-Warn "DRYRUN: skipping push of submodule prep commit"; return }
+    $branch = if ($script:CurrentBranch) { $script:CurrentBranch } else { Get-CmdOutput git @('rev-parse', '--abbrev-ref', 'HEAD') }
+    Assert-Cmd git @('push', 'origin', $branch) "git push failed after submodule prep"
+    Write-Ok "PSTT submodule pinned to main — ready for release PR"
+}
+
+# ─── Step: restore-submodules ────────────────────────────────────────────────
+function Step-RestoreSubmodules {
+    $psttPath = Join-Path $RepoRoot 'libs' 'PSTT'
+    Push-Location $psttPath
+    try {
+        Write-Step "Switching PSTT submodule back to develop..."
+        Assert-Cmd git @('fetch', 'origin') "git fetch failed in PSTT"
+        Assert-Cmd git @('checkout', 'develop') "git checkout develop failed in PSTT"
+        Assert-Cmd git @('pull', '--rebase', 'origin', 'develop') "git pull develop failed in PSTT"
+    } finally { Pop-Location }
+
+    Write-Step "Restoring .gitmodules branch tracking to develop..."
+    Assert-Cmd git @('config', '-f', '.gitmodules', 'submodule.libs/PSTT.branch', 'develop') "Failed to update .gitmodules"
+    Assert-Cmd git @('add', '.gitmodules', 'libs/PSTT') "git add failed"
+    Assert-Cmd git @('commit', '-m', 'chore: post-release — restore PSTT submodule to develop') "git commit failed"
+    if ($IsDryRun) { Write-Warn "DRYRUN: skipping push of submodule restore commit"; return }
+    $branch = if ($script:CurrentBranch) { $script:CurrentBranch } else { Get-CmdOutput git @('rev-parse', '--abbrev-ref', 'HEAD') }
+    Assert-Cmd git @('push', 'origin', $branch) "git push failed after submodule restore"
+    Write-Ok "PSTT submodule restored to develop tracking"
+}
+
 # ─── Step: pr ────────────────────────────────────────────────────────────────
 function Step-CreateMergePR {
     if ($IsNoGh -or -not (Get-Command gh -ErrorAction SilentlyContinue)) {
@@ -948,7 +999,9 @@ $StepFns = @{
     'version'        = { Step-ComputeVersion }
     'changelog'      = { Step-UpdateChangelog }
     'push-changelog' = { Step-CommitChangelog }
+    'prep-submodules'      = { Step-PrepSubmodules }
     'pr'             = { Step-CreateMergePR }
+    'restore-submodules'   = { Step-RestoreSubmodules }
     'tag'            = { Step-CreateTag }
     'wait-workflows' = { Step-WaitWorkflows }
     'post-deploy'    = { Step-PostDeploy }
