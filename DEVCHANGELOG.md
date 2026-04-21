@@ -5,6 +5,60 @@ For reviewing work item by item and moving anything back to [TODO.md](TODO.md) i
 
 ---
 
+## 2026-05-01 — BridgeCache: structural dashboard topic scoping
+
+### Commits: 28ce7b7 (PSTT submodule) + b90d9a6 (dashboard) · UTC ~now · branch: develop
+
+### PSTT.Data — `BridgeCache<TKey,TValue>` (new class)
+
+**File:** `libs/PSTT/src/PSTT.Data/BridgeCache.cs`
+
+**What:** New `ICache<TKey,TValue>` implementation that bridges specific subscription patterns from a `_source` cache into an isolated `_local CacheWithWildcards` (no upstream). Key behaviour:
+- `SetBridges(patterns)` — disposes old bridge subs, clears `_local`, subscribes each pattern on `_source`; bridge callback forwards retained values into `_local`.
+- **Read/subscribe operations** → `_local`. A subscription for a key not covered by any bridge stays `Pending` forever — no propagation upstream.
+- **PublishAsync / RegisterPublisher** → `_source` (reaches broker/upstream chain).
+- `Local` property — exposes `_local` as `ICache` for session-only publishes that never leave the local view.
+- Empty patterns → no bridges → all subscriptions Pending (dashboard with no configured topics shows no data — intentional).
+
+**Why:** Using PSTT's own `Subscribe` mechanism on `_source` for the bridge means all wildcard pattern matching is handled by PSTT internally — zero bespoke string-comparison code in the bridge layer. This was the key design insight: the name `BridgeCache` reflects that the class creates bridges, not that it "scopes" — scoping is a dashboard-level concept built on top.
+
+### PSTT.Data — `BridgeCacheTests` (new test file)
+
+**File:** `libs/PSTT/tests/PSTT.Data.Tests/BridgeCacheTests.cs` — 14 tests
+
+**Test setup:** 3-tier chain (`topCache → serverCache → dataCache → BridgeCache`) mirrors the real dashboard topology. Tests cover:
+- Data flow from top → local via bridge patterns (exact key, wildcard, `$DASHBOARD/#`)
+- **Subscription isolation**: widget `#` sub on BridgeCache does NOT increase `dataCache.SubscribeCount`; exact and wildcard widget subs stop at `_local`
+- Out-of-scope exact key stays Pending even after broker publishes
+- `GetValue`/`GetSnapshot` — only in-scope entries visible
+- Publish routing: `BridgeCache.PublishAsync` → `_source`; `Local.PublishAsync` → `_local` only, never reaches source/top
+- `SetBridges` mid-session — old data cleared, new scope data arrives
+- Empty bridges — all subscriptions Pending
+
+### Dashboard — `ApplicationState.cs`
+
+**What:** Added `BridgedDataCache: BridgeCache<string,string>` (wraps `DataCache`) and `LocalDataCache: ICache = BridgedDataCache.Local`. Both `ApplyDashboardModel` and `SetSubscribedTopics` now call `BridgedDataCache.SetBridges(topics.Append("$DASHBOARD/#"))`. The `$DASHBOARD/#` pattern is always included so system topics (client count, MQTT status) are always visible via the bridge.
+
+### Dashboard — widget wiring
+
+All widget subscriptions and cache reads moved from `AppState.DataCache` to `AppState.BridgedDataCache`:
+- `BaseNodeWithDataWidget.cs` — GetValue + Subscribe (affects all data-backed widgets)
+- `TreeViewNodeWidget.razor` — two Subscribe calls + one GetValue
+- `DataExplorerPanel.razor` — GetSnapshot + Subscribe
+- `AboutDialog.razor` — `$DASHBOARD/CLIENTS/COUNT` sub
+- `MqttInitializationService.cs` — message-history `#` sub → BridgedDataCache (scoped to dashboard topics); MQTT status sub stays on `DataCache` (infrastructure, must work before scope configured)
+
+### Dashboard — `SwitchNodeWidget` + `SwitchNodeModel` + `SwitchSettingsData`
+
+Added `bool PublishGlobally` (default `true`) to `SwitchNodeModel`. Toggle method now selects `AppState.DataCache` (global/broker) or `AppState.LocalDataCache` (session-local) based on this flag. Property editor automatically picks this up via the `[NpCheckbox]` attribute. Persisted in `SwitchSettingsData.PublishGlobally`.
+
+### Known limitations (V1)
+
+- ⚠️ The message-history `BridgedDataCache.Subscribe("#",…)` subscribes `#` on `_source` (DataCache), which propagates to the broker. `ServerDataCache` still accumulates all broker data. Scope boundary is at `_local` delivery level. Future work: only subscribe the configured patterns explicitly and avoid the global `#` sub.
+- ⚠️ No property editor toggle for `PublishGlobally` on widgets other than Switch (Switch is the only current publisher).
+
+---
+
 ## 2026-04-21 — Submodule management, flaky-test fixes, and v0.1.1 release
 
 ### Commits: bdc4860…fd32f4b · branch: develop (merged to main via PR #2, tag v0.1.1)

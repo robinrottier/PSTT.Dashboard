@@ -7,6 +7,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **BridgeCache — dashboard topic scoping** (`PSTT.Data`): new `BridgeCache<TKey,TValue>` class that
+  bridges specific subscription patterns from a source cache into an isolated local view.
+  Widget subscriptions satisfy locally; they do not propagate upstream through the cache chain.
+  Publish on `BridgeCache` reaches the broker; publish on `BridgeCache.Local` stays session-local.
+- **Dashboard-scoped data cache** (`ApplicationState`): `BridgedDataCache` wraps `DataCache` and
+  bridges the dashboard's configured MQTT topics + `$DASHBOARD/#`. All widget subscriptions, the
+  Data Explorer, About dialog, and message-history log now target `BridgedDataCache`. Widgets only
+  see data within the dashboard's topic scope; topics from other dashboards or sessions are never
+  delivered even if they exist in the upstream broker.
+- **`SwitchNodeModel.PublishGlobally`**: new boolean property (default `true`). When unchecked, the
+  switch publishes only to the current dashboard session (not to the MQTT broker). Configurable in
+  the node property editor under the **Publish** category.
+
 ## [v0.1.1] - 2026-04-21
 
 ### Added
