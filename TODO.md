@@ -125,9 +125,9 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 ### FEAT-L: Deployment enhancements
 - [ ] Admin interface: runtime monitoring, logs, connected clients, dashboard file management
 - [ ] We've lost the "restart" button ...might want to do a restart for other reasosns
-- [ ] More automation to speed relase process
+- [ ] More automation to speed release process
 	- [ ] Local script to run tests, do a final commit, and push, create PR, let the various actions run, merge the PR to main and kick patch-release. Then kick deployment to test server
-	      release.ps1 now covers this flow
+	      release.ps1 now covers this flow, including automated submodule branch management
 
 ### FEAT-M: Settings persistence _(done — settings now in data directory)_
 
