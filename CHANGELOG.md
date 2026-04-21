@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [v0.1.1] - 2026-04-21
+
 ### Added
 - **Floating Add Node panel** — replaces the modal dialog. In edit mode, a draggable floating panel
   with a 6-type node picker (Text, Gauge, Switch, Battery, Log, TreeView).
