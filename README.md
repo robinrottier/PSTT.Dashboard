@@ -1,6 +1,6 @@
 # PSTT.Dashboard
 
-A live, widget-based dashboard editor driven by real-time data sourced from MQTT.
+A widget-based dashboard editor driven by real-time data sourced from MQTT.
 
 Draw diagrams that show how things are connected in your system — and watch the values update in real time as data update messages arrive.
 Typical use cases include:
@@ -9,7 +9,8 @@ Typical use cases include:
 - **Device state** — home automation sensors, switches, and actuators displayed as a connected graph
 - **Process monitoring** — industrial or IoT pipelines with live readings at each stage
 
-Dashboards are fully editable in the browser. Multiple dashboard files can be saved and opened without restarting.
+Dashboards are fully editable in the browser.
+Multiple dashboard files can be saved and opened without restarting.
 
 ---
 
@@ -55,7 +56,7 @@ Dashboards are persisted as JSON files.
 The pre-built multi-arch image (linux/amd64 and linux/arm64) is published to the GitHub Container Registry:
 
 ```
-ghcr.io/robinrottier/psttdashboard:latest
+ghcr.io/robinrottier/pstt-dashboard:latest
 ```
 
 **Quick start with Docker Compose** — copy the sample below to a `docker-compose.yml` file and edit the MQTT settings:
@@ -63,7 +64,7 @@ ghcr.io/robinrottier/psttdashboard:latest
 ```yaml
 services:
   psttdashboard:
-    image: ghcr.io/robinrottier/psttdashboard:latest
+    image: ghcr.io/robinrottier/pstt-dashboard:latest
     ports:
       - "8080:8080"
     volumes:
@@ -87,7 +88,7 @@ Open <http://localhost:8080>.
 **Pull and run with the Docker CLI** (no compose file):
 
 ```bash
-docker pull ghcr.io/robinrottier/psttdashboard:latest
+docker pull ghcr.io/robinrottier/pstt-dashboard:latest
 
 docker run -d \
   --name psttdashboard \
@@ -97,7 +98,7 @@ docker run -d \
   -e MqttSettings__Port=1883 \
   -e DiagramStorage__DataDirectory=/app/data \
   --restart unless-stopped \
-  ghcr.io/robinrottier/psttdashboard:latest
+  ghcr.io/robinrottier/pstt-dashboard:latest
 ```
 
 ### Raspberry Pi
@@ -105,12 +106,12 @@ docker run -d \
 The Docker image is built for both `linux/amd64` and `linux/arm64`, so it runs natively on a Raspberry Pi 3/4/5 (64-bit OS).
 
 ```bash
-docker pull ghcr.io/robinrottier/psttdashboard:latest
+docker pull ghcr.io/robinrottier/pstt-dashboard:latest
 docker run -d --name psttdashboard -p 8080:8080 \
   -v $(pwd)/data:/app/data \
   -e MqttSettings__Broker=your-mqtt-broker-host \
   --restart unless-stopped \
-  ghcr.io/robinrottier/psttdashboard:latest
+  ghcr.io/robinrottier/pstt-dashboard:latest
 ```
 
 **Alternatively, install the self-contained binary:**

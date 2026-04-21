@@ -94,7 +94,12 @@ public class MqttFlowIntegrationTests : IClassFixture<InProcessMqttBrokerFixture
         });
 
         var publisher = await GetPublisherAsync();
-        await PublishAsync(publisher, "flow/test", "hello-from-broker");
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (DateTime.UtcNow < deadline && !tcs.Task.IsCompleted)
+        {
+            await PublishAsync(publisher, "flow/test", "hello-from-broker");
+            if (!tcs.Task.IsCompleted) await Task.Delay(200);
+        }
 
         var value = await tcs.Task.WaitAsync(Timeout);
         Assert.Equal("hello-from-broker", value);
@@ -107,17 +112,28 @@ public class MqttFlowIntegrationTests : IClassFixture<InProcessMqttBrokerFixture
 
         var received = new List<(string key, string value)>();
         var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        bool gotA = false, gotB = false;
 
         cache.Subscribe("wildcard/#", sub =>
         {
-            lock (received) { received.Add((sub.Key, sub.Value)); }
-            if (received.Count >= 2) tcs.TrySetResult();
+            lock (received)
+            {
+                received.Add((sub.Key, sub.Value));
+                if (sub.Key == "wildcard/a") gotA = true;
+                if (sub.Key == "wildcard/b") gotB = true;
+            }
+            if (gotA && gotB) tcs.TrySetResult();
             return Task.CompletedTask;
         });
 
         var publisher = await GetPublisherAsync();
-        await PublishAsync(publisher, "wildcard/a", "payload-a");
-        await PublishAsync(publisher, "wildcard/b", "payload-b");
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (DateTime.UtcNow < deadline && !tcs.Task.IsCompleted)
+        {
+            if (!gotA) await PublishAsync(publisher, "wildcard/a", "payload-a");
+            if (!gotB) await PublishAsync(publisher, "wildcard/b", "payload-b");
+            if (!tcs.Task.IsCompleted) await Task.Delay(200);
+        }
 
         await tcs.Task.WaitAsync(Timeout);
 

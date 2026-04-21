@@ -100,7 +100,13 @@
         <MudMenuItem OnClick="MenuAddNode" Disabled="@(!IsEditMode)">
             <MudStack Row="true" AlignItems="AlignItems.Center" Style="width:100%;justify-content:space-between;">
                 <span>Add Node</span>
-                <MudText Typo="Typo.caption" Class="mud-text-secondary">&nbsp;</MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Ctrl+Shift+A</MudText>
+            </MudStack>
+        </MudMenuItem>
+        <MudMenuItem OnClick="MenuToggleDataExplorer" Disabled="@(!IsEditMode)">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Style="width:100%;justify-content:space-between;">
+                <span>Data Explorer</span>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Ctrl+Shift+D</MudText>
             </MudStack>
         </MudMenuItem>
         <MudMenuItem OnClick="MenuDeleteNode" Disabled="@(!AppState.HasSelectedNode)">
@@ -236,7 +242,7 @@
         AppState.OnStateChanged -= OnAppStateChanged;
     }
 
-    private Task ShowAbout() => DialogService.ShowAsync<AboutDialog>("About Mqtt Dashboard",
+    private Task ShowAbout() => DialogService.ShowAsync<AboutDialog>("About PSTT Dashboard",
         new DialogParameters(),
         new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true });
     private Task ShowStartupSettings() => DialogService.ShowAsync<StartupSettingsDialog>("Startup Settings");
@@ -251,6 +257,7 @@
     private void Redo()               => AppState.TriggerRedo();
     private void UndoAll()            => AppState.TriggerUndoAll();
     private void MenuAddNode()        => AppState.TriggerAddNode();
+    private void MenuToggleDataExplorer() => AppState.RaiseMenuToggleDataExplorer();
     private void MenuDeleteNode()     => AppState.TriggerDeleteNode();
     private void MenuCutSelected()    => AppState.TriggerCutSelected();
     private void MenuCopySelected()   => AppState.TriggerCopySelected();

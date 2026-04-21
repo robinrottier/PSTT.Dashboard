@@ -376,3 +376,4 @@ FodyWeavers.xsd
 docker-compose.override.yml
 
 *.deb
+/env.bat

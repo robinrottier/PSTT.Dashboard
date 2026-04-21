@@ -2,7 +2,7 @@
 # Usage: docker compose -f docker-compose.production.yml up -d
 services:
   psttdashboard:
-    image: ghcr.io/robinrottier/psttdashboard:latest
+    image: ghcr.io/robinrottier/pstt-dashboard:latest
     ports:
       - "8080:8080"   # read-only public port
       - "8081:8081"   # read-write admin port

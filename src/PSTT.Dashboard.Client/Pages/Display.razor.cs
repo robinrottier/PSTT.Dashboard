@@ -49,6 +49,10 @@ public partial class Display : IDisposable
     private int _nodeCounter = 1;
     private int _pasteGeneration = 0;
 
+    // Floating panel state
+    private bool _isAddNodeOpen;
+    private bool _isDataExplorerOpen;
+
     // Stored handler references for clean unsubscription
     private Action? _onMenuSaveDiagram;
     private Action? _onMenuReloadDiagram;
@@ -59,6 +63,7 @@ public partial class Display : IDisposable
     private Action? _onMenuRedo;
     private Action? _onMenuUndoAll;
     private Action? _onMenuDiagramProperties;
+    private Action? _onMenuToggleDataExplorer;
     private Action? _onMenuPaste;
     private Action? _onMenuExportNodes;
     private Action? _onMenuImportNodes;
@@ -109,6 +114,14 @@ public partial class Display : IDisposable
                         await SaveAsDiagram();
                     else
                         await SaveDashboard();
+                    break;
+                case "A" when e.ShiftKey:
+                    _isAddNodeOpen = !_isAddNodeOpen;
+                    StateHasChanged();
+                    break;
+                case "D" when e.ShiftKey:
+                    _isDataExplorerOpen = !_isDataExplorerOpen;
+                    StateHasChanged();
                     break;
             }
         }
@@ -468,6 +481,9 @@ public partial class Display : IDisposable
         _onMenuDiagramProperties = () => InvokeAsync(ShowDiagramPropertiesAsync);
         AppState.MenuDiagramProperties += _onMenuDiagramProperties;
 
+        _onMenuToggleDataExplorer = () => InvokeAsync(() => { _isDataExplorerOpen = !_isDataExplorerOpen; StateHasChanged(); return Task.CompletedTask; });
+        AppState.MenuToggleDataExplorer += _onMenuToggleDataExplorer;
+
         _onMenuAddPage = () => InvokeAsync(AddPageAsync);
         AppState.MenuAddPage += _onMenuAddPage;
 
@@ -503,6 +519,7 @@ public partial class Display : IDisposable
         if (_onMenuUndoAll        != null) AppState.MenuUndoAll        -= _onMenuUndoAll;
 
         if (_onMenuDiagramProperties != null) AppState.MenuDiagramProperties -= _onMenuDiagramProperties;
+        if (_onMenuToggleDataExplorer != null) AppState.MenuToggleDataExplorer -= _onMenuToggleDataExplorer;
         if (_onMenuAddPage           != null) AppState.MenuAddPage           -= _onMenuAddPage;
 
         _diagram?.Nodes.Added -= OnNodeAddedInEditMode;
@@ -512,7 +529,7 @@ public partial class Display : IDisposable
 
         _onMenuSaveDiagram = _onMenuReloadDiagram = _onMenuEditProperties = null;
         _onMenuSaveAs = _onMenuUndo = _onMenuRedo = _onMenuUndoAll = _onMenuDiagramProperties = _onMenuAddPage = null;
-        _onMenuExportNodes = _onMenuImportNodes = null;
+        _onMenuExportNodes = _onMenuImportNodes = _onMenuToggleDataExplorer = null;
     }
 
     // ── Diagram event handlers ────────────────────────────────────────────────
@@ -559,15 +576,15 @@ public partial class Display : IDisposable
 
     // ── Node operations ───────────────────────────────────────────────────────
 
-    private async void AddNode()
+    private void AddNode()
+    {
+        _isAddNodeOpen = !_isAddNodeOpen;
+        StateHasChanged();
+    }
+
+    private void OnAddNodeTypeSelected(string nodeType)
     {
         if (_diagram == null) return;
-
-        var dialog = await DialogService.ShowAsync<NodeTypePickerDialog>("Add Node",
-            new DialogParameters(),
-            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true });
-        var result = await dialog.Result;
-        if (result == null || result.Canceled || result.Data is not string nodeType) return;
 
         PushUndoSnapshot();
         var rng = new Random();
@@ -587,6 +604,44 @@ public partial class Display : IDisposable
         _diagram.Controls.AddFor(node).Add(new Blazor.Diagrams.Core.Controls.Default.ResizeControl(new Blazor.Diagrams.Core.Positions.Resizing.BottomRightResizerProvider()));
         _diagram.SelectModel(node, false);
         UpdateSelectionState();
+        StateHasChanged();
+    }
+
+    private IReadOnlyCollection<string>? SelectedNodeTopics =>
+        _diagram?.GetSelectedModels().OfType<TextNodeModel>().FirstOrDefault()?.DataTopics;
+
+    private void AssignTopicToSelectedNode(string topic)
+    {
+        var node = _diagram?.GetSelectedModels().OfType<TextNodeModel>().FirstOrDefault();
+        if (node == null) return;
+        if (node.DataTopics.Contains(topic)) return;
+
+        PushUndoSnapshot();
+        node.DataTopics.Add(topic);
+        node.Refresh();
+        AppState.MarkEdited();
+        StateHasChanged();
+    }
+
+    private void AddNodeWithTopic(string topic)
+    {
+        if (_diagram == null) return;
+
+        PushUndoSnapshot();
+        var rng = new Random();
+        _diagram.UnselectAll();
+
+        var node = new TextNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400)))
+        {
+            Title = topic.Split('/').Last()
+        };
+        node.DataTopics.Add(topic);
+
+        _diagram.Nodes.Add(node);
+        _diagram.Controls.AddFor(node).Add(new Blazor.Diagrams.Core.Controls.Default.ResizeControl(new Blazor.Diagrams.Core.Positions.Resizing.BottomRightResizerProvider()));
+        _diagram.SelectModel(node, false);
+        UpdateSelectionState();
+        AppState.MarkEdited();
         StateHasChanged();
     }
 

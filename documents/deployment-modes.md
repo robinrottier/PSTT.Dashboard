@@ -73,7 +73,7 @@ Docker Compose example:
 ```yaml
 services:
   psttdashboard:
-    image: ghcr.io/robinrottier/psttdashboard:latest
+    image: ghcr.io/robinrottier/pstt-dashboard:latest
     ports:
       - "8080:8080"   # public
       - "8081:8081"   # admin
@@ -109,7 +109,7 @@ Run two instances of the image with different env vars, sharing the same data vo
 ```yaml
 services:
   psttdashboard-admin:
-    image: ghcr.io/robinrottier/psttdashboard:latest
+    image: ghcr.io/robinrottier/pstt-dashboard:latest
     ports: ["8081:8080"]
     environment:
       - ReadOnly=false
@@ -118,7 +118,7 @@ services:
     volumes: ["./data:/app/data"]
 
   psttdashboard-public:
-    image: ghcr.io/robinrottier/psttdashboard:latest
+    image: ghcr.io/robinrottier/pstt-dashboard:latest
     ports: ["8080:8080"]
     environment:
       - ReadOnly=true

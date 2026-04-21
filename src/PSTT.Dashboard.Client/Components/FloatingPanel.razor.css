@@ -1,0 +1,30 @@
+.fp-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 4px 4px 10px;
+    background: var(--mud-palette-primary);
+    color: var(--mud-palette-primary-text);
+    cursor: move;
+    user-select: none;
+    border-radius: var(--mud-default-borderradius) var(--mud-default-borderradius) 0 0;
+}
+
+.fp-title {
+    font-size: 0.85rem;
+    font-weight: 500;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fp-header-actions {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.fp-body {
+    padding: 8px;
+}

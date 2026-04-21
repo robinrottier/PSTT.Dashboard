@@ -4,7 +4,7 @@ param(
 )
 $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path $PSScriptRoot -Parent
-$Image = "ghcr.io/robinrottier/psttdashboard"
+$Image = "ghcr.io/robinrottier/pstt-dashboard"
 
 Set-Location $RepoRoot
 Write-Host "Building $Image:$Tag..." -ForegroundColor Cyan

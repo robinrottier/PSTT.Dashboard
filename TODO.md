@@ -10,6 +10,7 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 - [ ] release.ps1
 	- [ ] detailed output review on failure — "Show detailed" option at failure prompt to re-display full captured output (beyond the 50-line tail shown automatically)
+	- [ ] dep check at menu could also transitively resolve (e.g. selecting `tag` + `changelog` without `version` — currently only direct deps are added)
 - [ ] Need a way to share dashboards between installations (and dev). Can the API be opened up with a read/write interface to other isntallations via https??
 	- [ ] Then in "OPen" and "Save As" dialogs we could choose destaniotn respository: local file or remote dashboard repo (with list of dashboards to choose from)
 - [ ] Node Property dialog - color transition
@@ -60,14 +61,16 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 ### FEAT-E: Editing improvements
 - [ ] Node-red style palette panel — drag node types from a sidebar onto the canvas
+	- [ ] Can curretn AddNode diaglog become modeless, moveable and floating, so new nodes can just 
+	      be dragged onto the canvas and positioned without loosing the dialog
 - [ ] Keyboard funcionality:
 	- [ ] arrows to move selcted nodes
 - [ ] A data dialog -- tree view of all available data (we used to have it but it did not work too well).
 	- [ ] shows expanded treeview of all avaiable data currently in cache (topics and values)
 	- [ ] has buttons on right hand side to:
-		- [ ] add a new node with that topic
+		- [ ] add a new node with that topic and lets you choose which node type it adds
 		- [ ] add to existing node thne shows list of nodes to add to
-	- [ ] It would be nice if it wasnt just a modal diaglo but a modeless window ontop and lfoating and moveable
+	- [ ] It would be nice if it wasnt just a modal diaglo but a modeless window ontop and floating and moveable
 	- [ ] and then you could drag a data item to an existing node to add it to that node
 	- [ ] 
 

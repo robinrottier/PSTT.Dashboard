@@ -7,6 +7,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [v0.1.1] - 2026-04-21
+
+### Added
+- **Floating Add Node panel** — replaces the modal dialog. In edit mode, a draggable floating panel
+  with a 6-type node picker (Text, Gauge, Switch, Battery, Log, TreeView).
+  Toggle via the toolbar button in the tab row, "Add Node" menu, or `Ctrl+Shift+A`. Panel stays open for repeated use.
+- **Floating Data Explorer panel** — shows all live MQTT topics as a collapsible tree with current values.
+  Enter any MQTT wildcard pattern (default `#`) to filter the subscription; history dropdown remembers last 10 patterns.
+  Select a node on the canvas then click the assign button on any leaf to add that topic to the node.
+  Toggle via toolbar in tab row, "Data Explorer" menu, or `Ctrl+Shift+D`.
+- **Edit-mode toolbar in tab row** — `+` (Add Node) and tree (Data Explorer) icon buttons now live at the
+  right end of the page tab row, separated by a divider. No longer overlaid on the canvas.
+- **`ICache.GetSnapshot()`** — new method on `ICache<TKey,TValue>` and `Cache<TKey,TValue>` returning
+  a point-in-time snapshot of all non-pending entries. Used to seed the Data Explorer on open.
+
+### Changed
+- **`release.ps1` — group names in `-Only`/`-From`** — `-Only deploy` runs all Deploy group steps;
+  `-From bui` starts from the first Build & Test step. Prefix matching uses the same `$GroupKeywords`
+  table as the interactive menu. Numeric refs still work.
+- **`release.ps1` — `post-deploy` standalone** — removed `post-deploy → wait-workflows` dependency;
+  deploy can be re-run independently any number of times.
+
+
+  option runs the dep steps inline then retries.
+
 ## [v0.1.0] - 2026-04-20
 
 ### Added

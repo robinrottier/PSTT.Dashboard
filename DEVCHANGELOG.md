@@ -5,9 +5,107 @@ For reviewing work item by item and moving anything back to [TODO.md](TODO.md) i
 
 ---
 
+## 2025-07-15 — FEAT-E: Data Explorer overhaul (tree view, wildcard subscription, topic assign, toolbar in tab row)
+
+### Commit: 1ea74b6 · branch: develop
+
+### 1. DataExplorerPanel — full rewrite replacing DataBrowserPanel
+
+**File:** `src/PSTT.Dashboard.Client/Components/DataExplorerPanel.razor` (renamed/rewritten)  
+**Deleted:** `src/PSTT.Dashboard.Client/Components/DataBrowserPanel.razor`
+
+Complete overhaul of the data panel:
+- **MQTT wildcard subscription input** — `MudTextField` defaulting to `#`. `MudMenu` dropdown remembers last 10 patterns (stored in `_history`, populated on apply). Applying a new pattern unsubscribes the old one and resubscribes.
+- **Generation token** — `int _subscriptionGeneration` incremented on each `ApplySubscription`. Lambda captures `gen`; callback checks `if (gen != _subscriptionGeneration) return` to discard stale callbacks after pattern change or disposal.
+- **Collapsible tree view** — topics split by `/` into a `TopicNode` hierarchy. Rendered by recursive `TopicTreeNode` component. Expand/collapse state kept in parent `HashSet<string> _expandedPaths` so it survives Blazor component reuse (`@key="child.FullTopic"` set on recursive items). Roots auto-expanded on first subscription.
+- **No text wrapping** — tree rows use `white-space:nowrap;overflow:hidden;text-overflow:ellipsis`.
+- **Topic assign button** — each leaf shows an assign-to-selected-node button. If topic already assigned, shows a checkmark. `OnTopicAssigned` callback fires to parent.
+- **Status bar** — topic count + subscription pattern shown at bottom.
+- **Filtering** — uses `MqttWildcardMatcher.Matches(pattern, topic)` for wildcard patterns; `string.Equals` for exact topics.
+
+### 2. TopicNode + TopicTreeNode components
+
+**Files:** `src/PSTT.Dashboard.Client/Components/TopicNode.cs`, `TopicTreeNode.razor` (new)
+
+- `TopicNode` — standalone class with `Label`, `FullTopic`, `Value`, `IsLeaf`, `Children`, `ChildMap`.
+- `TopicTreeNode` — recursive Razor component. Parameters: `Node`, `HasSelectedNode`, `SelectedNodeTopics`, `OnTopicAssigned`, `ExpandedPaths`, `OnToggleExpand`. Renders expand/collapse arrow for branches, value + assign button for leaves.
+
+### 3. ApplicationState + AppMenu — rename DataBrowser → DataExplorer
+
+**Files:** `src/PSTT.Dashboard.Client/Services/ApplicationState.cs`, `src/PSTT.Dashboard.Client/Layout/AppMenu.razor`
+
+- `MenuToggleDataBrowser` → `MenuToggleDataExplorer`, `RaiseMenuToggleDataBrowser()` → `RaiseMenuToggleDataExplorer()`.
+- Menu item label "Data Browser" → "Data Explorer".
+
+### 4. Display.razor — toolbar moved to tab row, canvas toolbar removed
+
+**File:** `src/PSTT.Dashboard.Client/Pages/Display.razor`
+
+- Tab row restructured: outer `MudPaper` no longer has `overflow-x:auto`. Scrollable page tabs now wrapped in inner `<div style="flex:1;min-width:0;overflow-x:auto">`. Non-scrolling edit toolbar (`flex-shrink:0`) appended after, separated by a divider line.
+- Canvas `position:absolute` toolbar block removed (the `<MudPaper>` with AddBox + AccountTree buttons at top-left).
+- `<DataBrowserPanel>` → `<DataExplorerPanel>` with new params: `HasSelectedNode`, `SelectedNodeTopics`, `OnTopicAssigned`.
+
+### 5. Display.razor.cs — rename + new methods
+
+**File:** `src/PSTT.Dashboard.Client/Pages/Display.razor.cs`
+
+- `_isDataBrowserOpen` → `_isDataExplorerOpen`; `_onMenuToggleDataBrowser` → `_onMenuToggleDataExplorer`.
+- All subscribe/unsubscribe references updated.
+- New property `SelectedNodeTopics` — returns `DataTopics` of first selected `TextNodeModel`.
+- New method `AssignTopicToSelectedNode(string topic)` — calls `PushUndoSnapshot()`, adds topic if not present, calls `node.Refresh()` + `AppState.MarkEdited()`.
+
+---
+
+## 2025-07-14 — FEAT-E: Floating modeless panels (Add Node + Data Browser)
+
+### Commits: 1c45fdf (PSTT submodule), 1aed23c · branch: develop
+
+### 1. FloatingPanel component + JS drag helper
+
+**Files:** `src/PSTT.Dashboard.Client/Components/FloatingPanel.razor`, `FloatingPanel.razor.css`, `src/PSTT.Dashboard.Client/wwwroot/floatingPanel.js`, `src/PSTT.Dashboard.Client/App.razor`
+
+Reusable `position:fixed` draggable container. Header acts as drag handle via `@onmousedown` → `FloatingPanel.startDrag(panelId, x, y, dotNetRef)` in JS. JS attaches one-shot `mousemove`/`mouseup` listeners; on mouseup calls `dotNetRef.invokeMethodAsync('OnDragEnd', left, top)` to persist position. Has minimize (▲/▼) and close buttons. `IAsyncDisposable` to release `DotNetObjectReference`. Script registered once in `App.razor` (shared by both hosts).
+
+### 2. AddNodePanelContent component
+
+**File:** `src/PSTT.Dashboard.Client/Components/AddNodePanelContent.razor`
+
+6-type grid (Text/Gauge/Switch/Battery/Log/TreeView) using `MudIcon` + `MudPaper` tiles. Fires `EventCallback<string> OnNodeTypeSelected` — stays open after selection for repeated use.
+
+### 3. ICache.GetSnapshot() + Cache implementation
+
+**Files:** `libs/PSTT/src/PSTT.Data/Interfaces/ICache.cs`, `libs/PSTT/src/PSTT.Data/Cache.cs`
+
+Added `IReadOnlyDictionary<TKey,TValue> GetSnapshot()` to `ICache` interface. Implemented in `Cache<TKey,TValue>` by filtering for non-Pending items from the internal `ConcurrentDictionary`. Inheriting classes (`CacheWithWildcards`, `RemoteCache`) get it for free.
+
+### 4. DataBrowserPanel component
+
+**File:** `src/PSTT.Dashboard.Client/Components/DataBrowserPanel.razor`
+
+Floating panel showing all live MQTT topics. Seeds from `AppState.DataCache.GetSnapshot()` on init, then subscribes to `#` wildcard for live updates (thread-safe `lock(_topics)` before mutating). Renders a filterable `MudSimpleTable` (topic, value columns). Filter matches both topic path and value. Passes `IsOpen`/`IsOpenChanged` through to `FloatingPanel` without `@bind-` to avoid duplicate-parameter error.
+
+### 5. Display.razor — edit-mode toolbar + floating panels
+
+**Files:** `src/PSTT.Dashboard.Client/Pages/Display.razor`, `Display.razor.cs`
+
+- Edit-mode toolbar (top-left, `position:absolute;z-index:1001`): two toggle icon buttons (Add Node / Data Browser), highlighted with `Color.Primary` when panel open.
+- `<FloatingPanel @bind-IsOpen="_isAddNodeOpen">` wrapping `AddNodePanelContent`.
+- `<DataBrowserPanel AppState="AppState" IsOpen="_isDataBrowserOpen" IsOpenChanged="...">`.
+- `AddNode()` changed from `await DialogService.ShowAsync<NodeTypePickerDialog>` to simple toggle `_isAddNodeOpen = !_isAddNodeOpen`.
+- New `OnAddNodeTypeSelected(string nodeType)` contains the node-creation switch.
+- `Ctrl+Shift+A` / `Ctrl+Shift+D` shortcuts added to `HandleKeyDown`.
+- `MenuToggleDataBrowser` event subscribed in `SubscribeEditEvents` / unsubscribed in `UnsubscribeEditEvents`.
+
+### 6. ApplicationState + AppMenu wiring
+
+**Files:** `src/PSTT.Dashboard.Client/Services/ApplicationState.cs`, `src/PSTT.Dashboard.Client/Layout/AppMenu.razor`
+
+- `ApplicationState`: added `public event Action? MenuToggleDataBrowser` + `RaiseMenuToggleDataBrowser()`.
+- `AppMenu`: added "Data Browser" `MudMenuItem` (Ctrl+Shift+D); updated "Add Node" shortcut hint to Ctrl+Shift+A.
+
 ## 2025-05-xx — Blazor.Diagrams submodule + release.ps1 step menu overhaul + spinner output + Dockerfile fix
 
-### Commits: 86bc124, 7d3b78d, ce6dbe0, b2a1375, c9b42da, ff806bc, 3e6978e · branch: develop
+### Commits: 86bc124, 7d3b78d, ce6dbe0, b2a1375, c9b42da, ff806bc, 3e6978e, 73af24b, 0830319, 720d9d9, c1921e0, db800ee · branch: develop
 
 #### `libs/Blazor.Diagrams` — new git submodule
 
@@ -73,7 +171,32 @@ Non-interactive / CI path unchanged: streams verbosely with `Write-Step` prefix.
 
 ⚠️ `Step-BuildRelease` parallel mode uses its own `Start-Process` with temp files — does not go through `Invoke-Cmd` and is unaffected.
 
----— Program.cs dedup, dual-port Dockerfile, integration test fix, release.ps1 fixes
+**Step dependencies + default-none menu (73af24b):**
+- Menu now opens with **no steps selected** (was: all selected). User builds the run plan explicitly.
+- Added `$StepDeps` map defining hard data dependencies between steps:
+  - `changelog`, `push-changelog`, `tag` → `version` (all use `$script:NextVersion`)
+  - `wait-workflows` → `tag`
+  - `post-deploy` → `wait-workflows`
+- When the user presses Enter in the menu, any selected step with an unselected dep triggers a warning
+  and a Y/n prompt to auto-add the missing deps. Answers Y → adds and redisplays menu; N → proceeds anyway.
+- `Prompt-OnFailure` now shows the step's known deps and offers `[D]ep+retry`: runs each dep step inline,
+  then returns `retry`. If the dep step also throws, aborts with a clear message.
+
+⚠️ Dep resolution is direct-only (not transitive). If you select `tag` and `changelog` without `version`,
+both will be flagged independently. Transitive resolution is a future TODO.
+
+**`post-deploy` dependency removed + group names in `-Only`/`-From` (db800ee):**
+- Removed `post-deploy → wait-workflows` from `$StepDeps`. Deploy is a standalone step that can be
+  re-run any time without a fresh release run having just completed.
+- `Resolve-StepName` renamed to `Resolve-Steps` (returns `[string[]]`) and extended to handle group
+  keywords (prefix-matched via `$GroupKeywords`). `-Only deploy` now runs all Deploy group steps;
+  `-From bui` starts from the first Build & Test step (`test-pstt`). Numeric refs unchanged.
+- `@(...)[0]` wrapping guards against PowerShell single-element array unwrap when resolving `-From` to
+  the first step of a group.
+
+---
+
+## 2026-04-03 — Program.cs dedup, dual-port Dockerfile, integration test fix, release.ps1 fixes
 
 ### Commit: deeb3a7+ · branch: develop
 

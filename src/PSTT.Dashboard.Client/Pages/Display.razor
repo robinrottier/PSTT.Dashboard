@@ -18,7 +18,9 @@ else
     @if (AppState.PageNames.Count > 1 || AppState.IsEditMode)
     {
         <MudPaper Elevation="0" Class="d-flex align-center px-1 py-0"
-                  Style="border-bottom:1px solid var(--mud-palette-divider);flex-wrap:nowrap;overflow-x:auto;gap:2px;">
+                  Style="border-bottom:1px solid var(--mud-palette-divider);flex-wrap:nowrap;gap:2px;">
+            @* Scrollable page tabs *@
+            <div style="display:flex;align-items:center;flex:1;min-width:0;overflow-x:auto;gap:2px;">
             @for (int i = 0; i < AppState.PageNames.Count; i++)
             {
                 var idx = i;
@@ -72,6 +74,23 @@ else
                 <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small"
                                Color="Color.Default" Style="opacity:0.7;"
                                OnClick="@(async () => await AddPageAsync())" />
+            }
+            </div>
+            @* Non-scrolling edit toolbar at right end *@
+            @if (AppState.IsEditMode)
+            {
+                <div style="display:flex;flex-shrink:0;gap:0;border-left:1px solid var(--mud-palette-divider);padding-left:4px;margin-left:2px;">
+                    <MudTooltip Text="Add Node (Ctrl+Shift+A)">
+                        <MudIconButton Icon="@Icons.Material.Filled.AddBox" Size="Size.Small"
+                                       Color="@(_isAddNodeOpen ? Color.Primary : Color.Default)"
+                                       OnClick="@(() => { _isAddNodeOpen = !_isAddNodeOpen; StateHasChanged(); })" />
+                    </MudTooltip>
+                    <MudTooltip Text="Data Explorer (Ctrl+Shift+D)">
+                        <MudIconButton Icon="@Icons.Material.Filled.AccountTree" Size="Size.Small"
+                                       Color="@(_isDataExplorerOpen ? Color.Primary : Color.Default)"
+                                       OnClick="@(() => { _isDataExplorerOpen = !_isDataExplorerOpen; StateHasChanged(); })" />
+                    </MudTooltip>
+                </div>
             }
         </MudPaper>
     }
@@ -139,6 +158,20 @@ else
                 </MudAlert>
             </div>
         }
+
+        <FloatingPanel Title="Add Node" @bind-IsOpen="_isAddNodeOpen" InitialLeft="80" InitialTop="160" MinWidth="280">
+            <AddNodePanelContent OnNodeTypeSelected="OnAddNodeTypeSelected" />
+        </FloatingPanel>
+
+        <DataExplorerPanel AppState="AppState"
+                           IsOpen="_isDataExplorerOpen"
+                           IsOpenChanged="@(v => { _isDataExplorerOpen = v; StateHasChanged(); })"
+                           HasSelectedNode="AppState.HasSingleSelectedNode"
+                           SelectedNodeTopics="SelectedNodeTopics"
+                           OnTopicAssigned="AssignTopicToSelectedNode"
+                           OnCreateNodeWithTopic="AddNodeWithTopic"
+                           InitialLeft="900" InitialTop="160" />
+
         </div>
     </MudPaper>
 }

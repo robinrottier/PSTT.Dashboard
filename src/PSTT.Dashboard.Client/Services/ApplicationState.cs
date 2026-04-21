@@ -32,7 +32,7 @@ public class ApplicationState
 
     public string DisplayName => GetType().Assembly
         .GetCustomAttribute<System.Reflection.AssemblyProductAttribute>()?.Product
-        ?? "Mqtt Dashboard";
+        ?? "PSTT Dashboard";
     public int Counter { get; set; } = 0;
     public bool IsInteractive { get; private set; } = false;
 
@@ -211,6 +211,8 @@ public class ApplicationState
     public event Action? MenuSaveAs;
     public event Action? MenuOpen;
     public event Action? MenuDiagramProperties;
+    public event Action? MenuToggleDataExplorer;
+    public void RaiseMenuToggleDataExplorer() => MenuToggleDataExplorer?.Invoke();
 
     public event Action? OnStateChanged;
 

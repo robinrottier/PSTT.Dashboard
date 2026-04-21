@@ -1,0 +1,233 @@
+@using PSTT.Dashboard.Services
+@using PSTT.Data
+@implements IDisposable
+
+<FloatingPanel Title="Data Explorer" IsOpen="IsOpen" IsOpenChanged="IsOpenChanged"
+               InitialLeft="InitialLeft" InitialTop="InitialTop" MinWidth="340">
+    <div style="display:flex;flex-direction:column;gap:4px;padding:6px;width:380px;height:460px;">
+
+        @* ── Wildcard subscription row ── *@
+        <div style="display:flex;align-items:center;gap:4px;">
+            <MudTextField T="string" @bind-Value="_wildcardInput"
+                          Label="MQTT Pattern" Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.PlayArrow"
+                          OnAdornmentClick="ApplySubscription"
+                          Style="flex:1;"
+                          @onkeydown="OnWildcardKeyDown" />
+            <MudMenu Icon="@Icons.Material.Filled.History" Size="Size.Small"
+                     Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                @if (_history.Count == 0)
+                {
+                    <MudMenuItem Disabled="true">No history</MudMenuItem>
+                }
+                else
+                {
+                    @foreach (var h in _history)
+                    {
+                        var captured = h;
+                        <MudMenuItem OnClick="@(() => SelectHistory(captured))">@captured</MudMenuItem>
+                    }
+                }
+            </MudMenu>
+        </div>
+
+        @* ── Topic tree ── *@
+        <div style="flex:1;overflow-y:auto;border:1px solid var(--mud-palette-divider);border-radius:4px;">
+            @if (_topicTree.Count == 0)
+            {
+                <div style="padding:8px;">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        No topics match <em>@_activePattern</em>
+                    </MudText>
+                </div>
+            }
+            else
+            {
+                <div style="padding:2px;">
+                    @foreach (var node in _topicTree)
+                    {
+                        <TopicTreeNode @key="@node.FullTopic"
+                                       Node="node"
+                                       HasSelectedNode="HasSelectedNode"
+                                       SelectedNodeTopics="SelectedNodeTopics"
+                                       OnTopicAssigned="OnTopicAssigned"
+                                       OnCreateNodeWithTopic="OnCreateNodeWithTopic"
+                                       ExpandedPaths="_expandedPaths"
+                                       OnToggleExpand="ToggleExpand" />
+                    }
+                </div>
+            }
+        </div>
+
+        @* ── Status bar ── *@
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+            <MudText Typo="Typo.caption" Color="Color.Tertiary">
+                @_topicCount topics &nbsp;·&nbsp; @_activePattern
+            </MudText>
+        </div>
+    </div>
+</FloatingPanel>
+
+@code {
+    [Parameter] public ApplicationState AppState { get; set; } = default!;
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+    [Parameter] public int InitialLeft { get; set; } = 900;
+    [Parameter] public int InitialTop { get; set; } = 160;
+    [Parameter] public bool HasSelectedNode { get; set; }
+    [Parameter] public IReadOnlyCollection<string>? SelectedNodeTopics { get; set; }
+    [Parameter] public EventCallback<string> OnTopicAssigned { get; set; }
+    [Parameter] public EventCallback<string> OnCreateNodeWithTopic { get; set; }
+
+    private static readonly MqttWildcardMatcher _matcher = new();
+
+    private string _wildcardInput = "#";
+    private string _activePattern = "#";
+    private readonly List<string> _history = new();
+    private readonly Dictionary<string, string> _topics = new();
+    private List<TopicNode> _topicTree = new();
+    private int _topicCount;
+    private int _subscriptionGeneration;
+    private bool _disposed;
+    private IDisposable? _subscription;
+    private readonly HashSet<string> _expandedPaths = new();
+
+    protected override void OnInitialized()
+    {
+        ApplySubscription();
+    }
+
+    private void ApplySubscription()
+    {
+        var pattern = string.IsNullOrWhiteSpace(_wildcardInput) ? "#" : _wildcardInput.Trim();
+        _wildcardInput = pattern;
+        _activePattern = pattern;
+
+        AddToHistory(pattern);
+
+        _subscription?.Dispose();
+
+        int gen = ++_subscriptionGeneration;
+
+        lock (_topics)
+        {
+            _topics.Clear();
+            var snapshot = AppState.DataCache.GetSnapshot();
+            foreach (var kv in snapshot)
+            {
+                if (TopicMatchesPattern(pattern, kv.Key))
+                    _topics[kv.Key] = kv.Value;
+            }
+        }
+
+        _expandedPaths.Clear();
+
+        _subscription = AppState.DataCache.Subscribe(pattern, async sub =>
+        {
+            if (sub.Status.IsPending) return;
+            if (gen != _subscriptionGeneration) return;
+            if (_disposed) return;
+            lock (_topics) _topics[sub.Key] = sub.Value ?? string.Empty;
+            await InvokeAsync(() =>
+            {
+                if (gen != _subscriptionGeneration || _disposed) return;
+                RebuildTree();
+                StateHasChanged();
+            });
+        });
+
+        RebuildTree();
+        AutoExpandRoots();
+    }
+
+    private void AddToHistory(string pattern)
+    {
+        _history.Remove(pattern);
+        _history.Insert(0, pattern);
+        if (_history.Count > 10)
+            _history.RemoveAt(_history.Count - 1);
+    }
+
+    private void SelectHistory(string pattern)
+    {
+        _wildcardInput = pattern;
+        ApplySubscription();
+    }
+
+    private void OnWildcardKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") ApplySubscription();
+    }
+
+    private bool TopicMatchesPattern(string pattern, string topic)
+    {
+        if (!_matcher.IsPattern(pattern)) return string.Equals(pattern, topic, StringComparison.Ordinal);
+        return _matcher.Matches(pattern, topic);
+    }
+
+    private void RebuildTree()
+    {
+        List<(string, string)> entries;
+        lock (_topics)
+            entries = _topics.OrderBy(kv => kv.Key).Select(kv => (kv.Key, kv.Value)).ToList();
+
+        var root = new Dictionary<string, TopicNode>();
+        foreach (var (topic, value) in entries)
+        {
+            var parts = topic.Split('/');
+            var current = root;
+            TopicNode? node = null;
+            for (int i = 0; i < parts.Length; i++)
+            {
+                var part = parts[i];
+                if (!current.TryGetValue(part, out node))
+                {
+                    node = new TopicNode
+                    {
+                        Label = part,
+                        FullTopic = string.Join("/", parts[..(i + 1)])
+                    };
+                    current[part] = node;
+                }
+                if (i == parts.Length - 1)
+                    node.Value = value;
+                current = node.ChildMap;
+            }
+        }
+
+        // Sync Children from ChildMap
+        FlattenTree(root);
+
+        _topicTree = root.Values.OrderBy(n => n.Label).ToList();
+        _topicCount = entries.Count;
+    }
+
+    private static void FlattenTree(Dictionary<string, TopicNode> map)
+    {
+        foreach (var node in map.Values)
+        {
+            node.Children = node.ChildMap.Values.OrderBy(n => n.Label).ToList();
+            FlattenTree(node.ChildMap);
+        }
+    }
+
+    private void AutoExpandRoots()
+    {
+        foreach (var node in _topicTree)
+            _expandedPaths.Add(node.FullTopic);
+    }
+
+    private void ToggleExpand(string fullTopic)
+    {
+        if (!_expandedPaths.Remove(fullTopic))
+            _expandedPaths.Add(fullTopic);
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        _subscriptionGeneration++;
+        _subscription?.Dispose();
+    }
+}

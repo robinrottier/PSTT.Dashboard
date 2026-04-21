@@ -117,7 +117,7 @@
 
     private string AppName => GetType().Assembly
         .GetCustomAttribute<System.Reflection.AssemblyProductAttribute>()?.Product
-        ?? "MQTT Dashboard";
+        ?? "PSTT Dashboard";
     private bool _isEditMode => AppState.IsEditMode;
 
     private string EditTextStyle => _isEditMode
