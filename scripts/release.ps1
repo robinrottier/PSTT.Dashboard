@@ -592,9 +592,16 @@ function Step-GitSync {
     Assert-Cmd git @('fetch', '--prune') "git fetch failed"
     $script:CurrentBranch = Get-CmdOutput git @('rev-parse', '--abbrev-ref', 'HEAD')
     Write-Step "Branch: $($script:CurrentBranch)"
-    $code = Invoke-Cmd git @('pull', '--rebase', 'origin', $script:CurrentBranch)
-    if ($code -ne 0) { throw "git pull --rebase failed. Resolve conflicts and retry." }
-    Write-Ok "Synced with origin/$($script:CurrentBranch)"
+    $remoteRef = "origin/$($script:CurrentBranch)"
+    $remoteExists = (Invoke-Cmd git @('rev-parse', '--verify', '--quiet', $remoteRef)) -eq 0
+    if ($remoteExists) {
+        $code = Invoke-Cmd git @('pull', '--rebase', 'origin', $script:CurrentBranch)
+        if ($code -ne 0) { throw "git pull --rebase failed. Resolve conflicts and retry." }
+        Write-Ok "Synced with $remoteRef"
+    } else {
+        Write-Warn "Remote branch '$remoteRef' does not exist yet — skipping pull (branch will be pushed at push-changelog)"
+        Write-Ok "Local-only branch '$($script:CurrentBranch)' — no remote to sync"
+    }
 }
 
 # ─── Step: version ───────────────────────────────────────────────────────────
