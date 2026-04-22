@@ -5,11 +5,27 @@ For reviewing work item by item and moving anything back to [TODO.md](TODO.md) i
 
 ---
 
-## 2026-04-22 — MQTT $DASHBOARD topic isolation + wildcard spec fix
+## 2026-04-22 — MQTT $DASHBOARD topic isolation + wildcard spec fix + Data Explorer multi-pattern
 
-### Commits: 8095c74 + fcf7bf5 (PSTT submodule) · branch: develop
+### Commits: c8196e6, 8095c74 + fcf7bf5 (PSTT submodule) · branch: develop
 
-#### 1. `$DASHBOARD/*` topics no longer sent to MQTT broker (`MqttCache.cs` in PSTT submodule)
+#### 1. Data Explorer — multi-pattern input and prepopulated history (`DataExplorerPanel.razor`)
+
+**Motivation:** With the wildcard spec fix, `#` no longer shows `$DASHBOARD/*` topics. Users
+need a quick way to see dashboard metrics alongside real MQTT topics.
+
+**Changes:**
+- `_history` initialised with `["#", "$DASHBOARD/#"]` — dropdown is useful from first open.
+- `_wildcardInput`/`ApplySubscription` now parse comma-separated patterns via `ParsePatterns()`
+  (`string.Split(',', TrimEntries | RemoveEmptyEntries)`).
+- `_subscription` (single `IDisposable`) replaced by `_subscriptions` (`List<IDisposable>`) +
+  `DisposeSubscriptions()` helper.
+- Each pattern gets its own `BridgedDataCache.Subscribe(pattern, ...)` call; snapshot seed
+  uses `patterns.Any(p => TopicMatchesPattern(p, key))`.
+
+**Example:** entering `#,$DASHBOARD/#` shows all real MQTT topics AND internal metrics.
+
+#### 2. `$DASHBOARD/*` topics no longer sent to MQTT broker (`MqttCache.cs` in PSTT submodule)
 
 **Problem:** `DashboardMetricsPublisher` publishes internal metrics (`$DASHBOARD/TIME`,
 `$DASHBOARD/UPTIME`, etc.) to `ServerDataCache`, which has `forwardPublish: true` to

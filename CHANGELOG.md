@@ -7,8 +7,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **Data Explorer — multi-pattern input** (`DataExplorerPanel`): the "Data topics" field now
+  accepts comma-separated patterns (e.g. `#,$DASHBOARD/#`). Each pattern subscribes
+  independently and results are unioned in the topic tree.
+- **Data Explorer — prepopulated history** (`DataExplorerPanel`): the dropdown now starts with
+  `#` (all real MQTT topics) and `$DASHBOARD/#` (internal dashboard metrics) so users can
+  switch without typing.
+
 ### Fixed
-- **`$DASHBOARD` topics no longer sent to MQTT broker** (`MqttCache`): `SendToBrokerAsync` now
+- **`$DASHBOARD` topics no longer sent to MQTT broker** (`MqttCache`):`SendToBrokerAsync` now
   returns early for any topic beginning with `$`. Internal virtual topics (`$DASHBOARD/*`) stay
   server-local; they cannot echo back from the broker as duplicate subscription updates. Status
   reporting to an external broker should use regular (non-`$`) topic names.
