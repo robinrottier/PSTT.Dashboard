@@ -5,6 +5,72 @@ For reviewing work item by item and moving anything back to [TODO.md](TODO.md) i
 
 ---
 
+## 2026-04-24 — Fix dual-delivery to wildcard subscribers (PSTT)
+
+### Commits: a4d8044 (PSTT submodule) · branch: develop
+
+#### 1. Dual-delivery bug: '#' subscriber receives same value twice
+
+**Problem:** In `CacheWithWildcards` with `supportsWildcards: true` upstream, a `#` subscriber
+received every upstream publish **twice** when an exact-key subscription for the same topic also
+existed on the downstream cache.
+
+**Root cause — two independent delivery paths firing for a single upstream publish:**
+- **Path A**: exact-key `UpstreamCallbackWildcards` (`_isWildcard=false`) → `PublishAsync` →
+  `InvokeCallback` → `OnInvokeCallback` tree walk → `#` subscriber
+- **Path B**: `#` `UpstreamCallbackWildcards` (`_isWildcard=true`) → `InvokeCallback` directly →
+  `#` subscriber
+
+Both paths fired for every upstream publish, causing 2 deliveries (or 6 for 3 keys, etc.).
+
+**Fix:** Added `bool fireTreeWalk` parameter to `InvokeCallback` on `CacheItem<TKey,TValue>` (default
+`true` preserves existing callers). Added `internal Task PublishFromUpstreamAsync(...)` that updates
+value/status identically to `PublishAsync` but calls `InvokeCallback(fireTreeWalk: false)`.
+`UpstreamCallbackWildcards` for `_isWildcard=false` now calls `PublishFromUpstreamAsync` — Path A
+tree walk is suppressed; `#` delivery comes solely via Path B.
+
+Files changed:
+- `libs/PSTT/src/PSTT.Data/Cache.cs` — `InvokeCallback` with `fireTreeWalk` overload;
+  `PublishFromUpstreamAsync` internal method
+- `libs/PSTT/src/PSTT.Data/CacheWithWildcards.cs` — `UpstreamCallbackWildcards` uses
+  `PublishFromUpstreamAsync` for `_isWildcard=false` branch
+
+#### 2. `InitialInvokeAsync` duplicate: new '#' subscriber gets each value twice
+
+**Problem:** When a `#` subscriber was added after values already existed in the downstream tree
+AND the `#` item had its own `UpstreamSub`, `InitialInvokeAsync` delivered each value twice:
+1. Tree walk in downstream `InitialInvokeAsync` delivered from local item tree
+2. Upstream's fire-and-forget `InitialInvokeAsync` (fired when upstream `#` sub was created)
+   also delivered via `UpstreamCallbackWildcards` → direct `InvokeCallback`
+
+Because the upstream's callbacks are fire-and-forget, they can arrive either before or after the
+downstream subscriber is registered — there is no reliable ordering.
+
+**Fix:** When `UpstreamSub != null` in `InitialInvokeAsync` for a `FilterNode`, skip the item-tree
+walk entirely. Instead, only replay from `_upstreamCache` (for callbacks that arrived before
+subscriber registration). Callbacks arriving after registration are delivered directly via
+`UpstreamCallbackWildcards` → `InvokeCallback`. This eliminates the overlap.
+⚠️ Accepted trade-off: values locally published to the downstream cache with `forwardPublish=false`
+(i.e., not in the upstream) won't appear in the initial replay for a new `#` subscriber when
+`UpstreamSub != null`. In practice, caches with `supportsWildcards: true` upstreams use the
+upstream as the authoritative data source, so this case doesn't arise.
+
+Files changed:
+- `libs/PSTT/src/PSTT.Data/CacheWithWildcards.cs` — `InitialInvokeAsync` for `FilterNode` now
+  branches on `UpstreamSub == null` (tree walk) vs `UpstreamSub != null` (`_upstreamCache` replay only)
+
+#### 3. New tests: `WildcardDualDeliveryTests.cs`
+
+4 tests added that were **failing before the fix** and **pass after**:
+- `WildcardSubscriber_ReceivesExactlyOneDelivery_WhenExactKeyAndWildcardBothSubscribed` — was 2, now 1
+- `WildcardSubscriber_ReceivesExactlyOneDelivery_WhenNoExactKeySubscribed` — sanity check, was already 1
+- `WildcardSubscriber_MultipleKeys_EachReceivedExactlyOnce` — was 6, now 3
+- `WildcardSubscriber_InitialReplay_DoesNotDuplicateKeysAlreadyInTree` — was 4, now 2
+
+Total: 266 tests pass (was 262).
+
+---
+
 ## 2026-04-23 — Fix production "no data on F5" bug + BridgeCache idempotency
 
 ### Commits: 56653a6 (Dashboard) · 4ea440d (PSTT submodule) · branch: develop

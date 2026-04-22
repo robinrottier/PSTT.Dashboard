@@ -8,6 +8,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **Wildcard dual-delivery in PSTT data library**: A `#` subscriber on a `CacheWithWildcards`
+  cache with `supportsWildcards: true` upstream received the same upstream value twice — once via
+  the exact-key item's `OnInvokeCallback` tree walk, and again via the `#` item's own upstream
+  subscription. Fixed by suppressing the tree walk when an upstream callback is the origin of a
+  publish (`PublishFromUpstreamAsync`). Also fixed `InitialInvokeAsync` for newly-added wildcard
+  subscribers: when the cache has a wildcard upstream sub, the item-tree walk is skipped to avoid
+  overlap with the upstream's independent initial replay.
 - **Production "no data on F5" bug**: On a remote deployment (real network latency), widgets showed
   no data after a fresh browser load (F5). Root cause was `MqttInitializationService` calling
   `SetSubscribedTopics` (→ `BridgeCache.SetBridges` → `_local.Clear()`) after Blazor had already
