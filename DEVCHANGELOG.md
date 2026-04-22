@@ -5,6 +5,57 @@ For reviewing work item by item and moving anything back to [TODO.md](TODO.md) i
 
 ---
 
+## 2026-04-25 — Fix release.ps1 StrictMode Count error + flaky Remote.Tests timeouts
+
+### Commits: 59fd80e (Dashboard) · 35b76b2 (PSTT submodule) · branch: develop
+
+#### 1. release.ps1: `.Count` error after test failure
+
+**Problem:** `Set-StrictMode -Version Latest` is active in `release.ps1`. When a step like `test-pstt`
+fails and `Invoke-Cmd` goes to display the failure output, it does:
+```powershell
+$lines = (... -split "`r?\n") | Where-Object { $_ -ne '' }
+$tail  = if ($lines.Count -gt 50) ...
+```
+If all lines are empty (rare but possible), `Where-Object` returns `$null`. Accessing `$null.Count`
+under StrictMode throws "The property 'Count' cannot be found on this object."
+
+This secondary error overrides the original failure message in the outer `catch`, hiding what actually
+went wrong and printing the confusing `.Count` error instead.
+
+**Fix:** Wrap the pipeline assignment with `@()`:
+```powershell
+$lines = @((... -split "`r?\n") | Where-Object { $_ -ne '' })
+```
+`@()` always returns an array, so `.Count` is always valid.
+
+Files changed:
+- `scripts/release.ps1` — line 434: `$lines = @(...)` guard
+
+#### 2. PSTT Remote.Tests: flaky timing-sensitive tests
+
+**Problem:** Two tests in `PSTT.Remote.Tests` fail intermittently on CI (but pass locally) with
+timing errors. The CI build agents are slower for TCP I/O and thread pool scheduling.
+
+- `Standalone_ExistingValue_DeliveredOnSubscribe`: uses default 3s `WaitForAsync` timeout.
+  On loaded CI, the initial value replay from server → client takes >3s.
+- `MultiClient_DisconnectOneDoesNotAffectOther`: has a 10s deadline loop but was still failing.
+  Root cause: the first publish fires before the server has processed the subscription registration
+  message from both clients. While the loop retries, the 10s window isn't always sufficient under load.
+
+**Fix:**
+- `Standalone_ExistingValue_DeliveredOnSubscribe`: increased `WaitForAsync` timeout to 10000ms
+- `MultiClient_DisconnectOneDoesNotAffectOther`: added `await Task.Delay(500)` before the publish
+  loop (gives subscriptions time to register on the server), extended deadline from 10s to 20s
+
+⚠️ These tests involve real TCP connections on loopback and will always have some sensitivity to
+machine load. `parallelizeTestCollections: false` is already set in `xunit.runner.json`.
+
+Files changed:
+- `libs/PSTT/tests/PSTT.Remote.Tests/RemoteCacheTests.cs` — 3 lines changed
+
+---
+
 ## 2026-04-25 — Fix regression: suppress tree-walk only when UpstreamSupportsWildcards (PSTT)
 
 ### Commits: 2dbc55d (PSTT submodule) · branch: develop

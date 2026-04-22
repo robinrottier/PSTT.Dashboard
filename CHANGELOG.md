@@ -8,6 +8,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **`release.ps1` `.Count` error after test failure**: `Set-StrictMode -Version Latest` caused a
+  secondary "The property 'Count' cannot be found on this object" error to appear in the outer `catch`
+  when `Invoke-Cmd`'s failure-output display encountered an empty line collection. Fixed by wrapping
+  the pipeline assignment with `@()` to guarantee an array.
+- **Flaky Remote.Tests timeouts on CI**: Two TCP-server integration tests were intermittently timing
+  out on slow CI agents. Increased `WaitForAsync` timeout for `Standalone_ExistingValue_DeliveredOnSubscribe`
+  to 10s; added a 500ms initial delay + extended deadline to 20s for `MultiClient_DisconnectOneDoesNotAffectOther`.
 - **Wildcard tree-walk regression in PSTT data library**: The previous dual-delivery fix incorrectly
   suppressed the `OnInvokeCallback` tree walk for all upstream callbacks, breaking wildcard delivery
   on caches where the upstream doesn't support wildcards (`supportsWildcards: false`). Tree-walk
