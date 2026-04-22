@@ -7,6 +7,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **`FilterNode` now delegates to `IWildcardMatcher`** (`CacheWithWildcards`, PSTT): `FilterNode.Matches()`
+  previously contained its own hardcoded `#`/`+` matching logic, making the configured `IWildcardMatcher`
+  irrelevant for live subscription routing. It now delegates entirely to the matcher via a new `FullPattern`
+  property (the reconstructed full pattern string, e.g. `sensors/+/temp`). Custom matchers (e.g. using `*`)
+  now work end-to-end. The `$` exclusion and all MQTT semantics come from `MqttWildcardMatcher` as the single
+  source of truth.
+- **Test data corrected** (`CacheWithPatternsTests`): three test cases expected `a/+/#` not to match `a/b`
+  and similar patterns not to match their parent topic. This was based on a bug in the old `FilterNode` code —
+  per MQTT 3.1.1 §4.7.1, `#` always matches the parent level (0 additional levels), so `a/+/#` correctly
+  matches `a/b`. Test expectations updated to reflect the spec.
+
 ### Added
 - **Data Explorer — multi-pattern input** (`DataExplorerPanel`): the "Data topics" field now
   accepts comma-separated patterns (e.g. `#,$DASHBOARD/#`). Each pattern subscribes

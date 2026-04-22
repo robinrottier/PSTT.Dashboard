@@ -5,6 +5,63 @@ For reviewing work item by item and moving anything back to [TODO.md](TODO.md) i
 
 ---
 
+## 2026-04-22 — FilterNode wildcard matching refactored to IWildcardMatcher
+
+### Commits: 524f2e3 + b6f3408 (PSTT submodule) · branch: develop
+
+#### 1. `FilterNode.Matches()` delegates to `IWildcardMatcher` (`CacheWithWildcards.cs`)
+
+**Motivation:** `FilterNode` had its own hardcoded `#`/`+`/`/` matching logic, duplicating `MqttWildcardMatcher`.
+Any custom `IWildcardMatcher` configured on `CacheWithWildcards` was used for subscription registration
+(`IsPattern`) but completely ignored for live callback routing (handled entirely inside `FilterNode.Matches`).
+This meant custom matchers using e.g. `*` instead of `#` would silently fail.
+
+**Root cause:** `FilterNode.Path` is only the key up to the *first* wildcard segment (e.g. `"sensors/+"` for
+pattern `"sensors/+/temp"`), not the full pattern. Simply calling `matcher.Matches(Path, other)` would be
+wrong for multi-segment patterns like `sensors/+/temp` or `a/+/#`.
+
+**Fix:**
+- Added `FullPattern { get; init; }` to `FilterNode`, computed in the constructor as
+  `parent.Path + "/" + string.Join("/", filter)` (or just `string.Join("/", filter)` when parent is root).
+  This always yields the correct full subscription pattern string (e.g. `"sensors/+/temp"`, `"#"`,
+  `"$DASHBOARD/#"`).
+- `FilterNode.Matches(string other)` now delegates to `_matcher.Matches(FullPattern, other)` when the
+  configured matcher is non-null and `TKey = string` (via the `is TKey` pattern match — safe for other
+  TKey types which fall through to the built-in fallback).
+- Constructor accepts `IWildcardMatcher<TKey>? matcher = null` (optional, for backward compat with existing
+  3-arg test call sites). When null, the built-in fallback matching logic is used.
+- Constructor validation updated: first filter part must pass `matcher.IsPattern()` when matcher is present
+  (allows custom wildcard tokens); falls back to `== "#" || == "+"` for null matcher.
+- The `$` exclusion guard previously added to `FilterNode.Matches()` is now handled by `MqttWildcardMatcher`
+  and lives in the fallback path only (for null matcher).
+
+**Test-only constructor:** `FilterNode(TKey key, string path, string[] filter)` — `FullPattern` computed
+null-safely (`path?.Length ?? 0`) to handle the existing test that passes `null` as path to verify that
+`Matches()` throws `InvalidOperationException`.
+
+#### 2. Test data corrections (`CacheWithPatternsTests.cs`)
+
+Three test cases expected `false` for patterns like `a/+/#` vs `a/b`. This was based on a bug in the old
+`FilterNode.Matches()` — its `for` loop returned `false` when `#` was reached and no more candidate parts
+remained.
+
+Per MQTT 3.1.1 §4.7.1: `#` matches the *parent level* and everything below (i.e. 0 or more additional
+levels). `MqttWildcardMatcher` correctly returns true immediately when it hits `#` in the pattern, regardless
+of remaining candidate depth. This is the same rule that makes `sport/tennis/#` match `sport/tennis`.
+
+Updated expectations:
+- `"a/+/#"` vs `"a/b"` → **true** (was false)
+- `"building/+/floor/+/#"` vs `"building/A/floor/1"` → **true** (was false)
+- `"a/b/+/d/#"` vs `"a/b/c/d"` → **true** (was false)
+
+⚠️ The `NewItem()` wildcard detection (`isWildcard = part == "#" || part == "+"`) was intentionally NOT
+changed to use `_matcher.IsPattern(part)` — doing so would cause `MqttWildcardMatcher.IsPattern("b#c")` to
+return true for embedded (invalid) wildcard characters, bypassing the validation exception for keys like
+`a/b#c/d`. Custom matcher support for non-MQTT wildcard tokens (e.g. `*`) in `NewItem()` would require a
+dedicated `IsWildcardToken(TKey part)` method on `IWildcardMatcher<TKey>`.
+
+---
+
 ## 2026-04-22 — MQTT $DASHBOARD topic isolation + wildcard spec fix + Data Explorer multi-pattern
 
 ### Commits: c8196e6, 8095c74 + fcf7bf5 (PSTT submodule) · branch: develop
