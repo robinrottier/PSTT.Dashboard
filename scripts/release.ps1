@@ -480,7 +480,7 @@ function Step-CleanTree {
     $status = Get-CmdOutput git @('status', '--porcelain')
     if ([string]::IsNullOrWhiteSpace($status)) { Write-Ok "Working tree clean"; return }
 
-    $lines = ($status -split "`n") | Where-Object { $_ -ne '' }
+    $lines = @(($status -split "`n") | Where-Object { $_ -ne '' })
 
     # Paths that may be auto-committed without human review:
     #   - TODO.md (user notes updated between sessions)
@@ -488,10 +488,10 @@ function Step-CleanTree {
     # Only the directory/file name itself is acceptable — changes *inside* a submodule are not.
     $autoCommittable = @('TODO.md', 'libs/PSTT', 'libs/Blazor.Diagrams')
 
-    $notAutoCommittable = $lines | Where-Object {
+    $notAutoCommittable = @($lines | Where-Object {
         $path = $_.Substring([Math]::Min(3, $_.Length)).Trim()
         $autoCommittable -notcontains $path
-    }
+    })
 
     if ($notAutoCommittable.Count -gt 0) {
         throw "Working tree is dirty. Commit or stash changes before releasing.`n$status"
