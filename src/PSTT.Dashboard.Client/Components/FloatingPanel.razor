@@ -43,6 +43,7 @@
     private int _left;
     private int _top;
     private bool _minimized;
+    private bool _positionClamped;
     private DotNetObjectReference<FloatingPanel>? _dotNetRef;
 
     protected override void OnInitialized()
@@ -56,6 +57,25 @@
         if (e.Button != 0) return; // left button only
         _dotNetRef ??= DotNetObjectReference.Create(this);
         await JS.InvokeVoidAsync("FloatingPanel.startDrag", _panelId, (int)e.ClientX, (int)e.ClientY, _dotNetRef);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (IsOpen && !_positionClamped)
+        {
+            _positionClamped = true;
+            try
+            {
+                var pos = await JS.InvokeAsync<int[]>("FloatingPanel.clampToViewport", _panelId);
+                if (pos is { Length: >= 2 } && (pos[0] != _left || pos[1] != _top))
+                {
+                    _left = pos[0];
+                    _top  = pos[1];
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+            catch { /* JS not available during pre-render */ }
+        }
     }
 
     [JSInvokable]

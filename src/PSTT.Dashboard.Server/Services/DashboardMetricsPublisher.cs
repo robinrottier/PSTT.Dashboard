@@ -81,10 +81,7 @@ public sealed class DashboardMetricsPublisher : BackgroundService
 
     private static string FormatUptime(TimeSpan uptime)
     {
-        if (uptime.TotalDays >= 1)
-            return $"{(int)uptime.TotalDays}d {uptime.Hours:D2}h {uptime.Minutes:D2}m";
-        if (uptime.TotalHours >= 1)
-            return $"{uptime.Hours:D2}h {uptime.Minutes:D2}m {uptime.Seconds:D2}s";
-        return $"{uptime.Minutes:D2}m {uptime.Seconds:D2}s";
+        var totalHours = (int)uptime.TotalHours;
+        return $"{totalHours:D2}:{uptime.Minutes:D2}:{uptime.Seconds:D2}";
     }
 }

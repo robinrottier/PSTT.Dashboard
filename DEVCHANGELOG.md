@@ -5,6 +5,57 @@ For reviewing work item by item and moving anything back to [TODO.md](TODO.md) i
 
 ---
 
+## 2026-04-22 — Data Explorer bug fixes + release.ps1 tag order
+
+### Commits: TBD · UTC 2026-04-22 · branch: develop
+
+#### 1. Data Explorer — scrollbar obscuring content (`DataExplorerPanel.razor`)
+Added `scrollbar-gutter: stable` to the tree container div. Previously the OS scrollbar
+would overlay content because the rows used `overflow:hidden` clipping at the exact container
+edge. The gutter property reserves space permanently so row width never changes when the
+scrollbar appears.
+
+#### 2. Tooltip z-index (`app.css`)
+Added `:root { --mud-zindex-popover: 2500 }`. FloatingPanel has `z-index:2000`; MudBlazor
+popovers (tooltips, menus) defaulted to 1200 and appeared behind the panel. Raising to 2500
+fixes all floating panel tooltip/menu visibility globally.
+
+#### 3. AddLink button always visible (`TopicTreeNode.razor`)
+Removed the outer `@if (HasSelectedNode)` guard so the assign button is always rendered.
+When no node is selected, the button is `Disabled` and the tooltip reads
+"Assign to selected node — No item selected". The "Already assigned" check-icon branch is
+preserved when the topic is already wired.
+
+#### 4. Label rename (`DataExplorerPanel.razor`)
+`Label="MQTT Pattern"` → `Label="Data topics"` to match node properties terminology.
+
+#### 5. History icon → dropdown arrow (`DataExplorerPanel.razor`)
+`Icons.Material.Filled.History` → `Icons.Material.Filled.ArrowDropDown` so the control
+reads as a standard dropdown, not a history/clock control.
+
+#### 6. Auto-expand branch nodes (`DataExplorerPanel.razor`)
+`AutoExpandRoots()` was replaced by `AutoExpandBranchNodes()` which recursively walks the
+topic tree and adds every non-leaf node to `_expandedPaths`. Leaf nodes (pure data values)
+are left collapsed. Structure nodes open by default is the UX pattern users expect.
+
+#### 7. FloatingPanel viewport clamp (`FloatingPanel.razor` + `floatingPanel.js`)
+Added `clampToViewport(panelId)` JS function and call it from `OnAfterRenderAsync` on first
+open. It reads `getBoundingClientRect()` and clamps `left`/`top` so the panel is never
+off-screen. The `_positionClamped` flag ensures it only fires once per panel instance (not
+on every drag/re-render). The Data Explorer was hardcoded to `InitialLeft=900` which was
+off-screen on narrower viewports.
+
+#### 8. Uptime format (`DashboardMetricsPublisher.cs`)
+`FormatUptime` now always returns `hh:mm:ss` using `(int)uptime.TotalHours` for the hours
+component. The three-branch format (seconds/minutes/hours/days) caused the display to flicker
+between format strings every time the uptime crossed an hour or day boundary.
+
+#### 9. release.ps1 — tag step reordered before restore-submodules
+Step order changed from `pr → restore-submodules → tag` to `pr → tag → restore-submodules`.
+Tag now explicitly targets `origin/main` (fetched fresh after PR merge) so the release tag
+points at the merge commit, not a housekeeping commit. Restore commit includes `[skip ci]`
+to suppress spurious CI workflow runs. Help text and step-group map updated to match.
+
 ## 2026-05-01 — BridgeCache: structural dashboard topic scoping
 
 ### Commits: 28ce7b7 (PSTT submodule) + b90d9a6 (dashboard) · UTC ~now · branch: develop

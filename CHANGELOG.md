@@ -7,6 +7,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **Data Explorer — scrollbar** (`DataExplorerPanel`): added `scrollbar-gutter: stable` so the
+  vertical scrollbar never shifts or obscures row content when it appears.
+- **Data Explorer — tooltip z-index** (`app.css`): raised `--mud-zindex-popover` to 2500 so MudBlazor
+  tooltips and menus always appear above floating panels (which sit at z-index 2000).
+- **Data Explorer — "Assign" button** (`TopicTreeNode`): the AddLink button is now always visible;
+  it is disabled (greyed out) when no dashboard node is selected and its tooltip reads
+  "Assign to selected node — No item selected" in that state.
+- **Data Explorer — label** (`DataExplorerPanel`): renamed text field label from "MQTT Pattern" to
+  "Data topics".
+- **Data Explorer — history icon** (`DataExplorerPanel`): replaced the history clock icon on the
+  pattern history menu with a standard dropdown arrow (`ArrowDropDown`).
+- **Data Explorer — auto-expand** (`DataExplorerPanel`): on open, all branch nodes (non-leaf) are
+  now recursively expanded; leaf-only (data value) nodes are collapsed by default.
+- **Data Explorer — initial position** (`FloatingPanel`): on first open, the panel is now clamped to
+  the viewport via JS so it can never appear partially or fully off-screen.
+- **Uptime format** (`DashboardMetricsPublisher`): simplified `FormatUptime` to always emit
+  `hh:mm:ss` (total hours : minutes : seconds) — no more switching between formats at the 1-hour
+  or 1-day boundaries.
+- **release.ps1 — tag order**: moved `tag` step before `restore-submodules` so the release tag
+  always points to the `origin/main` merge commit, not the "restore submodule" housekeeping commit.
+  Release workflow runs on GitHub now show the correct release context. The restore commit now also
+  includes `[skip ci]` to suppress unnecessary CI runs.
+
 ## [v0.1.2] - 2026-04-22
 
 ### Added
