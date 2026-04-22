@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [v0.1.4] - 2026-04-23
+
 ### Fixed
 - **`release.ps1` `.Count` error after test failure**: `Set-StrictMode -Version Latest` caused a
   secondary "The property 'Count' cannot be found on this object" error to appear in the outer `catch`
