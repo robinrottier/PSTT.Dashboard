@@ -19,8 +19,8 @@
       12. push-changelog  Commit + push the changelog update
       13. prep-submodules Merge PSTT develop→main; pin submodule to PSTT main
       14. pr              Create PR → main, wait for CI checks, merge
-      15. restore-submodules Restore PSTT submodule back to develop tracking
-      16. tag             Create annotated tag and push it
+      15. tag             Create annotated tag on origin/main and push it
+      16. restore-submodules Restore PSTT submodule back to develop tracking [skip ci]
       17. wait-workflows  Wait for release workflows triggered by the tag
       18. post-deploy     SSH deploy: docker compose pull + up -d (skipped if DEPLOY_HOST not set)
 
@@ -71,7 +71,7 @@
     Step names: preflight clean test-pstt test-blazor-diagrams
                 build-debug build-release publish-check docker-build
                 sync version changelog push-changelog prep-submodules
-                pr restore-submodules tag wait-workflows post-deploy
+                pr tag restore-submodules wait-workflows post-deploy
 
 .PARAMETER Only
     Run exactly one named step and exit.
@@ -278,7 +278,7 @@ $StepOrder = @(
     'build-debug', 'build-release', 'publish-check', 'docker-build',
     'sync', 'version', 'changelog', 'push-changelog',
     'prep-submodules',
-    'pr', 'restore-submodules', 'tag', 'wait-workflows', 'post-deploy'
+    'pr', 'tag', 'restore-submodules', 'wait-workflows', 'post-deploy'
 )
 # Steps that are purely local (no git remote / gh required)
 $LocalSteps = @('preflight', 'clean', 'test-pstt', 'test-blazor-diagrams', 'build-debug', 'build-release', 'publish-check', 'docker-build')
@@ -309,7 +309,7 @@ $StepGroups = [ordered]@{
     'Preflight'      = @('preflight', 'clean')
     'Build & Test'   = @('test-pstt', 'test-blazor-diagrams', 'build-debug', 'build-release', 'publish-check', 'docker-build')
     'Version'        = @('sync', 'version', 'changelog', 'push-changelog', 'prep-submodules')
-    'GitHub Release' = @('pr', 'restore-submodules', 'tag', 'wait-workflows')
+    'GitHub Release' = @('pr', 'tag', 'restore-submodules', 'wait-workflows')
     'Deploy'         = @('post-deploy')
 }
 # Hard step dependencies (a step will throw or produce wrong output if its dep hasn't run)
@@ -701,7 +701,7 @@ function Step-RestoreSubmodules {
     Write-Step "Restoring .gitmodules branch tracking to develop..."
     Assert-Cmd git @('config', '-f', '.gitmodules', 'submodule.libs/PSTT.branch', 'develop') "Failed to update .gitmodules"
     Assert-Cmd git @('add', '.gitmodules', 'libs/PSTT') "git add failed"
-    Assert-Cmd git @('commit', '-m', 'chore: post-release — restore PSTT submodule to develop') "git commit failed"
+    Assert-Cmd git @('commit', '-m', "chore: post-release — restore PSTT submodule to develop [skip ci]") "git commit failed"
     if ($IsDryRun) { Write-Warn "DRYRUN: skipping push of submodule restore commit"; return }
     $branch = if ($script:CurrentBranch) { $script:CurrentBranch } else { Get-CmdOutput git @('rev-parse', '--abbrev-ref', 'HEAD') }
     Assert-Cmd git @('push', 'origin', $branch) "git push failed after submodule restore"
@@ -753,7 +753,11 @@ function Step-CreateMergePR {
 # ─── Step: tag ───────────────────────────────────────────────────────────────
 function Step-CreateTag {
     if (-not $script:NextVersion) { throw "Version not set — run 'version' step first" }
-    Assert-Cmd git @('tag', '-a', $script:NextVersion, '-m', "Release $($script:NextVersion)") "Failed to create tag"
+    # Tag the main branch HEAD — that is where the release was merged to, so
+    # tag-triggered GitHub Actions workflows will display a meaningful commit.
+    Assert-Cmd git @('fetch', 'origin', 'main') "Failed to fetch origin/main for tagging"
+    $mainSha = Get-CmdOutput git @('rev-parse', 'origin/main')
+    Assert-Cmd git @('tag', '-a', $script:NextVersion, $mainSha, '-m', "Release $($script:NextVersion)") "Failed to create tag"
     if ($IsDryRun) { Write-Warn "DRYRUN: skipping tag push"; return }
     Assert-Cmd git @('push', 'origin', $script:NextVersion) "Failed to push tag"
     Write-Ok "Tag $($script:NextVersion) created and pushed"
