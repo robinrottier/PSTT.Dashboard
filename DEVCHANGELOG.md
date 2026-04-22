@@ -5,6 +5,35 @@ For reviewing work item by item and moving anything back to [TODO.md](TODO.md) i
 
 ---
 
+## 2026-04-25 — Fix regression: suppress tree-walk only when UpstreamSupportsWildcards (PSTT)
+
+### Commits: 2dbc55d (PSTT submodule) · branch: develop
+
+#### 1. Regression: `Chain_WildcardLocalOnly_*` timing out on CI
+
+**Problem:** The dual-delivery fix committed as `a4d8044` unconditionally called `PublishFromUpstreamAsync`
+(suppressing the `OnInvokeCallback` tree walk) in `UpstreamCallbackWildcards` for `_isWildcard=false`.
+This broke caches where `supportsWildcards: false` — i.e. the upstream MQTT broker does not deliver
+wildcard patterns. In that case wildcard subscribers (e.g. `data/+`) have NO upstream subscription of
+their own, so Path A (tree walk) is the **only** delivery mechanism. Suppressing it meant wildcard
+subscribers received nothing → `Chain_WildcardLocalOnly_ExactKeyStillForwardsUpstream` timed out (3 s)
+in all 3 CI jobs (Debug, Release, Coverage).
+
+**Fix:** `UpstreamCallbackWildcards` for `_isWildcard=false` now branches on `Source.UpstreamSupportsWildcards`:
+- `true` → call `PublishFromUpstreamAsync` (suppress tree walk — Path B exists on wildcard items)
+- `false` → call `PublishAsync` (preserve tree walk — Path A is the only wildcard delivery path)
+
+`UpstreamSupportsWildcards` is already an `internal bool` on `Cache<TKey,TValue>` set during `SetUpstream`.
+
+Files changed:
+- `libs/PSTT/src/PSTT.Data/CacheWithWildcards.cs` — `UpstreamCallbackWildcards` now has 3 branches
+  (was 2): `_isWildcard`, `!_isWildcard && UpstreamSupportsWildcards`, `!_isWildcard && !UpstreamSupportsWildcards`
+
+⚠️ `RemoteDataSourceTests.MultiClient_BothReceiveUpstreamPublish` is intermittently flaky (timing/
+network in parallel CI) — confirmed pre-existing by passing consistently when run in isolation.
+
+---
+
 ## 2026-04-24 — Fix dual-delivery to wildcard subscribers (PSTT)
 
 ### Commits: a4d8044 (PSTT submodule) · branch: develop

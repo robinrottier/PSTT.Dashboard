@@ -8,6 +8,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **Wildcard tree-walk regression in PSTT data library**: The previous dual-delivery fix incorrectly
+  suppressed the `OnInvokeCallback` tree walk for all upstream callbacks, breaking wildcard delivery
+  on caches where the upstream doesn't support wildcards (`supportsWildcards: false`). Tree-walk
+  suppression is now applied only when the upstream supports wildcards — preserving the only delivery
+  path for wildcard subscribers in the local-wildcard scenario.
 - **Wildcard dual-delivery in PSTT data library**: A `#` subscriber on a `CacheWithWildcards`
   cache with `supportsWildcards: true` upstream received the same upstream value twice — once via
   the exact-key item's `OnInvokeCallback` tree walk, and again via the `#` item's own upstream
