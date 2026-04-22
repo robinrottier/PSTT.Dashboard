@@ -236,7 +236,10 @@
     {
         foreach (var node in nodes)
         {
-            if (!node.IsLeaf)
+            // Only auto-expand if at least one child is itself a branch (has grandchildren).
+            // Nodes whose children are all leaves are shown collapsed — expanding them all
+            // at once produces too many entries to be useful.
+            if (node.Children.Any(c => !c.IsLeaf))
             {
                 _expandedPaths.Add(node.FullTopic);
                 ExpandBranchNodes(node.Children);
