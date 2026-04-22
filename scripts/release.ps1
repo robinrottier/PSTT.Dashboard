@@ -6,7 +6,7 @@
     Performs a full patch-release workflow from local source:
 
       1.  preflight       Verify required tools (git, dotnet, gh)
-      2.  clean           Auto-commit TODO.md if the only dirty file; else abort
+      2.  clean           Auto-commit TODO.md and/or submodule pointer changes if the only dirty items; else abort
       3.  test-pstt       Build + test PSTT submodule (libs/PSTT)
       4.  test-blazor-diagrams  Build + test Blazor.Diagrams submodule (libs/Blazor.Diagrams)
       5.  build-debug     Build + test (Debug configuration)
@@ -285,7 +285,7 @@ $LocalSteps = @('preflight', 'clean', 'test-pstt', 'test-blazor-diagrams', 'buil
 
 $StepDesc = @{
     'preflight'            = 'Preflight checks (tools, git remote)'
-    'clean'                = 'Ensure clean working tree'
+    'clean'                = 'Ensure clean working tree (auto-commits TODO.md / submodule pointers)'
     'test-pstt'            = 'Build and test PSTT submodule (libs/PSTT)'
     'test-blazor-diagrams' = 'Build and test Blazor.Diagrams submodule (libs/Blazor.Diagrams)'
     'build-debug'          = 'Build and test (Debug)'
@@ -481,16 +481,43 @@ function Step-CleanTree {
     if ([string]::IsNullOrWhiteSpace($status)) { Write-Ok "Working tree clean"; return }
 
     $lines = ($status -split "`n") | Where-Object { $_ -ne '' }
-    $isTodoOnly = $lines.Count -eq 1 -and $lines[0] -match 'TODO\.md$'
 
-    if ($isTodoOnly) {
-        Write-Step "Only TODO.md modified — auto-committing"
-        Assert-Cmd git @('add', 'TODO.md')
-        Assert-Cmd git @('commit', '-m', 'chore: update TODO')
-        Write-Ok "TODO.md committed"
-    } else {
+    # Paths that may be auto-committed without human review:
+    #   - TODO.md (user notes updated between sessions)
+    #   - libs/PSTT, libs/Blazor.Diagrams (submodule pointer moves after commits in the submodule)
+    # Only the directory/file name itself is acceptable — changes *inside* a submodule are not.
+    $autoCommittable = @('TODO.md', 'libs/PSTT', 'libs/Blazor.Diagrams')
+
+    $notAutoCommittable = $lines | Where-Object {
+        $path = $_.Substring([Math]::Min(3, $_.Length)).Trim()
+        $autoCommittable -notcontains $path
+    }
+
+    if ($notAutoCommittable.Count -gt 0) {
         throw "Working tree is dirty. Commit or stash changes before releasing.`n$status"
     }
+
+    # Stage each auto-committable path that is actually dirty
+    $addArgs = @()
+    $parts   = @()
+    if ($lines | Where-Object { $_ -match 'libs/PSTT\s*$' }) {
+        $addArgs += 'libs/PSTT'
+        $parts   += 'PSTT submodule pointer'
+    }
+    if ($lines | Where-Object { $_ -match 'libs/Blazor\.Diagrams\s*$' }) {
+        $addArgs += 'libs/Blazor.Diagrams'
+        $parts   += 'Blazor.Diagrams submodule pointer'
+    }
+    if ($lines | Where-Object { $_ -match 'TODO\.md$' }) {
+        $addArgs += 'TODO.md'
+        $parts   += 'TODO.md'
+    }
+
+    Write-Step "Auto-committable changes ($($parts -join ', ')) — committing"
+    Assert-Cmd git (@('add') + $addArgs)
+    $msg = "chore: update $($parts -join ' and ')"
+    Assert-Cmd git @('commit', '-m', $msg)
+    Write-Ok "Auto-committed: $msg"
 }
 
 # ─── Step: test-pstt ─────────────────────────────────────────────────────────
