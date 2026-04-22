@@ -5,6 +5,68 @@ For reviewing work item by item and moving anything back to [TODO.md](TODO.md) i
 
 ---
 
+## 2026-04-23 — Fix production "no data on F5" bug + BridgeCache idempotency
+
+### Commits: 56653a6 (Dashboard) · 4ea440d (PSTT submodule) · branch: develop
+
+#### 1. Root cause: widget subscriptions orphaned by late-firing `SetBridges` in production
+
+**Problem:** On a production Pi (real network latency), opening the dashboard then pressing F5 showed
+no data in widgets. Clicking the top-left reload icon or doing File → Open "default" restored data.
+
+**Root cause:** `MqttInitializationService.InitializeAsync` awaited `GetStatusAsync()` as its first
+`await`. This caused Blazor to fire `Display.OnAfterRenderAsync(firstRender=true)` concurrently while
+MqttInit was still waiting for the Pi's server responses (~50–150 ms each).
+
+`Display.OnAfterRenderAsync` loaded the dashboard, called `SetBridges`, waited `Task.Delay(100)`, and
+rendered widgets — all completing before MqttInit's `LoadDashboardAsync` returned. When MqttInit
+finally resumed, it called `SetSubscribedTopics` → `SetBridges` → `_local.Clear()`, destroying all the
+`CacheItem` objects that widget `Subscription` closures referenced. New MQTT data created fresh
+`CacheItem`s via `GetOrAdd`; widget callbacks were on the old ones and never fired.
+
+In dev (localhost), both awaits complete in <1 ms — MqttInit finishes before Blazor renders, so the
+race never occurs.
+
+**Fix:** Removed the `LoadDashboardAsync` + `SetSubscribedTopics` block entirely from
+`MqttInitializationService`. `Display.OnAfterRenderAsync` already loads the dashboard and calls
+`SetBridges` correctly. The duplicate call in MqttInit was both redundant and harmful.
+Also removed the now-unused `IDashboardService` field and constructor parameter.
+
+Files changed:
+- `src/PSTT.Dashboard.Client/Services/MqttInitializationService.cs` — removed `LoadDashboardAsync` +
+  `SetSubscribedTopics` call + `_dashboardService` field/constructor param
+
+#### 2. `BridgeCache` idempotency + `BridgeGeneration` counter
+
+**Motivation:** Two secondary bugs existed:
+- Calling `SetBridges` with identical patterns still called `_local.Clear()`, orphaning subscriptions.
+- `DashboardPropertiesDialog.ApplyAsync` calls `SetSubscribedTopics` (→ `SetBridges`) at runtime while
+  widgets are mounted. Widgets had no way to detect the scope change and re-subscribe.
+
+**Fix — BridgeCache (`libs/PSTT`):**
+- Added `_currentPatterns: HashSet<TKey>?` — tracks the last set of patterns.
+- `SetBridges` calls `_currentPatterns.SetEquals(incoming)` and returns early (no-op) if unchanged.
+- When patterns change: clears `_currentPatterns`, increments `_bridgeGeneration`, clears `_local`,
+  disposes old bridge subs, sets up new ones.
+- `Clear()` also resets `_currentPatterns = null` and increments `_bridgeGeneration`.
+- New `public int BridgeGeneration` property exposed for widget key generation.
+
+**Fix — BaseNodeWithDataWidget (`Dashboard.Client`):**
+- `_watcherTopicsKey` guard string now includes `|gen=N` from `AppState.BridgedDataCache.BridgeGeneration`.
+- When `SetBridges` changes scope, `AppState.NotifyStateChangedAsync()` causes child widgets to
+  re-render → `OnParametersSet` → `SetupDataWatchers` with a new key → old watchers disposed →
+  fresh subscriptions to the new `_local` `CacheItem`s. ✓
+
+Files changed:
+- `libs/PSTT/src/PSTT.Data/BridgeCache.cs` — idempotency + generation counter
+- `src/PSTT.Dashboard.Client/Widgets/BaseNodeWithDataWidget.cs` — generation-aware watcher key
+
+#### 3. All 83 tests pass
+
+Full `dotnet test PSTT.Dashboard.slnx` — 5 client + 9 server + 61 integration + 8 Playwright, all passed.
+
+---
+
 ## 2026-04-22 — FilterNode wildcard matching refactored to IWildcardMatcher
 
 ### Commits: 524f2e3 + b6f3408 (PSTT submodule) · branch: develop

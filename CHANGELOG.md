@@ -7,6 +7,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **Production "no data on F5" bug**: On a remote deployment (real network latency), widgets showed
+  no data after a fresh browser load (F5). Root cause was `MqttInitializationService` calling
+  `SetSubscribedTopics` (→ `BridgeCache.SetBridges` → `_local.Clear()`) after Blazor had already
+  rendered widgets and set up their subscriptions — orphaning all `CacheItem` references. Fixed by
+  removing the redundant `LoadDashboardAsync` + `SetSubscribedTopics` call from
+  `MqttInitializationService` (Display already handles this correctly and earlier in the lifecycle).
+- **`BridgeCache.SetBridges` idempotency**: Calling `SetBridges` with the same patterns no longer
+  clears `_local` or disposes bridge subscriptions — preserving live widget subscriptions when the
+  scope hasn't changed.
+- **Widgets re-subscribe on runtime scope change**: If dashboard properties are changed at runtime
+  (changing MQTT subscriptions), widgets now detect the scope change via a `BridgeGeneration` counter
+  and re-subscribe to the fresh cache items automatically.
+
 ## [v0.1.3] - 2026-04-22
 
 ### Fixed
