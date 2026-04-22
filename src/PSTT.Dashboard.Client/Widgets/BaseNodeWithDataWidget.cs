@@ -45,7 +45,7 @@ public abstract class BaseNodeWithDataWidget<TNode> : BaseNodeWidget<TNode>
     {
         // Skip rebuild if topics haven't changed — prevents redundant re-runs
         // from every OnParametersSet (triggered by RefreshAll, StateHasChanged, etc.).
-        var topicsKey = string.Join(",", Node.DataTopics);
+        var topicsKey = string.Join(",", Node.DataTopics) + "|gen=" + AppState.BridgedDataCache.BridgeGeneration;
         if (topicsKey == _watcherTopicsKey) return;
         _watcherTopicsKey = topicsKey;
 

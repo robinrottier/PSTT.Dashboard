@@ -7,6 +7,41 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [v0.1.4] - 2026-04-23
+
+### Fixed
+- **`release.ps1` `.Count` error after test failure**: `Set-StrictMode -Version Latest` caused a
+  secondary "The property 'Count' cannot be found on this object" error to appear in the outer `catch`
+  when `Invoke-Cmd`'s failure-output display encountered an empty line collection. Fixed by wrapping
+  the pipeline assignment with `@()` to guarantee an array.
+- **Flaky Remote.Tests timeouts on CI**: Two TCP-server integration tests were intermittently timing
+  out on slow CI agents. Increased `WaitForAsync` timeout for `Standalone_ExistingValue_DeliveredOnSubscribe`
+  to 10s; added a 500ms initial delay + extended deadline to 20s for `MultiClient_DisconnectOneDoesNotAffectOther`.
+- **Wildcard tree-walk regression in PSTT data library**: The previous dual-delivery fix incorrectly
+  suppressed the `OnInvokeCallback` tree walk for all upstream callbacks, breaking wildcard delivery
+  on caches where the upstream doesn't support wildcards (`supportsWildcards: false`). Tree-walk
+  suppression is now applied only when the upstream supports wildcards — preserving the only delivery
+  path for wildcard subscribers in the local-wildcard scenario.
+- **Wildcard dual-delivery in PSTT data library**: A `#` subscriber on a `CacheWithWildcards`
+  cache with `supportsWildcards: true` upstream received the same upstream value twice — once via
+  the exact-key item's `OnInvokeCallback` tree walk, and again via the `#` item's own upstream
+  subscription. Fixed by suppressing the tree walk when an upstream callback is the origin of a
+  publish (`PublishFromUpstreamAsync`). Also fixed `InitialInvokeAsync` for newly-added wildcard
+  subscribers: when the cache has a wildcard upstream sub, the item-tree walk is skipped to avoid
+  overlap with the upstream's independent initial replay.
+- **Production "no data on F5" bug**: On a remote deployment (real network latency), widgets showed
+  no data after a fresh browser load (F5). Root cause was `MqttInitializationService` calling
+  `SetSubscribedTopics` (→ `BridgeCache.SetBridges` → `_local.Clear()`) after Blazor had already
+  rendered widgets and set up their subscriptions — orphaning all `CacheItem` references. Fixed by
+  removing the redundant `LoadDashboardAsync` + `SetSubscribedTopics` call from
+  `MqttInitializationService` (Display already handles this correctly and earlier in the lifecycle).
+- **`BridgeCache.SetBridges` idempotency**: Calling `SetBridges` with the same patterns no longer
+  clears `_local` or disposes bridge subscriptions — preserving live widget subscriptions when the
+  scope hasn't changed.
+- **Widgets re-subscribe on runtime scope change**: If dashboard properties are changed at runtime
+  (changing MQTT subscriptions), widgets now detect the scope change via a `BridgeGeneration` counter
+  and re-subscribe to the fresh cache items automatically.
+
 ## [v0.1.3] - 2026-04-22
 
 ### Fixed

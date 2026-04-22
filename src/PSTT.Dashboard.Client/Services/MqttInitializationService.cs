@@ -16,7 +16,6 @@ namespace PSTT.Dashboard.Services;
 public class MqttInitializationService
 {
     private readonly ApplicationState _appState;
-    private readonly IDashboardService _dashboardService;
     private readonly NavigationManager _navigationManager;
     private readonly IAuthService _authService;
     private readonly RenderModeOptions? _renderModeOptions;
@@ -25,14 +24,12 @@ public class MqttInitializationService
 
     public MqttInitializationService(
         ApplicationState appState,
-        IDashboardService dashboardService,
         NavigationManager navigationManager,
         IAuthService authService,
         RenderModeOptions? renderModeOptions = null,
         ILogger<MqttInitializationService>? logger = null)
     {
         _appState = appState;
-        _dashboardService = dashboardService;
         _navigationManager = navigationManager;
         _authService = authService;
         _renderModeOptions = renderModeOptions;
@@ -57,11 +54,6 @@ public class MqttInitializationService
 
             var (isAdmin, authEnabled, readOnly) = await _authService.GetStatusAsync();
             _appState.SetAuthState(isAdmin, authEnabled, readOnly);
-
-            var defaultDashboard = await _dashboardService.LoadDashboardAsync();
-            if (defaultDashboard?.MqttSubscriptions?.Count > 0)
-                _appState.SetSubscribedTopics(defaultDashboard.MqttSubscriptions);
-            _logger?.LogInformation("Loaded {Count} saved subscriptions", _appState.SubscribedTopics.Count);
 
             // SSR pre-render: defer connection
             if (!OperatingSystem.IsBrowser() && !isInteractive)
