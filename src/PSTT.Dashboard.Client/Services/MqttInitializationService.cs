@@ -89,8 +89,8 @@ public class MqttInitializationService
                 await Task.CompletedTask;
             });
 
-            // Accumulate message history for all received values
-            _appState.DataCache.Subscribe("#", async sub =>
+            // Accumulate message history for all values visible in this dashboard's scope
+            _appState.BridgedDataCache.Subscribe("#", async sub =>
             {
                 if (sub.Status.IsPending) return;
                 _appState.AddMessage(new Models.MqttDataMessage

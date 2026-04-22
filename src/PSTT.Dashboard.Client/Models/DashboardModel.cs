@@ -139,6 +139,7 @@ public class SwitchSettingsData
     public bool ReadOnly { get; set; } = false;
     public bool Retain { get; set; } = false;
     public int Qos { get; set; } = 0;
+    public bool PublishGlobally { get; set; } = true;
 }
 
 public class LogColumnsData

@@ -40,6 +40,9 @@ public class SwitchNodeModel : TextNodeModel
         Labels = ["0 — At Most Once (fire and forget)", "1 — At Least Once", "2 — Exactly Once"])]
     public int QosLevel { get; set; } = 0;
 
+    [NpCheckbox("Publish to MQTT broker (uncheck = dashboard-local only)", Category = "Publish", Order = 10)]
+    public bool PublishGlobally { get; set; } = true;
+
     public override NodeData ToData(double panX = 0, double panY = 0)
     {
         var data = new SwitchNodeData
@@ -55,6 +58,7 @@ public class SwitchNodeModel : TextNodeModel
                 ReadOnly = IsReadOnly,
                 Retain = Retain,
                 Qos = QosLevel,
+                PublishGlobally = PublishGlobally,
             },
         };
         FillBaseData(data, panX, panY);
@@ -74,6 +78,7 @@ public class SwitchNodeModel : TextNodeModel
             IsReadOnly = data.Switch?.ReadOnly ?? false,
             Retain = data.Switch?.Retain ?? false,
             QosLevel = data.Switch?.Qos ?? 0,
+            PublishGlobally = data.Switch?.PublishGlobally ?? true,
         };
         return ApplyBaseData(node, data);
     }

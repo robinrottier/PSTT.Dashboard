@@ -84,12 +84,12 @@
         RebuildTree();
 
         var wildcardTopic = RootTopicValue.TrimEnd('/') + "/#";
-        _watchSubscription = AppState.DataCache.Subscribe(wildcardTopic, async sub =>
+        _watchSubscription = AppState.BridgedDataCache.Subscribe(wildcardTopic, async sub =>
         {
             if (sub.Status.IsPending) return;
             await OnTopicChangedAsync(sub.Key, sub.Value);
         });
-        _rootWatchSubscription = AppState.DataCache.Subscribe(RootTopicValue, async sub =>
+        _rootWatchSubscription = AppState.BridgedDataCache.Subscribe(RootTopicValue, async sub =>
         {
             if (sub.Status.IsPending) return;
             await OnTopicChangedAsync(sub.Key, sub.Value);
@@ -138,7 +138,7 @@
         if (string.IsNullOrEmpty(RootTopicValue)) { _tree = new("", ""); return; }
 
         var root = new TreeNode(RootTopicValue, RootTopicValue.Split('/').Last());
-        root.Value = _values.TryGetValue(RootTopicValue, out var rv) ? rv : AppState.DataCache.GetValue(RootTopicValue);
+        root.Value = _values.TryGetValue(RootTopicValue, out var rv) ? rv : AppState.BridgedDataCache.GetValue(RootTopicValue);
         root.Expanded = true;
 
         var prefix = RootTopicValue.TrimEnd('/') + "/";

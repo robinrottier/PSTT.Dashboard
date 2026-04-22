@@ -7,6 +7,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [v0.1.2] - 2026-04-22
+
+### Added
+- **BridgeCache — dashboard topic scoping** (`PSTT.Data`): new `BridgeCache<TKey,TValue>` class that
+  bridges specific subscription patterns from a source cache into an isolated local view.
+  Widget subscriptions satisfy locally; they do not propagate upstream through the cache chain.
+  Publish on `BridgeCache` reaches the broker; publish on `BridgeCache.Local` stays session-local.
+- **Dashboard-scoped data cache** (`ApplicationState`): `BridgedDataCache` wraps `DataCache` and
+  bridges the dashboard's configured MQTT topics + `$DASHBOARD/#`. All widget subscriptions, the
+  Data Explorer, About dialog, and message-history log now target `BridgedDataCache`. Widgets only
+  see data within the dashboard's topic scope; topics from other dashboards or sessions are never
+  delivered even if they exist in the upstream broker.
+- **`SwitchNodeModel.PublishGlobally`**: new boolean property (default `true`). When unchecked, the
+  switch publishes only to the current dashboard session (not to the MQTT broker). Configurable in
+  the node property editor under the **Publish** category.
+
 ## [v0.1.1] - 2026-04-21
 
 ### Added
@@ -28,9 +44,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   table as the interactive menu. Numeric refs still work.
 - **`release.ps1` — `post-deploy` standalone** — removed `post-deploy → wait-workflows` dependency;
   deploy can be re-run independently any number of times.
+- **`release.ps1` — submodule steps** — two new automated steps (`prep-submodules`, `restore-submodules`)
+  handle the PSTT submodule branch switch around a release: merges `develop→main` in PSTT, pins the
+  Dashboard submodule pointer to PSTT `main` for the release PR, then restores tracking to `develop`
+  after merge. The `sync` step now gracefully skips `git pull` when the remote branch doesn't exist yet
+  (first push scenario).
+- **`release.ps1` — `.gitmodules` `branch` tracking** — PSTT submodule now tracks `develop` during
+  normal development and is automatically switched to `main` during the release window.
 
-
-  option runs the dep steps inline then retries.
+### Fixed
+- **Flaky Release-build tests** — `MultiClient_DisconnectOneDoesNotAffectOther` (PSTT) and
+  `WildcardSubscription_MatchesMultipleTopics` / `Publish_Via_Broker_ClientReceivesData`
+  (Dashboard integration) used single-shot publishes that raced against server-side subscription
+  registration in optimised builds. Replaced with retry-publish loops (200 ms interval, 10 s deadline).
 
 ## [v0.1.0] - 2026-04-20
 
