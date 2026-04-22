@@ -6,10 +6,6 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 ## BUGS
 
-- [ ] Data explorer dialog -- tree view of all available data
-	- [ ] can this dialog be resizeable and remember is position
-	- [ ] Can there be mutliple topics (just like in node properties) or a comma sep list might be easier.
-
 ## 🟡 Minor Enhancements
 
 - [ ] release.ps1
