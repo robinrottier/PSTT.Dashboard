@@ -83,13 +83,15 @@
 
     private string _wildcardInput = "#";
     private string _activePattern = "#";
-    private readonly List<string> _history = new();
+    // Prepopulate with the two most useful defaults — '#' for real MQTT topics,
+    // '$DASHBOARD/#' for internal virtual metrics.
+    private readonly List<string> _history = ["#", "$DASHBOARD/#"];
     private readonly Dictionary<string, string> _topics = new();
     private List<TopicNode> _topicTree = new();
     private int _topicCount;
     private int _subscriptionGeneration;
     private bool _disposed;
-    private IDisposable? _subscription;
+    private readonly List<IDisposable> _subscriptions = new();
     private readonly HashSet<string> _expandedPaths = new();
 
     protected override void OnInitialized()
@@ -99,13 +101,14 @@
 
     private void ApplySubscription()
     {
-        var pattern = string.IsNullOrWhiteSpace(_wildcardInput) ? "#" : _wildcardInput.Trim();
-        _wildcardInput = pattern;
-        _activePattern = pattern;
+        var input = string.IsNullOrWhiteSpace(_wildcardInput) ? "#" : _wildcardInput.Trim();
+        _wildcardInput = input;
+        _activePattern = input;
 
-        AddToHistory(pattern);
+        var patterns = ParsePatterns(input);
+        AddToHistory(input);
 
-        _subscription?.Dispose();
+        DisposeSubscriptions();
 
         int gen = ++_subscriptionGeneration;
 
@@ -115,29 +118,42 @@
             var snapshot = AppState.BridgedDataCache.GetSnapshot();
             foreach (var kv in snapshot)
             {
-                if (TopicMatchesPattern(pattern, kv.Key))
+                if (patterns.Any(p => TopicMatchesPattern(p, kv.Key)))
                     _topics[kv.Key] = kv.Value;
             }
         }
 
         _expandedPaths.Clear();
 
-        _subscription = AppState.BridgedDataCache.Subscribe(pattern, async sub =>
+        foreach (var pattern in patterns)
         {
-            if (sub.Status.IsPending) return;
-            if (gen != _subscriptionGeneration) return;
-            if (_disposed) return;
-            lock (_topics) _topics[sub.Key] = sub.Value ?? string.Empty;
-            await InvokeAsync(() =>
+            var sub = AppState.BridgedDataCache.Subscribe(pattern, async sub =>
             {
-                if (gen != _subscriptionGeneration || _disposed) return;
-                RebuildTree();
-                StateHasChanged();
+                if (sub.Status.IsPending) return;
+                if (gen != _subscriptionGeneration) return;
+                if (_disposed) return;
+                lock (_topics) _topics[sub.Key] = sub.Value ?? string.Empty;
+                await InvokeAsync(() =>
+                {
+                    if (gen != _subscriptionGeneration || _disposed) return;
+                    RebuildTree();
+                    StateHasChanged();
+                });
             });
-        });
+            _subscriptions.Add(sub);
+        }
 
         RebuildTree();
         AutoExpandRoots();
+    }
+
+    private static string[] ParsePatterns(string input) =>
+        input.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    private void DisposeSubscriptions()
+    {
+        foreach (var sub in _subscriptions) sub.Dispose();
+        _subscriptions.Clear();
     }
 
     private void AddToHistory(string pattern)
@@ -239,6 +255,6 @@
     {
         _disposed = true;
         _subscriptionGeneration++;
-        _subscription?.Dispose();
+        DisposeSubscriptions();
     }
 }
