@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [v0.1.3] - 2026-04-22
+
 ### Fixed
 - **`FilterNode` now delegates to `IWildcardMatcher`** (`CacheWithWildcards`, PSTT): `FilterNode.Matches()`
   previously contained its own hardcoded `#`/`+` matching logic, making the configured `IWildcardMatcher`
