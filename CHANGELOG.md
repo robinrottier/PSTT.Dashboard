@@ -8,7 +8,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
-- **Data Explorer — scrollbar** (`DataExplorerPanel`): added `scrollbar-gutter: stable` so the
+- **`$DASHBOARD` topics no longer sent to MQTT broker** (`MqttCache`): `SendToBrokerAsync` now
+  returns early for any topic beginning with `$`. Internal virtual topics (`$DASHBOARD/*`) stay
+  server-local; they cannot echo back from the broker as duplicate subscription updates. Status
+  reporting to an external broker should use regular (non-`$`) topic names.
+- **MQTT wildcard spec compliance** (`MqttWildcardMatcher`): `#` and `+` in the first filter
+  segment no longer match topics whose first segment begins with `$`, per MQTT 3.1.1 §4.7.2.
+  Explicit prefix patterns such as `$DASHBOARD/#` continue to work correctly.
+- **Data Explorer — scrollbar** (`DataExplorerPanel`):added `scrollbar-gutter: stable` so the
   vertical scrollbar never shifts or obscures row content when it appears.
 - **Data Explorer — tooltip z-index** (`app.css`): raised `--mud-zindex-popover` to 2500 so MudBlazor
   tooltips and menus always appear above floating panels (which sit at z-index 2000).

@@ -5,6 +5,54 @@ For reviewing work item by item and moving anything back to [TODO.md](TODO.md) i
 
 ---
 
+## 2026-04-22 — MQTT $DASHBOARD topic isolation + wildcard spec fix
+
+### Commits: 8095c74 + fcf7bf5 (PSTT submodule) · branch: develop
+
+#### 1. `$DASHBOARD/*` topics no longer sent to MQTT broker (`MqttCache.cs` in PSTT submodule)
+
+**Problem:** `DashboardMetricsPublisher` publishes internal metrics (`$DASHBOARD/TIME`,
+`$DASHBOARD/UPTIME`, etc.) to `ServerDataCache`, which has `forwardPublish: true` to
+`MqttCache`. `MqttCache.PublishAsync` calls `SendToBrokerAsync`, so every second these
+virtual topics were sent to the MQTT broker. Any wildcard subscription (e.g. `#`) would
+cause the broker to echo them back, resulting in double notifications to widgets.
+
+**Fix:** Added an early return in `SendToBrokerAsync` when `key.StartsWith('$')`. This is
+also MQTT-spec-aligned: MQTT clients should not publish to `$`-prefixed topics (reserved for
+broker system use). For status reporting visible to a network-overview broker, use regular
+topic names (e.g. `pstt/dashboard/status`).
+
+**File:** `libs/PSTT/src/PSTT.Mqtt/MqttCache.cs` · `SendToBrokerAsync` (+6 lines)
+
+#### 2. MQTT wildcard spec compliance (`MqttWildcardMatcher.cs` in PSTT submodule)
+
+**Problem:** `MqttWildcardMatcher.Matches("#", "$DASHBOARD/TIME")` returned `true`.
+Per MQTT 3.1.1 §4.7.2, wildcards `#` and `+` in the first filter segment must NOT match
+topic names whose first segment starts with `$`.
+
+**Fix:** Added a guard at the start of `Matches()`: if `candidateParts[0].StartsWith('$')`
+and the first pattern segment is `#` or `+`, return `false`. Explicit patterns like
+`$DASHBOARD/#` (where `$` is in the literal part) still match correctly — the rule only
+applies when the wildcard itself is at position 0.
+
+**File:** `libs/PSTT/src/PSTT.Data/MqttWildcardMatcher.cs` · `Matches()` (+6 lines)
+Also updated the XML doc to reflect the corrected semantics.
+
+#### 3. Unit tests for `$` wildcard exclusion (`NewFeatureTests.cs` in PSTT submodule)
+
+Added 9 `[InlineData]` cases to the existing `MqttPatternMatcher_Matches` theory:
+- `("#", "$DASHBOARD/TIME", false)` — `#` vs `$`-prefix → false
+- `("#", "$SYS/uptime", false)`, `("#", "$", false)`
+- `("+/b", "$topic/b", false)` — `+` at first level vs `$`-prefix → false
+- `("$DASHBOARD/#", "$DASHBOARD/TIME", true)` — explicit `$` prefix works
+- `("$DASHBOARD/#", "$DASHBOARD/nested/value", true)`
+- `("$DASHBOARD/TIME", "$DASHBOARD/TIME", true)` — exact match
+- `("$DASHBOARD/+", "$DASHBOARD/TIME", true)`, `("$DASHBOARD/+", "$DASHBOARD/nested/value", false)`
+
+All 359 PSTT tests pass.
+
+---
+
 ## 2026-04-22 — Data Explorer bug fixes + release.ps1 tag order
 
 ### Commits: TBD · UTC 2026-04-22 · branch: develop
