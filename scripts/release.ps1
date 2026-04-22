@@ -431,7 +431,7 @@ function Invoke-Cmd([string]$Exe, [string[]]$ArgList) {
     if ($ec -eq 0) {
         Write-Host "  ✓  $disp  [$elapsed]" -ForegroundColor $C.Ok
     } else {
-        $lines = (($stdout + "`n" + $stderr).Trim() -split "`r?\n") | Where-Object { $_ -ne '' }
+        $lines = @((($stdout + "`n" + $stderr).Trim() -split "`r?\n") | Where-Object { $_ -ne '' })
         $tail  = if ($lines.Count -gt 50) { $lines[-50..-1] } else { $lines }
         if ($lines.Count -gt 50) { Write-Host "    ... ($($lines.Count - 50) earlier lines omitted) ..." -ForegroundColor $C.Dim }
         foreach ($ln in $tail) { Write-Host "    $ln" -ForegroundColor $C.Dim }
