@@ -9,15 +9,18 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 ## 🟡 Minor Enhancements
 
 - [ ] release.ps1
+	- [ ] Can the captured output be scrolled to UI on a single line so user sees something happening during the build process? Currently it just looks like nothing is happening for a long time until the build finishes and then the tail of the output is shown.
+    - [ ] if a step is stuck on a command prompt for input can anything be done to detect that and abort or prompt user?
 	- [ ] detailed output review on failure — "Show detailed" option at failure prompt to re-display full captured output (beyond the 50-line tail shown automatically)
 	- [ ] dep check at menu could also transitively resolve (e.g. selecting `tag` + `changelog` without `version` — currently only direct deps are added)
 - [ ] Need a way to share dashboards between installations (and dev). Can the API be opened up with a read/write interface to other isntallations via https??
 	- [ ] Then in "OPen" and "Save As" dialogs we could choose destaniotn respository: local file or remote dashboard repo (with list of dashboards to choose from)
-- [ ] Node Property dialog - color transition
-	- [ ] Needs a means to drag reordering around the conditions to specify which is first match
 - [ ] Serialization:
 	- [ ] logged-on user not yet written to `FileInfo` (always admin for now — fine to leave)
 	- [ ] should include version of this app doing the write, and server written from
+
+- [ ] Node Property dialog - color transition
+	- [ ] Needs a means to drag reordering around the conditions to specify which is first match
 - [ ] Data item topics per node
 	- [ ] "Link animation" needs a property for index of which data item to animate upon
 - [ ] Page tabs
@@ -26,8 +29,10 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 	- [ ] Drag to reorder pages when in edit mode. MudTabs would support this but need setting noticed and saved.
 - [ ] Node properties dialog
 	- [ ] Can this dialog be moveable and have apply button to changes dynamically without closing
+
 - [ ] Log viewer columns: choices for date (and format), time (and format), topic path, topic name, topic full path&name, value — **Full 6-column boolean options done**; date/time format options still open
 - [ ] IMport and Export dont seem to be able to see Windows clipboard ... is there some permissions to enable it? This was on firefox
+
 - [ ] Serialization: node ID GUIDs in file — map to sequential 1-based IDs for file (need port+link ID remapping too). Needs a json serilaizer class for Dashboard to manage the mapping.
 
 
@@ -60,19 +65,14 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] Page reordering (drag tabs)
 
 ### FEAT-E: Editing improvements
-- [ ] Node-red style palette panel — drag node types from a sidebar onto the canvas
-	- [ ] Can curretn AddNode diaglog become modeless, moveable and floating, so new nodes can just 
-	      be dragged onto the canvas and positioned without loosing the dialog
+- [ ] Add node dialog
+	- [ ] drag onto the canvas and positioned without loosing the dialog
 - [ ] Keyboard funcionality:
 	- [ ] arrows to move selcted nodes
-- [ ] A data dialog -- tree view of all available data (we used to have it but it did not work too well).
-	- [ ] shows expanded treeview of all avaiable data currently in cache (topics and values)
-	- [ ] has buttons on right hand side to:
-		- [ ] add a new node with that topic and lets you choose which node type it adds
-		- [ ] add to existing node thne shows list of nodes to add to
-	- [ ] It would be nice if it wasnt just a modal diaglo but a modeless window ontop and floating and moveable
-	- [ ] and then you could drag a data item to an existing node to add it to that node
-	- [ ] 
+- [ ] Data explorer dialog -- tree view of all available data
+	- [ ] drag a data item to an existing node to add it to that node
+	- [ ] can this dialog be resizeable and remember is position
+	- [ ] Can there be mutliple topics (just like in node properties) or a comma sep list might be easier.
 
 ### FEAT-F: Link improvements
 - [ ] Links as proper model objects with a properties editor: color, thickness, dash style

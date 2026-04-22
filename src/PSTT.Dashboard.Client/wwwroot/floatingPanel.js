@@ -30,5 +30,20 @@ window.FloatingPanel = (function () {
         document.addEventListener('mouseup',   onUp);
     }
 
-    return { startDrag };
+    function clampToViewport(panelId) {
+        const el = document.getElementById(panelId);
+        if (!el) return null;
+        const rect = el.getBoundingClientRect();
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        let left = parseInt(el.style.left) || 0;
+        let top  = parseInt(el.style.top)  || 0;
+        left = Math.max(0, Math.min(left, vw - rect.width  - 8));
+        top  = Math.max(0, Math.min(top,  vh - rect.height - 8));
+        el.style.left = left + 'px';
+        el.style.top  = top  + 'px';
+        return [left, top];
+    }
+
+    return { startDrag, clampToViewport };
 })();

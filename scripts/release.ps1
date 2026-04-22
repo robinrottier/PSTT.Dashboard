@@ -6,7 +6,7 @@
     Performs a full patch-release workflow from local source:
 
       1.  preflight       Verify required tools (git, dotnet, gh)
-      2.  clean           Auto-commit TODO.md if the only dirty file; else abort
+      2.  clean           Auto-commit TODO.md and/or submodule pointer changes if the only dirty items; else abort
       3.  test-pstt       Build + test PSTT submodule (libs/PSTT)
       4.  test-blazor-diagrams  Build + test Blazor.Diagrams submodule (libs/Blazor.Diagrams)
       5.  build-debug     Build + test (Debug configuration)
@@ -19,8 +19,8 @@
       12. push-changelog  Commit + push the changelog update
       13. prep-submodules Merge PSTT develop→main; pin submodule to PSTT main
       14. pr              Create PR → main, wait for CI checks, merge
-      15. restore-submodules Restore PSTT submodule back to develop tracking
-      16. tag             Create annotated tag and push it
+      15. tag             Create annotated tag on origin/main and push it
+      16. restore-submodules Restore PSTT submodule back to develop tracking [skip ci]
       17. wait-workflows  Wait for release workflows triggered by the tag
       18. post-deploy     SSH deploy: docker compose pull + up -d (skipped if DEPLOY_HOST not set)
 
@@ -71,7 +71,7 @@
     Step names: preflight clean test-pstt test-blazor-diagrams
                 build-debug build-release publish-check docker-build
                 sync version changelog push-changelog prep-submodules
-                pr restore-submodules tag wait-workflows post-deploy
+                pr tag restore-submodules wait-workflows post-deploy
 
 .PARAMETER Only
     Run exactly one named step and exit.
@@ -278,14 +278,14 @@ $StepOrder = @(
     'build-debug', 'build-release', 'publish-check', 'docker-build',
     'sync', 'version', 'changelog', 'push-changelog',
     'prep-submodules',
-    'pr', 'restore-submodules', 'tag', 'wait-workflows', 'post-deploy'
+    'pr', 'tag', 'restore-submodules', 'wait-workflows', 'post-deploy'
 )
 # Steps that are purely local (no git remote / gh required)
 $LocalSteps = @('preflight', 'clean', 'test-pstt', 'test-blazor-diagrams', 'build-debug', 'build-release', 'publish-check', 'docker-build')
 
 $StepDesc = @{
     'preflight'            = 'Preflight checks (tools, git remote)'
-    'clean'                = 'Ensure clean working tree'
+    'clean'                = 'Ensure clean working tree (auto-commits TODO.md / submodule pointers)'
     'test-pstt'            = 'Build and test PSTT submodule (libs/PSTT)'
     'test-blazor-diagrams' = 'Build and test Blazor.Diagrams submodule (libs/Blazor.Diagrams)'
     'build-debug'          = 'Build and test (Debug)'
@@ -309,7 +309,7 @@ $StepGroups = [ordered]@{
     'Preflight'      = @('preflight', 'clean')
     'Build & Test'   = @('test-pstt', 'test-blazor-diagrams', 'build-debug', 'build-release', 'publish-check', 'docker-build')
     'Version'        = @('sync', 'version', 'changelog', 'push-changelog', 'prep-submodules')
-    'GitHub Release' = @('pr', 'restore-submodules', 'tag', 'wait-workflows')
+    'GitHub Release' = @('pr', 'tag', 'restore-submodules', 'wait-workflows')
     'Deploy'         = @('post-deploy')
 }
 # Hard step dependencies (a step will throw or produce wrong output if its dep hasn't run)
@@ -477,20 +477,51 @@ function Step-Preflight {
 
 # ─── Step: clean ─────────────────────────────────────────────────────────────
 function Step-CleanTree {
-    $status = Get-CmdOutput git @('status', '--porcelain')
-    if ([string]::IsNullOrWhiteSpace($status)) { Write-Ok "Working tree clean"; return }
+    # Use & git directly (not Get-CmdOutput) to preserve leading-space status chars
+    # that git status --porcelain emits (e.g. ' M libs/PSTT'); Get-CmdOutput trims
+    # the whole string, stripping that leading space and breaking Substring(3) path extraction.
+    $rawLines = @(& git status --porcelain 2>$null | Where-Object { $_ -ne '' })
+    if ($rawLines.Count -eq 0) { Write-Ok "Working tree clean"; return }
+    $status = $rawLines -join "`n"  # for error messages and -match checks
 
-    $lines = ($status -split "`n") | Where-Object { $_ -ne '' }
-    $isTodoOnly = $lines.Count -eq 1 -and $lines[0] -match 'TODO\.md$'
+    $lines = $rawLines
 
-    if ($isTodoOnly) {
-        Write-Step "Only TODO.md modified — auto-committing"
-        Assert-Cmd git @('add', 'TODO.md')
-        Assert-Cmd git @('commit', '-m', 'chore: update TODO')
-        Write-Ok "TODO.md committed"
-    } else {
+    # Paths that may be auto-committed without human review:
+    #   - TODO.md (user notes updated between sessions)
+    #   - libs/PSTT, libs/Blazor.Diagrams (submodule pointer moves after commits in the submodule)
+    # Only the directory/file name itself is acceptable — changes *inside* a submodule are not.
+    $autoCommittable = @('TODO.md', 'libs/PSTT', 'libs/Blazor.Diagrams')
+
+    $notAutoCommittable = @($lines | Where-Object {
+        $path = $_.Substring([Math]::Min(3, $_.Length)).Trim()
+        $autoCommittable -notcontains $path
+    })
+
+    if ($notAutoCommittable.Count -gt 0) {
         throw "Working tree is dirty. Commit or stash changes before releasing.`n$status"
     }
+
+    # Stage each auto-committable path that is actually dirty
+    $addArgs = @()
+    $parts   = @()
+    if ($lines | Where-Object { $_ -match 'libs/PSTT\s*$' }) {
+        $addArgs += 'libs/PSTT'
+        $parts   += 'PSTT submodule pointer'
+    }
+    if ($lines | Where-Object { $_ -match 'libs/Blazor\.Diagrams\s*$' }) {
+        $addArgs += 'libs/Blazor.Diagrams'
+        $parts   += 'Blazor.Diagrams submodule pointer'
+    }
+    if ($lines | Where-Object { $_ -match 'TODO\.md$' }) {
+        $addArgs += 'TODO.md'
+        $parts   += 'TODO.md'
+    }
+
+    Write-Step "Auto-committable changes ($($parts -join ', ')) — committing"
+    Assert-Cmd git (@('add') + $addArgs)
+    $msg = "chore: update $($parts -join ' and ')"
+    Assert-Cmd git @('commit', '-m', $msg)
+    Write-Ok "Auto-committed: $msg"
 }
 
 # ─── Step: test-pstt ─────────────────────────────────────────────────────────
@@ -701,7 +732,7 @@ function Step-RestoreSubmodules {
     Write-Step "Restoring .gitmodules branch tracking to develop..."
     Assert-Cmd git @('config', '-f', '.gitmodules', 'submodule.libs/PSTT.branch', 'develop') "Failed to update .gitmodules"
     Assert-Cmd git @('add', '.gitmodules', 'libs/PSTT') "git add failed"
-    Assert-Cmd git @('commit', '-m', 'chore: post-release — restore PSTT submodule to develop') "git commit failed"
+    Assert-Cmd git @('commit', '-m', "chore: post-release — restore PSTT submodule to develop [skip ci]") "git commit failed"
     if ($IsDryRun) { Write-Warn "DRYRUN: skipping push of submodule restore commit"; return }
     $branch = if ($script:CurrentBranch) { $script:CurrentBranch } else { Get-CmdOutput git @('rev-parse', '--abbrev-ref', 'HEAD') }
     Assert-Cmd git @('push', 'origin', $branch) "git push failed after submodule restore"
@@ -753,7 +784,11 @@ function Step-CreateMergePR {
 # ─── Step: tag ───────────────────────────────────────────────────────────────
 function Step-CreateTag {
     if (-not $script:NextVersion) { throw "Version not set — run 'version' step first" }
-    Assert-Cmd git @('tag', '-a', $script:NextVersion, '-m', "Release $($script:NextVersion)") "Failed to create tag"
+    # Tag the main branch HEAD — that is where the release was merged to, so
+    # tag-triggered GitHub Actions workflows will display a meaningful commit.
+    Assert-Cmd git @('fetch', 'origin', 'main') "Failed to fetch origin/main for tagging"
+    $mainSha = Get-CmdOutput git @('rev-parse', 'origin/main')
+    Assert-Cmd git @('tag', '-a', $script:NextVersion, $mainSha, '-m', "Release $($script:NextVersion)") "Failed to create tag"
     if ($IsDryRun) { Write-Warn "DRYRUN: skipping tag push"; return }
     Assert-Cmd git @('push', 'origin', $script:NextVersion) "Failed to push tag"
     Write-Ok "Tag $($script:NextVersion) created and pushed"

@@ -7,6 +7,59 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [v0.1.3] - 2026-04-22
+
+### Fixed
+- **`FilterNode` now delegates to `IWildcardMatcher`** (`CacheWithWildcards`, PSTT): `FilterNode.Matches()`
+  previously contained its own hardcoded `#`/`+` matching logic, making the configured `IWildcardMatcher`
+  irrelevant for live subscription routing. It now delegates entirely to the matcher via a new `FullPattern`
+  property (the reconstructed full pattern string, e.g. `sensors/+/temp`). Custom matchers (e.g. using `*`)
+  now work end-to-end. The `$` exclusion and all MQTT semantics come from `MqttWildcardMatcher` as the single
+  source of truth.
+- **Test data corrected** (`CacheWithPatternsTests`): three test cases expected `a/+/#` not to match `a/b`
+  and similar patterns not to match their parent topic. This was based on a bug in the old `FilterNode` code —
+  per MQTT 3.1.1 §4.7.1, `#` always matches the parent level (0 additional levels), so `a/+/#` correctly
+  matches `a/b`. Test expectations updated to reflect the spec.
+
+### Added
+- **Data Explorer — multi-pattern input** (`DataExplorerPanel`): the "Data topics" field now
+  accepts comma-separated patterns (e.g. `#,$DASHBOARD/#`). Each pattern subscribes
+  independently and results are unioned in the topic tree.
+- **Data Explorer — prepopulated history** (`DataExplorerPanel`): the dropdown now starts with
+  `#` (all real MQTT topics) and `$DASHBOARD/#` (internal dashboard metrics) so users can
+  switch without typing.
+
+### Fixed
+- **`$DASHBOARD` topics no longer sent to MQTT broker** (`MqttCache`):`SendToBrokerAsync` now
+  returns early for any topic beginning with `$`. Internal virtual topics (`$DASHBOARD/*`) stay
+  server-local; they cannot echo back from the broker as duplicate subscription updates. Status
+  reporting to an external broker should use regular (non-`$`) topic names.
+- **MQTT wildcard spec compliance** (`MqttWildcardMatcher`): `#` and `+` in the first filter
+  segment no longer match topics whose first segment begins with `$`, per MQTT 3.1.1 §4.7.2.
+  Explicit prefix patterns such as `$DASHBOARD/#` continue to work correctly.
+- **Data Explorer — scrollbar** (`DataExplorerPanel`):added `scrollbar-gutter: stable` so the
+  vertical scrollbar never shifts or obscures row content when it appears.
+- **Data Explorer — tooltip z-index** (`app.css`): raised `--mud-zindex-popover` to 2500 so MudBlazor
+  tooltips and menus always appear above floating panels (which sit at z-index 2000).
+- **Data Explorer — "Assign" button** (`TopicTreeNode`): the AddLink button is now always visible;
+  it is disabled (greyed out) when no dashboard node is selected and its tooltip reads
+  "Assign to selected node — No item selected" in that state.
+- **Data Explorer — label** (`DataExplorerPanel`): renamed text field label from "MQTT Pattern" to
+  "Data topics".
+- **Data Explorer — history icon** (`DataExplorerPanel`): replaced the history clock icon on the
+  pattern history menu with a standard dropdown arrow (`ArrowDropDown`).
+- **Data Explorer — auto-expand** (`DataExplorerPanel`): on open, all branch nodes (non-leaf) are
+  now recursively expanded; leaf-only (data value) nodes are collapsed by default.
+- **Data Explorer — initial position** (`FloatingPanel`): on first open, the panel is now clamped to
+  the viewport via JS so it can never appear partially or fully off-screen.
+- **Uptime format** (`DashboardMetricsPublisher`): simplified `FormatUptime` to always emit
+  `hh:mm:ss` (total hours : minutes : seconds) — no more switching between formats at the 1-hour
+  or 1-day boundaries.
+- **release.ps1 — tag order**: moved `tag` step before `restore-submodules` so the release tag
+  always points to the `origin/main` merge commit, not the "restore submodule" housekeeping commit.
+  Release workflow runs on GitHub now show the correct release context. The restore commit now also
+  includes `[skip ci]` to suppress unnecessary CI runs.
+
 ## [v0.1.2] - 2026-04-22
 
 ### Added

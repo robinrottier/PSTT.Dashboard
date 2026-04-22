@@ -14,23 +14,21 @@
                   title="@Node.FullTopic">@Node.Label</span>
             <span style="flex-shrink:0;max-width:100px;overflow:hidden;text-overflow:ellipsis;opacity:0.7;font-size:0.72rem;text-align:right;padding-right:2px;"
                   title="@Node.Value">@Node.Value</span>
-            @if (HasSelectedNode)
+            @if (HasSelectedNode && SelectedNodeTopics != null && SelectedNodeTopics.Contains(Node.FullTopic))
             {
-                @if (SelectedNodeTopics != null && SelectedNodeTopics.Contains(Node.FullTopic))
-                {
-                    <MudTooltip Text="Already assigned">
-                        <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small"
-                                 Color="Color.Success" Style="font-size:14px;flex-shrink:0;" />
-                    </MudTooltip>
-                }
-                else
-                {
-                    <MudTooltip Text="Assign to selected node">
-                        <MudIconButton Icon="@Icons.Material.Filled.AddLink" Size="Size.Small"
-                                       Style="padding:0;width:20px;height:20px;flex-shrink:0;"
-                                       OnClick="@(() => OnTopicAssigned.InvokeAsync(Node.FullTopic))" />
-                    </MudTooltip>
-                }
+                <MudTooltip Text="Already assigned">
+                    <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small"
+                             Color="Color.Success" Style="font-size:14px;flex-shrink:0;" />
+                </MudTooltip>
+            }
+            else
+            {
+                <MudTooltip Text="@(HasSelectedNode ? "Assign to selected node" : "Assign to selected node — No item selected")">
+                    <MudIconButton Icon="@Icons.Material.Filled.AddLink" Size="Size.Small"
+                                   Style="padding:0;width:20px;height:20px;flex-shrink:0;"
+                                   Disabled="@(!HasSelectedNode)"
+                                   OnClick="@(() => OnTopicAssigned.InvokeAsync(Node.FullTopic))" />
+                </MudTooltip>
             }
             <MudTooltip Text="Create new node with this topic">
                 <MudIconButton Icon="@Icons.Material.Filled.AddBox" Size="Size.Small"

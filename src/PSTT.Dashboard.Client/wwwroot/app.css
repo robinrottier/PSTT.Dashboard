@@ -1,5 +1,10 @@
+
+/* Ensure MudBlazor popovers (tooltips, menus, dropdowns) appear above floating panels */
+:root {
+    --mud-zindex-popover: 2500;
+}
 
-/* Prevent body-level scrollbar — MudMainContent handles its own internal scrolling.
+ — MudMainContent handles its own internal scrolling.
    Without this a tiny overflow (~8px from pa-2 bottom padding) shows a spurious scrollbar. */
 html, body {
     height: 100%;

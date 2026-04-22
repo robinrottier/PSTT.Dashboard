@@ -5,6 +5,178 @@ For reviewing work item by item and moving anything back to [TODO.md](TODO.md) i
 
 ---
 
+## 2026-04-22 — FilterNode wildcard matching refactored to IWildcardMatcher
+
+### Commits: 524f2e3 + b6f3408 (PSTT submodule) · branch: develop
+
+#### 1. `FilterNode.Matches()` delegates to `IWildcardMatcher` (`CacheWithWildcards.cs`)
+
+**Motivation:** `FilterNode` had its own hardcoded `#`/`+`/`/` matching logic, duplicating `MqttWildcardMatcher`.
+Any custom `IWildcardMatcher` configured on `CacheWithWildcards` was used for subscription registration
+(`IsPattern`) but completely ignored for live callback routing (handled entirely inside `FilterNode.Matches`).
+This meant custom matchers using e.g. `*` instead of `#` would silently fail.
+
+**Root cause:** `FilterNode.Path` is only the key up to the *first* wildcard segment (e.g. `"sensors/+"` for
+pattern `"sensors/+/temp"`), not the full pattern. Simply calling `matcher.Matches(Path, other)` would be
+wrong for multi-segment patterns like `sensors/+/temp` or `a/+/#`.
+
+**Fix:**
+- Added `FullPattern { get; init; }` to `FilterNode`, computed in the constructor as
+  `parent.Path + "/" + string.Join("/", filter)` (or just `string.Join("/", filter)` when parent is root).
+  This always yields the correct full subscription pattern string (e.g. `"sensors/+/temp"`, `"#"`,
+  `"$DASHBOARD/#"`).
+- `FilterNode.Matches(string other)` now delegates to `_matcher.Matches(FullPattern, other)` when the
+  configured matcher is non-null and `TKey = string` (via the `is TKey` pattern match — safe for other
+  TKey types which fall through to the built-in fallback).
+- Constructor accepts `IWildcardMatcher<TKey>? matcher = null` (optional, for backward compat with existing
+  3-arg test call sites). When null, the built-in fallback matching logic is used.
+- Constructor validation updated: first filter part must pass `matcher.IsPattern()` when matcher is present
+  (allows custom wildcard tokens); falls back to `== "#" || == "+"` for null matcher.
+- The `$` exclusion guard previously added to `FilterNode.Matches()` is now handled by `MqttWildcardMatcher`
+  and lives in the fallback path only (for null matcher).
+
+**Test-only constructor:** `FilterNode(TKey key, string path, string[] filter)` — `FullPattern` computed
+null-safely (`path?.Length ?? 0`) to handle the existing test that passes `null` as path to verify that
+`Matches()` throws `InvalidOperationException`.
+
+#### 2. Test data corrections (`CacheWithPatternsTests.cs`)
+
+Three test cases expected `false` for patterns like `a/+/#` vs `a/b`. This was based on a bug in the old
+`FilterNode.Matches()` — its `for` loop returned `false` when `#` was reached and no more candidate parts
+remained.
+
+Per MQTT 3.1.1 §4.7.1: `#` matches the *parent level* and everything below (i.e. 0 or more additional
+levels). `MqttWildcardMatcher` correctly returns true immediately when it hits `#` in the pattern, regardless
+of remaining candidate depth. This is the same rule that makes `sport/tennis/#` match `sport/tennis`.
+
+Updated expectations:
+- `"a/+/#"` vs `"a/b"` → **true** (was false)
+- `"building/+/floor/+/#"` vs `"building/A/floor/1"` → **true** (was false)
+- `"a/b/+/d/#"` vs `"a/b/c/d"` → **true** (was false)
+
+⚠️ The `NewItem()` wildcard detection (`isWildcard = part == "#" || part == "+"`) was intentionally NOT
+changed to use `_matcher.IsPattern(part)` — doing so would cause `MqttWildcardMatcher.IsPattern("b#c")` to
+return true for embedded (invalid) wildcard characters, bypassing the validation exception for keys like
+`a/b#c/d`. Custom matcher support for non-MQTT wildcard tokens (e.g. `*`) in `NewItem()` would require a
+dedicated `IsWildcardToken(TKey part)` method on `IWildcardMatcher<TKey>`.
+
+---
+
+## 2026-04-22 — MQTT $DASHBOARD topic isolation + wildcard spec fix + Data Explorer multi-pattern
+
+### Commits: c8196e6, 8095c74 + fcf7bf5 (PSTT submodule) · branch: develop
+
+#### 1. Data Explorer — multi-pattern input and prepopulated history (`DataExplorerPanel.razor`)
+
+**Motivation:** With the wildcard spec fix, `#` no longer shows `$DASHBOARD/*` topics. Users
+need a quick way to see dashboard metrics alongside real MQTT topics.
+
+**Changes:**
+- `_history` initialised with `["#", "$DASHBOARD/#"]` — dropdown is useful from first open.
+- `_wildcardInput`/`ApplySubscription` now parse comma-separated patterns via `ParsePatterns()`
+  (`string.Split(',', TrimEntries | RemoveEmptyEntries)`).
+- `_subscription` (single `IDisposable`) replaced by `_subscriptions` (`List<IDisposable>`) +
+  `DisposeSubscriptions()` helper.
+- Each pattern gets its own `BridgedDataCache.Subscribe(pattern, ...)` call; snapshot seed
+  uses `patterns.Any(p => TopicMatchesPattern(p, key))`.
+
+**Example:** entering `#,$DASHBOARD/#` shows all real MQTT topics AND internal metrics.
+
+#### 2. `$DASHBOARD/*` topics no longer sent to MQTT broker (`MqttCache.cs` in PSTT submodule)
+
+**Problem:** `DashboardMetricsPublisher` publishes internal metrics (`$DASHBOARD/TIME`,
+`$DASHBOARD/UPTIME`, etc.) to `ServerDataCache`, which has `forwardPublish: true` to
+`MqttCache`. `MqttCache.PublishAsync` calls `SendToBrokerAsync`, so every second these
+virtual topics were sent to the MQTT broker. Any wildcard subscription (e.g. `#`) would
+cause the broker to echo them back, resulting in double notifications to widgets.
+
+**Fix:** Added an early return in `SendToBrokerAsync` when `key.StartsWith('$')`. This is
+also MQTT-spec-aligned: MQTT clients should not publish to `$`-prefixed topics (reserved for
+broker system use). For status reporting visible to a network-overview broker, use regular
+topic names (e.g. `pstt/dashboard/status`).
+
+**File:** `libs/PSTT/src/PSTT.Mqtt/MqttCache.cs` · `SendToBrokerAsync` (+6 lines)
+
+#### 2. MQTT wildcard spec compliance (`MqttWildcardMatcher.cs` in PSTT submodule)
+
+**Problem:** `MqttWildcardMatcher.Matches("#", "$DASHBOARD/TIME")` returned `true`.
+Per MQTT 3.1.1 §4.7.2, wildcards `#` and `+` in the first filter segment must NOT match
+topic names whose first segment starts with `$`.
+
+**Fix:** Added a guard at the start of `Matches()`: if `candidateParts[0].StartsWith('$')`
+and the first pattern segment is `#` or `+`, return `false`. Explicit patterns like
+`$DASHBOARD/#` (where `$` is in the literal part) still match correctly — the rule only
+applies when the wildcard itself is at position 0.
+
+**File:** `libs/PSTT/src/PSTT.Data/MqttWildcardMatcher.cs` · `Matches()` (+6 lines)
+Also updated the XML doc to reflect the corrected semantics.
+
+#### 3. Unit tests for `$` wildcard exclusion (`NewFeatureTests.cs` in PSTT submodule)
+
+Added 9 `[InlineData]` cases to the existing `MqttPatternMatcher_Matches` theory:
+- `("#", "$DASHBOARD/TIME", false)` — `#` vs `$`-prefix → false
+- `("#", "$SYS/uptime", false)`, `("#", "$", false)`
+- `("+/b", "$topic/b", false)` — `+` at first level vs `$`-prefix → false
+- `("$DASHBOARD/#", "$DASHBOARD/TIME", true)` — explicit `$` prefix works
+- `("$DASHBOARD/#", "$DASHBOARD/nested/value", true)`
+- `("$DASHBOARD/TIME", "$DASHBOARD/TIME", true)` — exact match
+- `("$DASHBOARD/+", "$DASHBOARD/TIME", true)`, `("$DASHBOARD/+", "$DASHBOARD/nested/value", false)`
+
+All 359 PSTT tests pass.
+
+---
+
+## 2026-04-22 — Data Explorer bug fixes + release.ps1 tag order
+
+### Commits: TBD · UTC 2026-04-22 · branch: develop
+
+#### 1. Data Explorer — scrollbar obscuring content (`DataExplorerPanel.razor`)
+Added `scrollbar-gutter: stable` to the tree container div. Previously the OS scrollbar
+would overlay content because the rows used `overflow:hidden` clipping at the exact container
+edge. The gutter property reserves space permanently so row width never changes when the
+scrollbar appears.
+
+#### 2. Tooltip z-index (`app.css`)
+Added `:root { --mud-zindex-popover: 2500 }`. FloatingPanel has `z-index:2000`; MudBlazor
+popovers (tooltips, menus) defaulted to 1200 and appeared behind the panel. Raising to 2500
+fixes all floating panel tooltip/menu visibility globally.
+
+#### 3. AddLink button always visible (`TopicTreeNode.razor`)
+Removed the outer `@if (HasSelectedNode)` guard so the assign button is always rendered.
+When no node is selected, the button is `Disabled` and the tooltip reads
+"Assign to selected node — No item selected". The "Already assigned" check-icon branch is
+preserved when the topic is already wired.
+
+#### 4. Label rename (`DataExplorerPanel.razor`)
+`Label="MQTT Pattern"` → `Label="Data topics"` to match node properties terminology.
+
+#### 5. History icon → dropdown arrow (`DataExplorerPanel.razor`)
+`Icons.Material.Filled.History` → `Icons.Material.Filled.ArrowDropDown` so the control
+reads as a standard dropdown, not a history/clock control.
+
+#### 6. Auto-expand branch nodes (`DataExplorerPanel.razor`)
+`AutoExpandRoots()` was replaced by `AutoExpandBranchNodes()` which recursively walks the
+topic tree and adds every non-leaf node to `_expandedPaths`. Leaf nodes (pure data values)
+are left collapsed. Structure nodes open by default is the UX pattern users expect.
+
+#### 7. FloatingPanel viewport clamp (`FloatingPanel.razor` + `floatingPanel.js`)
+Added `clampToViewport(panelId)` JS function and call it from `OnAfterRenderAsync` on first
+open. It reads `getBoundingClientRect()` and clamps `left`/`top` so the panel is never
+off-screen. The `_positionClamped` flag ensures it only fires once per panel instance (not
+on every drag/re-render). The Data Explorer was hardcoded to `InitialLeft=900` which was
+off-screen on narrower viewports.
+
+#### 8. Uptime format (`DashboardMetricsPublisher.cs`)
+`FormatUptime` now always returns `hh:mm:ss` using `(int)uptime.TotalHours` for the hours
+component. The three-branch format (seconds/minutes/hours/days) caused the display to flicker
+between format strings every time the uptime crossed an hour or day boundary.
+
+#### 9. release.ps1 — tag step reordered before restore-submodules
+Step order changed from `pr → restore-submodules → tag` to `pr → tag → restore-submodules`.
+Tag now explicitly targets `origin/main` (fetched fresh after PR merge) so the release tag
+points at the merge commit, not a housekeeping commit. Restore commit includes `[skip ci]`
+to suppress spurious CI workflow runs. Help text and step-group map updated to match.
+
 ## 2026-05-01 — BridgeCache: structural dashboard topic scoping
 
 ### Commits: 28ce7b7 (PSTT submodule) + b90d9a6 (dashboard) · UTC ~now · branch: develop
