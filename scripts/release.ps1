@@ -477,10 +477,14 @@ function Step-Preflight {
 
 # ─── Step: clean ─────────────────────────────────────────────────────────────
 function Step-CleanTree {
-    $status = Get-CmdOutput git @('status', '--porcelain')
-    if ([string]::IsNullOrWhiteSpace($status)) { Write-Ok "Working tree clean"; return }
+    # Use & git directly (not Get-CmdOutput) to preserve leading-space status chars
+    # that git status --porcelain emits (e.g. ' M libs/PSTT'); Get-CmdOutput trims
+    # the whole string, stripping that leading space and breaking Substring(3) path extraction.
+    $rawLines = @(& git status --porcelain 2>$null | Where-Object { $_ -ne '' })
+    if ($rawLines.Count -eq 0) { Write-Ok "Working tree clean"; return }
+    $status = $rawLines -join "`n"  # for error messages and -match checks
 
-    $lines = @(($status -split "`n") | Where-Object { $_ -ne '' })
+    $lines = $rawLines
 
     # Paths that may be auto-committed without human review:
     #   - TODO.md (user notes updated between sessions)
