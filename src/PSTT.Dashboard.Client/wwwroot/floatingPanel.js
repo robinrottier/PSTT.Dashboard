@@ -30,6 +30,32 @@ window.FloatingPanel = (function () {
         document.addEventListener('mouseup',   onUp);
     }
 
+    function startResize(panelId, startClientX, startClientY, dotNetRef) {
+        const el = document.getElementById(panelId);
+        if (!el) return;
+
+        const startWidth  = el.offsetWidth;
+        const startHeight = el.offsetHeight;
+
+        function onMove(e) {
+            const newWidth  = Math.max(200, startWidth  + (e.clientX - startClientX));
+            const newHeight = Math.max(80,  startHeight + (e.clientY - startClientY));
+            el.style.width  = newWidth  + 'px';
+            el.style.height = newHeight + 'px';
+        }
+
+        function onUp(e) {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup',   onUp);
+            const finalW = parseInt(el.style.width)  || startWidth;
+            const finalH = parseInt(el.style.height) || startHeight;
+            dotNetRef.invokeMethodAsync('OnResizeEnd', finalW, finalH);
+        }
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup',   onUp);
+    }
+
     function clampToViewport(panelId) {
         const el = document.getElementById(panelId);
         if (!el) return null;
@@ -45,5 +71,20 @@ window.FloatingPanel = (function () {
         return [left, top];
     }
 
-    return { startDrag, clampToViewport };
+    function saveState(key, left, top, width, height) {
+        try {
+            localStorage.setItem('fp-state-' + key,
+                JSON.stringify({ left, top, width, height }));
+        } catch { }
+    }
+
+    function loadState(key) {
+        try {
+            const raw = localStorage.getItem('fp-state-' + key);
+            if (!raw) return null;
+            return JSON.parse(raw);
+        } catch { return null; }
+    }
+
+    return { startDrag, startResize, clampToViewport, saveState, loadState };
 })();

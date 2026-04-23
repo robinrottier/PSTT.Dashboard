@@ -28,3 +28,31 @@
 .fp-body {
     padding: 8px;
 }
+
+/* Used when Resizable=true — body fills remaining panel height */
+.fp-body-fill {
+    flex: 1;
+    overflow: auto;
+    padding: 0;
+    min-height: 0;
+}
+
+/* Bottom-right resize grip (only shown when Resizable=true) */
+.fp-resize-handle {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 16px;
+    height: 16px;
+    cursor: se-resize;
+    opacity: 0.35;
+    /* Two-line diagonal grip indicator */
+    background:
+        linear-gradient(135deg, transparent 40%, var(--mud-palette-text-secondary) 40%, var(--mud-palette-text-secondary) 55%, transparent 55%),
+        linear-gradient(135deg, transparent 60%, var(--mud-palette-text-secondary) 60%, var(--mud-palette-text-secondary) 75%, transparent 75%);
+    border-radius: 0 0 var(--mud-default-borderradius) 0;
+}
+
+.fp-resize-handle:hover {
+    opacity: 0.75;
+}

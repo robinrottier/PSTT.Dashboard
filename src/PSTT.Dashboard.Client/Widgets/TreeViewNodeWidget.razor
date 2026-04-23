@@ -74,26 +74,49 @@
         SetupWatchers();
     }
 
+    // Returns true when the root topic is a bare wildcard that matches all topics,
+    // e.g. "#" — in that case we must not append "/#" and have no separate root sub.
+    private static bool IsGlobalWildcard(string topic) => topic is "#";
+
     private void SetupWatchers()
     {
         _watchSubscription?.Dispose(); _watchSubscription = null;
         _rootWatchSubscription?.Dispose(); _rootWatchSubscription = null;
+        _values.Clear();
 
         if (string.IsNullOrEmpty(RootTopicValue)) { _tree = new("", ""); return; }
 
+        var isGlobal = IsGlobalWildcard(RootTopicValue);
+
+        // Seed _values from the current cache snapshot so the tree is populated immediately
+        // on first render (before any subscription callbacks fire).
+        var prefix = isGlobal ? null : RootTopicValue.TrimEnd('/') + "/";
+        foreach (var kv in AppState.BridgedDataCache.GetSnapshot())
+        {
+            if (isGlobal || kv.Key == RootTopicValue || (prefix != null && kv.Key.StartsWith(prefix)))
+                _values[kv.Key] = kv.Value;
+        }
+
         RebuildTree();
 
-        var wildcardTopic = RootTopicValue.TrimEnd('/') + "/#";
+        // When the root topic already contains "#", subscribe as-is; otherwise append "/#"
+        // to capture all sub-topics below the root.
+        var wildcardTopic = isGlobal ? RootTopicValue : (RootTopicValue.TrimEnd('/') + "/#");
         _watchSubscription = AppState.BridgedDataCache.Subscribe(wildcardTopic, async sub =>
         {
             if (sub.Status.IsPending) return;
             await OnTopicChangedAsync(sub.Key, sub.Value);
         });
-        _rootWatchSubscription = AppState.BridgedDataCache.Subscribe(RootTopicValue, async sub =>
+
+        // Subscribe to the exact root topic separately (only when not already a global wildcard).
+        if (!isGlobal)
         {
-            if (sub.Status.IsPending) return;
-            await OnTopicChangedAsync(sub.Key, sub.Value);
-        });
+            _rootWatchSubscription = AppState.BridgedDataCache.Subscribe(RootTopicValue, async sub =>
+            {
+                if (sub.Status.IsPending) return;
+                await OnTopicChangedAsync(sub.Key, sub.Value);
+            });
+        }
     }
 
     private Task OnTopicChangedAsync(string topic, string? value)
@@ -137,22 +160,33 @@
     {
         if (string.IsNullOrEmpty(RootTopicValue)) { _tree = new("", ""); return; }
 
-        var root = new TreeNode(RootTopicValue, RootTopicValue.Split('/').Last());
-        root.Value = _values.TryGetValue(RootTopicValue, out var rv) ? rv : AppState.BridgedDataCache.GetValue(RootTopicValue);
+        var isGlobal = IsGlobalWildcard(RootTopicValue);
+        var root = new TreeNode(RootTopicValue, isGlobal ? "(all topics)" : RootTopicValue.Split('/').Last());
+        root.Value = isGlobal ? null : (_values.TryGetValue(RootTopicValue, out var rv) ? rv : AppState.BridgedDataCache.GetValue(RootTopicValue));
         root.Expanded = true;
 
-        var prefix = RootTopicValue.TrimEnd('/') + "/";
-        var matches = _values.Where(kvp => kvp.Key.StartsWith(prefix));
+        // For global "#", include ALL values with no prefix filter.
+        // For a specific root, include only sub-topics below it.
+        var prefix = isGlobal ? null : RootTopicValue.TrimEnd('/') + "/";
+        var matches = prefix == null
+            ? _values
+            : (IEnumerable<KeyValuePair<string, string?>>)_values.Where(kvp => kvp.Key.StartsWith(prefix));
 
         foreach (var kvp in matches.OrderBy(x => x.Key))
         {
-            var relativeParts = kvp.Key.Substring(RootTopicValue.Length).TrimStart('/').Split('/');
+            // Compute relative path from the root (or from the topic root for global wildcard).
+            var relativePath = prefix == null
+                ? kvp.Key
+                : kvp.Key.Substring(RootTopicValue.Length).TrimStart('/');
+
+            var relativeParts = relativePath.Split('/');
             var node = root;
-            var currentPath = RootTopicValue;
+            var currentPath = prefix == null ? "" : RootTopicValue;
             var depth = 0;
             foreach (var part in relativeParts)
             {
-                currentPath += "/" + part;
+                if (string.IsNullOrEmpty(part)) continue;
+                currentPath = string.IsNullOrEmpty(currentPath) ? part : currentPath + "/" + part;
                 depth++;
                 var child = node.Children.FirstOrDefault(c => c.Label == part);
                 if (child == null)

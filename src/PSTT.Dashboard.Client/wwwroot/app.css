@@ -2,9 +2,21 @@
 /* Ensure MudBlazor popovers (tooltips, menus, dropdowns) appear above floating panels */
 :root {
     --mud-zindex-popover: 2500;
+    --mud-zindex-dialog: 2200;
 }
 
- — MudMainContent handles its own internal scrolling.
+/* Raise dialog overlay above FloatingPanel (z-index 2000) but below dialog container */
+.mud-overlay {
+    z-index: 2150 !important;
+}
+
+/* Ensure MudBlazor popovers/tooltips appear above FloatingPanel.
+   MudBlazor 9 may set z-index via inline JS styles; !important overrides that. */
+.mud-popover {
+    z-index: 2500 !important;
+}
+
+/* MudMainContent handles its own internal scrolling.
    Without this a tiny overflow (~8px from pa-2 bottom padding) shows a spurious scrollbar. */
 html, body {
     height: 100%;
@@ -35,6 +47,7 @@ html, body, .mud-layout, .mud-main-content, main, .page, .sidebar, .dashboard-ca
 .mud-dialog-container {
     position: fixed !important;
     inset: 0 !important; /* top:0; right:0; bottom:0; left:0 */
+    z-index: 2200 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -46,17 +59,6 @@ html, body, .mud-layout, .mud-main-content, main, .page, .sidebar, .dashboard-ca
     width: calc(100% - 64px) !important; /* keep padding on narrow viewports */
 }
 
-/* Strong centering fallback: center dialog using fixed position + translate
-   This ensures centering even if other layout/styles interfere. Keep
-   responsive constraints so small screens still behave correctly. */
-.mud-dialog {
-    position: fixed !important;
-    left: 50% !important;
-    top: 50% !important;
-    transform: translate(-50%, -50%) !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-}
 
 /* Ensure MudDrawer / side panels can shrink */
 .mud-drawer {

@@ -80,12 +80,12 @@ else
             @if (AppState.IsEditMode)
             {
                 <div style="display:flex;flex-shrink:0;gap:0;border-left:1px solid var(--mud-palette-divider);padding-left:4px;margin-left:2px;">
-                    <MudTooltip Text="Add Node (Ctrl+Shift+A)">
+                    <MudTooltip Text="Add Node (Ctrl+Shift+A)" Placement="Placement.Left">
                         <MudIconButton Icon="@Icons.Material.Filled.AddBox" Size="Size.Small"
                                        Color="@(_isAddNodeOpen ? Color.Primary : Color.Default)"
                                        OnClick="@(() => { _isAddNodeOpen = !_isAddNodeOpen; StateHasChanged(); })" />
                     </MudTooltip>
-                    <MudTooltip Text="Data Explorer (Ctrl+Shift+D)">
+                    <MudTooltip Text="Data Explorer (Ctrl+Shift+D)" Placement="Placement.Left">
                         <MudIconButton Icon="@Icons.Material.Filled.AccountTree" Size="Size.Small"
                                        Color="@(_isDataExplorerOpen ? Color.Primary : Color.Default)"
                                        OnClick="@(() => { _isDataExplorerOpen = !_isDataExplorerOpen; StateHasChanged(); })" />
