@@ -5,6 +5,50 @@ For reviewing work item by item and moving anything back to [TODO.md](TODO.md) i
 
 ---
 
+## 2026-04-26 — `InvokeCallback` tag refactoring (fix two bugs)
+
+### Commits: f23a28b (PSTT submodule) · branch: develop
+UTC timestamp: 2026-04-26
+
+### Context
+
+The user manually edited `Cache.cs` and `CacheWithWildcards.cs` in the PSTT repo to replace the
+`bool fireTreeWalk` parameter with an opaque `TTag` generic tag. Two bugs were introduced during
+that edit.
+
+### Bug 1 — `InvokeCallback(subscription, ct)` no longer triggered `OnInvokeCallback`
+
+The no-tag overload (used internally by `InvokeCallback<TTag>`) had its `OnInvokeCallback` call
+removed, meaning all standard `PublishAsync` calls lost the tree walk entirely — no wildcard
+subscriber would receive locally-published values.
+
+**Fix (`Cache.cs`):** Changed the three standard `PublishAsync` overloads to call
+`InvokeCallback<object?>(null, null, ct)` (the tagged overload with a null tag) instead of the
+no-tag `InvokeCallback(null, ct)`. The no-tag overload now fires subscribers only; `OnInvokeCallback`
+is always invoked through the tagged path, preventing duplicate `OnInvokeCallback` calls.
+
+### Bug 2 — condition inverted in `CacheItemWithWildcards.OnInvokeCallback`
+
+```csharp
+// WRONG: suppresses tree walk when tag is true (but true = "fire tree walk")
+if (tag is bool fromUpstreamCallbackWildcards && fromUpstreamCallbackWildcards)
+    return;
+```
+
+Callers pass `false` when `UpstreamSupportsWildcards=true` (suppress) and `true` when
+`UpstreamSupportsWildcards=false` (fire). The condition was the exact inverse of the intent.
+
+**Fix (`CacheWithWildcards.cs`):** Changed to `if (tag is bool fireTreeWalk && !fireTreeWalk) return;`
+Also removed the redundant `await base.OnInvokeCallback(...)` no-op call and corrected the comment.
+
+### Result
+
+All 266 PSTT.Data tests pass. Full suite: 266 Data + 36 Mqtt + 46 Remote + 10 AspNetCore.
+The `Standalone_ExistingValue_DeliveredOnSubscribe` Remote test remains intermittently flaky under
+load (pre-existing; unrelated to this change).
+
+---
+
 ## 2026-04-25 — Fix release.ps1 StrictMode Count error + flaky Remote.Tests timeouts
 
 ### Commits: 59fd80e (Dashboard) · 35b76b2 (PSTT submodule) · branch: develop
