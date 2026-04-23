@@ -7,8 +7,9 @@ namespace PSTT.Dashboard.Components;
 
 public partial class NodePropertyEditor
 {
-    [CascadingParameter] private IMudDialogInstance? MudDialog { get; set; }
     [Parameter] public TextNodeModel Node { get; set; } = default!;
+    [Parameter] public EventCallback OnSaved { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
     [Inject] private IDialogService DialogService { get; set; } = default!;
 
     private double Width { get; set; }
@@ -16,11 +17,21 @@ public partial class NodePropertyEditor
     private int? FontSize { get; set; }
     private int _newMetadataCounter = 1;
 
-    protected override void OnInitialized()
+    // Snapshot for cancel — captured when panel opens
+    private double _savedWidth;
+    private double _savedHeight;
+    private int? _savedFontSize;
+
+    protected override void OnParametersSet()
     {
+        // Re-initialise whenever the node changes (panel switched to a different node)
         Width    = Node.Size?.Width  ?? 120;
         Height   = Node.Size?.Height ?? 90;
         FontSize = Node.FontSize;
+
+        _savedWidth    = Width;
+        _savedHeight   = Height;
+        _savedFontSize = FontSize;
     }
 
     private async Task OpenIconPicker()
@@ -52,8 +63,6 @@ public partial class NodePropertyEditor
             }
         }
     }
-
-
 
     private void ClearIcon()
     {
@@ -90,23 +99,27 @@ public partial class NodePropertyEditor
         Node.Metadata[newKey] = "";
     }
 
-    private void Save()
+    private async Task Save()
     {
-        // Update size
-        Node.Size = new Blazor.Diagrams.Core.Geometry.Size(Width, Height);
-
-        // Update font size (null = default)
+        Node.Size    = new Blazor.Diagrams.Core.Geometry.Size(Width, Height);
         Node.FontSize = FontSize > 0 ? FontSize : null;
-
-        // Refresh the node to update the display
         Node.Refresh();
 
-        MudDialog?.Close(DialogResult.Ok(true));
+        _savedWidth    = Width;
+        _savedHeight   = Height;
+        _savedFontSize = FontSize;
+
+        await OnSaved.InvokeAsync();
     }
 
-    private void Cancel()
+    private async Task Cancel()
     {
-        MudDialog?.Cancel();
+        // Revert local state
+        Width    = _savedWidth;
+        Height   = _savedHeight;
+        FontSize = _savedFontSize;
+
+        await OnClose.InvokeAsync();
     }
 
     /// <summary>

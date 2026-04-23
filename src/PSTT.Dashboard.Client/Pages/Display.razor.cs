@@ -52,6 +52,8 @@ public partial class Display : IDisposable
     // Floating panel state
     private bool _isAddNodeOpen;
     private bool _isDataExplorerOpen;
+    private bool _isPropertiesOpen;
+    private TextNodeModel? _propertiesNode;
 
     // Stored handler references for clean unsubscription
     private Action? _onMenuSaveDiagram;
@@ -464,7 +466,7 @@ public partial class Display : IDisposable
 
         _onMenuSaveDiagram    = () => InvokeAsync(async () => { await SaveDashboard(); });
         _onMenuReloadDiagram  = () => InvokeAsync(ReloadDiagram);
-        _onMenuEditProperties = () => InvokeAsync(EditNodeProperties);
+        _onMenuEditProperties = () => InvokeAsync(() => { EditNodeProperties(); return Task.CompletedTask; });
         _onMenuSaveAs         = () => InvokeAsync(SaveAsDiagram);
         _onMenuUndo           = () => InvokeAsync(UndoAction);
         _onMenuRedo           = () => InvokeAsync(RedoAction);
@@ -1340,20 +1342,26 @@ public partial class Display : IDisposable
 
     // ── Properties ────────────────────────────────────────────────────────────
 
-    private async Task EditNodeProperties()
+    private void EditNodeProperties()
     {
         if (_diagram == null) return;
         var node = _diagram.GetSelectedModels().OfType<TextNodeModel>().FirstOrDefault();
         if (node == null) { Snackbar.Add("No node selected", Severity.Warning); return; }
-        var parameters = new DialogParameters { { "Node", node } };
-        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true, BackdropClick = false };
-        var dialog = await DialogService.ShowAsync<NodePropertyEditor>($"Edit {node.NodeType} Node Properties", parameters, options);
-        var result = await dialog.Result;
-        if (result is { Canceled: false })
-        {
-            StateHasChanged();
-            Snackbar.Add("Node properties updated", Severity.Success);
-        }
+        _propertiesNode = node;
+        _isPropertiesOpen = true;
+        StateHasChanged();
+    }
+
+    private void OnNodePropertiesSaved()
+    {
+        StateHasChanged();
+        Snackbar.Add("Node properties updated", Severity.Success);
+    }
+
+    private void ClosePropertiesPanel()
+    {
+        _isPropertiesOpen = false;
+        StateHasChanged();
     }
 
     private string CanvasStyle =>

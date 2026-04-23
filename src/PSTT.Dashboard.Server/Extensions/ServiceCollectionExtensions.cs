@@ -8,6 +8,7 @@ using PSTT.Data;
 using PSTT.Mqtt;
 using PSTT.Remote.AspNetCore.Extensions;
 using System.Text;
+using System;
 
 namespace PSTT.Dashboard.Server.Extensions;
 
@@ -26,7 +27,8 @@ public static class ServiceCollectionExtensions
 
         var mqttBuilder = new MqttCacheBuilder<string>()
             .WithBroker(broker, port)
-            .WithUtf8Encoding();
+            .WithUtf8Encoding()
+            .WithUnsubscribeGracePeriod(TimeSpan.FromSeconds(30));
 
         if (!string.IsNullOrEmpty(username))
             mqttBuilder = mqttBuilder.WithCredentials(username, password);
@@ -51,11 +53,13 @@ public static class ServiceCollectionExtensions
             deserializer: b => Encoding.UTF8.GetString(b),
             forwardPublish: true);
 
-        // Scoped per-circuit cache: downstream of serverCache, wildcards forwarded
+        // Scoped per-circuit cache: downstream of serverCache, wildcards forwarded.
+        // 30 s grace period avoids MQTT churn when Blazor reconnects or the user navigates.
         services.AddScoped<ICache<string,string>>(sp => new CacheBuilder<string,string>()
             .WithWildcards()
             .WithUpstream(sp.GetRequiredService<ServerDataCache>(),
                 supportsWildcards: true, forwardPublish: true)
+            .WithUnsubscribeGracePeriod(TimeSpan.FromSeconds(30))
             .Build());
 
         // ── Dashboard services ────────────────────────────────────────────────

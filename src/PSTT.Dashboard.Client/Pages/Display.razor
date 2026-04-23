@@ -172,6 +172,18 @@ else
                            OnCreateNodeWithTopic="AddNodeWithTopic"
                            InitialLeft="900" InitialTop="160" />
 
+        @if (_isPropertiesOpen && _propertiesNode != null)
+        {
+            <FloatingPanel Title="@($"Node Properties – {_propertiesNode.NodeType}")"
+                           @bind-IsOpen="_isPropertiesOpen"
+                           Resizable="true"
+                           InitialLeft="300" InitialTop="140" MinWidth="340">
+                <NodePropertyEditor Node="_propertiesNode"
+                                    OnSaved="OnNodePropertiesSaved"
+                                    OnClose="ClosePropertiesPanel" />
+            </FloatingPanel>
+        }
+
         </div>
     </MudPaper>
 }
