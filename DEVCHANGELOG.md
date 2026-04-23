@@ -5,6 +5,84 @@ For reviewing work item by item and moving anything back to [TODO.md](TODO.md) i
 
 ---
 
+## 2026-04-23 — FEAT-H1 grace period wired + Node Properties FloatingPanel
+
+### Commit: 6bd8b70 · 2026-04-23 · branch: develop
+
+---
+
+### Item 1 — FEAT-H1: `WithUnsubscribeGracePeriod` added to `MqttCacheBuilder` (PSTT submodule)
+
+**File:** `libs/PSTT/src/PSTT.Mqtt/MqttCacheBuilder.cs`
+
+`MqttCacheBuilder<TValue>` lacked a `WithUnsubscribeGracePeriod()` fluent method (the lower-level
+`CacheBuilder<TKey,TValue>` had one, but MQTT builder did not delegate it). Added:
+
+```csharp
+public MqttCacheBuilder<TValue> WithUnsubscribeGracePeriod(TimeSpan period)
+{
+    _dsConfig.UnsubscribeGracePeriod = period;
+    return this;
+}
+```
+
+PSTT submodule commit `252e55a` placed on `develop` branch (was briefly orphaned in detached HEAD —
+recovered via `git reset --hard 252e55a` while on `develop`).
+
+---
+
+### Item 2 — FEAT-H1: grace period wired in Dashboard DI registration
+
+**File:** `src/PSTT.Dashboard.Server/Extensions/ServiceCollectionExtensions.cs`
+
+Added `.WithUnsubscribeGracePeriod(TimeSpan.FromSeconds(30))` to both:
+- `MqttCacheBuilder` build chain (server-side MQTT→cache, prevents broker subscription churn on
+  circuit reconnect)
+- Scoped Blazor-circuit `CacheBuilder` (prevents downstream wildcard re-subscription churn when a
+  circuit briefly drops and re-connects)
+
+---
+
+### Item 3 — Node Properties as FloatingPanel (modeless dialog)
+
+**Files changed:**
+- `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor`
+- `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor.cs`
+- `src/PSTT.Dashboard.Client/Pages/Display.razor`
+- `src/PSTT.Dashboard.Client/Pages/Display.razor.cs`
+
+**Problem:** Node Properties was a blocking `MudDialog` modal. It appeared under the Data Explorer
+floating panel and blocked all interaction while open.
+
+**Fix:** Converted to a `FloatingPanel` embedded in `Display.razor`, same pattern as Data Explorer.
+
+**NodePropertyEditor changes:**
+- Removed `<MudDialog>/<DialogContent>/<DialogActions>` wrapper; now a plain `<div>` with a footer
+  `<div>` for Save/Cancel buttons
+- Removed `[CascadingParameter] IMudDialogInstance?` — no longer dialog-hosted
+- Added `[Parameter] EventCallback OnSaved` and `[Parameter] EventCallback OnClose`
+- Changed `OnInitialized` → `OnParametersSet` so the editor re-initialises when `_propertiesNode`
+  changes (user selects different node while panel stays open)
+- Snapshot fields `_savedWidth/_savedHeight/_savedFontSize` allow Cancel to revert changes
+- `Save()` applies + invokes `OnSaved`; `Cancel()` reverts snapshot + invokes `OnClose`
+
+**Display.razor changes:**
+- Added `<FloatingPanel Title="Node Properties – {NodeType}" Resizable="true">` containing
+  `<NodePropertyEditor>`, gated on `_isPropertiesOpen && _propertiesNode != null`
+- `InitialLeft="300" InitialTop="140"` avoids overlap with Add Node panel
+- Title includes node type → separate localStorage position per node type
+
+**Display.razor.cs changes:**
+- Added `_isPropertiesOpen` (bool) and `_propertiesNode` (TextNodeModel?) fields
+- `EditNodeProperties()` is now synchronous (was async `ShowAsync`)
+- Added `OnNodePropertiesSaved()` and `ClosePropertiesPanel()` helpers
+- Fixed `_onMenuEditProperties` lambda (was async, now sync)
+
+⚠️ The FloatingPanel X-button closes without reverting (Cancel revert only via Cancel button) —
+this matches DataExplorer behavior and is acceptable.
+
+---
+
 ## 2026-04-27 — Fix TreeView `#` root topic
 
 ### Commits: (pending) · branch: develop

@@ -10,22 +10,15 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
       is nicer so treeview widget should in fact use the one in data explorer
 - [ ] data explorer
 	- [ ] tooltips from dashboard buttons for data explore is centred under the button BUT that means right hand edge is off screen
-	- [ ] tooltips on data explorer buttons appear BEHIND the explorer window itself and thus unreadbale
-	- [ ] the button icon is the dashboards app icon ... this is data not the dashboard so we need a diff tree view mini icon (nice idea though!)
-- [ ] node properties dialog appears under data explorer--modal dialogs should be right on top of everything
-      OR node properties shoul dbe floting modeless window like explorer and add node
 
 
 ## 🟡 Minor Enhancements
 
 - [ ] data explorer
 	- [ ] drag drop topics to widget on the dash board to add to their data
-	- [ ] can explorer dialog be resizeable using mouse
-	- [ ] can position and size be remembered
 - [ ] add node
 	- [ ] drag a new node onto canvas
 - [ ] should some base class for all modeless floating dialogs be created to include these features?
-	- [ ] node properties could be a 3rd instance of this (with a new button on the mini toolbar)
 	- [ ] maybe dashboard properties windows also
 	- [ ] i.e. all these editing dialogs
 - [ ] Can we have a "sidebar" on right (very much like node-red) where all these editing dialogs
@@ -57,9 +50,6 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 	- [ ] Use MudTabs and related controls for displaying. MudTabs has a different model...every page is rendered inside tab component BUT maybe there's a way to use index of selected tab to render it outside MudTabs component?
 	- [ ] Position option for tabs: top/left/right/bottom in dashboard properties
 	- [ ] Drag to reorder pages when in edit mode. MudTabs would support this but need setting noticed and saved.
-- [ ] Node properties dialog
-	- [ ] Can this dialog be moveable and have apply button to changes dynamically without closing
-
 - [ ] Log viewer columns: choices for date (and format), time (and format), topic path, topic name, topic full path&name, value — **Full 6-column boolean options done**; date/time format options still open
 - [ ] log viewer colum width seems to change depending on value string length...shoul dbe fixed and full width
       plus if possible column width shul dbe changeable via mouse and saved in properies
@@ -118,14 +108,9 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] Split panel type controls to divide up work area into resizable sections
 - [ ] Nodes can have width/height of 100% (or "dock" options as in previous vb and win forms)
 
-### FEAT-H: Data layer refactor _(Phases 1–4 complete — see CHANGELOG)_
-- [ ] Lazy cache/Grace period: if last client unsubscribes from a topic, keep the server-side broker subscription alive for a configurable delay (e.g. 30 s) before actually unsubscribing from the broker — avoids churn if a circuit reconnect
-      -- This is impleented in PSTT.Data not in dashboard, dashboatrd just uses it
-	  -- It would likely be a feature added in builder stage with configurable timeout
-- [ ] In dashbaord it would be enable on each cache that is downstream of a slow/network upstream i.e.
-      - on mqttcache
-	  - on remoteclient cache in wasm config that connects to remote server over signalr
-- [ ] PSTT.Dashboard could expose a remote server listener (confirbale port) with our proprietory tcp protocl.
+### FEAT-H: Data layer refactor _(Phases 1–4 + lazy-unsubscribe grace period complete — see CHANGELOG)_
+- [ ] Remote client cache (WASM SignalR client): enable grace period so short reconnects don't cause wildcard re-subscription churn
+- [ ] PSTT.Dashboard could expose a remote server listener (configurable port) with our proprietary tcp protocol.
 - [ ] Then create a simple (windows) app using tree view control to make a request and show content
 	  -- in fact this would be data exporer in an app (without buttons and edit mode features)
 - [ ] Also create command line apps, similar to mosquitto_pub and sub that could be used to

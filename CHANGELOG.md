@@ -7,6 +7,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **Node Properties as FloatingPanel**: Node Properties is now a modeless floating panel (drag,
+  resize, persist position/size via localStorage) instead of a blocking modal dialog. The panel
+  can stay open while navigating the canvas; Cancel reverts size/font changes; the X button closes
+  without reverting. Position is persisted per node-type across reloads.
+- **FEAT-H1 lazy-unsubscribe grace period wired into Dashboard**: `MqttCacheBuilder` (PSTT) now
+  exposes `WithUnsubscribeGracePeriod()`; both the MQTT cache and the scoped Blazor-circuit cache
+  are configured with a 30-second grace period. Broker and bridge subscriptions survive short
+  circuit reconnects without re-subscribing.
+
 ### Fixed
 - **TreeView widget `#` root topic** shows all available data. Previously, setting the root
   topic to `#` yielded an empty tree — the widget was reading from the dashboard's scoped
