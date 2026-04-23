@@ -7,8 +7,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **TreeView widget `#` root topic** shows all available data. Previously, setting the root
+  topic to `#` yielded an empty tree — the widget was reading from the dashboard's scoped
+  `BridgedDataCache` which (per MQTT §4.7.2) never matches `$`-prefixed system topics via `#`.
+  Now, when the root topic is the global wildcard, the widget reads directly from `DataCache`
+  (the full broker namespace).
+
 ### Changed
-- **PSTT data layer — sentinel tag replaces `TTag` generic**: `InvokeCallback`, `OnInvokeCallback`,
+- **PSTT data layer — sentinel tag replaces `TTag` generic**:`InvokeCallback`, `OnInvokeCallback`,
   and the upstream-publish helper now use `object?` instead of a generic `TTag` type parameter.
   `CacheItemWithWildcards` uses a private static sentinel object and `ReferenceEquals` to suppress
   tree walks — no pattern match, no boxing, cleaner method signatures throughout.

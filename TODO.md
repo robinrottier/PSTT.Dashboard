@@ -6,8 +6,7 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 ## BUGS
 
-- [ ] TReeview control - added # as data topic and nothing displayed at all
-- [ ] does the treeview use the same widget/control as the tree view sidget itself? Current data explorer
+- [ ] does the treeview use the same widget/control as the tree view widget itself? Current data explorer
       is nicer so treeview widget should in fact use the one in data explorer
 - [ ] data explorer
 	- [ ] tooltips from dashboard buttons for data explore is centred under the button BUT that means right hand edge is off screen

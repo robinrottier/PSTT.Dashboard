@@ -5,6 +5,41 @@ For reviewing work item by item and moving anything back to [TODO.md](TODO.md) i
 
 ---
 
+## 2026-04-27 — Fix TreeView `#` root topic
+
+### Commits: (pending) · branch: develop
+
+### Problem
+
+Setting a TreeView widget's root topic to `#` (show everything) resulted in an empty tree. Two reasons:
+
+1. `TreeViewNodeWidget.SetupWatchers` was subscribing via `AppState.BridgedDataCache`, whose `_local` layer
+   only contains topics that passed through the configured bridge patterns. `BridgeCache._local` is a
+   `CacheWithWildcards` with no upstream — its contents are the dashboard's scoped subset, not the full
+   broker namespace.
+2. `MqttWildcardMatcher.Matches("#", "$DASHBOARD/UPTIME")` returns `false` per MQTT §4.7.2 (`#` doesn't
+   match `$`-prefixed topics), so even if there were data in `_local`, `Subscribe("#", …)` would never fire
+   for any `$DASHBOARD/…` key.
+
+### Fix (`Widgets/TreeViewNodeWidget.razor`)
+
+When `isGlobal == true` (i.e. root topic is `#`), use `AppState.DataCache` (the full
+`CacheWithWildcards` containing all broker topics) instead of `AppState.BridgedDataCache`.
+
+Added `@using PSTT.Data` to get `ICache<TKey,TValue>` in scope. Variable `cache` is now `ICache<string,string>`,
+assigned to either `AppState.DataCache` or `AppState.BridgedDataCache` based on `isGlobal`. Both
+`GetSnapshot()` and the wildcard `Subscribe()` call use the same `cache` reference.
+
+Non-global topics (a specific root prefix) continue to use `BridgedDataCache` — scoped behaviour unchanged.
+
+### Result
+
+- Build: 0 errors, 0 warnings
+- All 83 tests pass
+- TreeView widget with `#` root topic now populates from the full cache snapshot on mount and updates on each MQTT message
+
+---
+
 ## 2026-04-26 — Sentinel tag replaces TTag generic in InvokeCallback
 
 ### Commits: 41ce69f (PSTT submodule) · branch: develop
