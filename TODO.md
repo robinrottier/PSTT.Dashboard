@@ -6,7 +6,36 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 ## BUGS
 
+- [ ] TReeview control - added # as data topic and nothing displayed at all
+- [ ] does the treeview use the same widget/control as the tree view sidget itself? Current data explorer
+      is nicer so treeview widget should in fact use the one in data explorer
+- [ ] data explorer
+	- [ ] tooltips from dashboard buttons for data explore is centred under the button BUT that means right hand edge is off screen
+	- [ ] tooltips on data explorer buttons appear BEHIND the explorer window itself and thus unreadbale
+	- [ ] the button icon is the dashboards app icon ... this is data not the dashboard so we need a diff tree view mini icon (nice idea though!)
+- [ ] node properties dialog appears under data explorer--modal dialogs should be right on top of everything
+      OR node properties shoul dbe floting modeless window like explorer and add node
+
+
 ## 🟡 Minor Enhancements
+
+- [ ] data explorer
+	- [ ] drag drop topics to widget on the dash board to add to their data
+	- [ ] can explorer dialog be resizeable using mouse
+	- [ ] can position and size be remembered
+- [ ] add node
+	- [ ] drag a new node onto canvas
+- [ ] should some base class for all modeless floating dialogs be created to include these features?
+	- [ ] node properties could be a 3rd instance of this (with a new button on the mini toolbar)
+	- [ ] maybe dashboard properties windows also
+	- [ ] i.e. all these editing dialogs
+- [ ] Can we have a "sidebar" on right (very much like node-red) where all these editing dialogs
+      live
+	  - [ ] selected by a mini tab bar
+	  - [ ] whole thing is shown/hidden via single button
+	  - [ ] how you edit things on right on canvas if this panel is expandned is another question...needs a horiz scroll bar
+	  - [ ] thing becomes very extendable
+
 
 - [ ] release.ps1
 	- [ ] Can the captured output be scrolled to UI on a single line so user sees something happening during the build process? Currently it just looks like nothing is happening for a long time until the build finishes and then the tail of the output is shown.
@@ -15,6 +44,8 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 	- [ ] dep check at menu could also transitively resolve (e.g. selecting `tag` + `changelog` without `version` — currently only direct deps are added)
 - [ ] Need a way to share dashboards between installations (and dev). Can the API be opened up with a read/write interface to other isntallations via https??
 	- [ ] Then in "OPen" and "Save As" dialogs we could choose destaniotn respository: local file or remote dashboard repo (with list of dashboards to choose from)
+	- [ ] Maybe the app has a oncifigurable http listener on a new port that can be expoed to internet and allows read/write
+	      and other instances can connect to that to share dashboard
 - [ ] Serialization:
 	- [ ] logged-on user not yet written to `FileInfo` (always admin for now — fine to leave)
 	- [ ] should include version of this app doing the write, and server written from
@@ -31,6 +62,9 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 	- [ ] Can this dialog be moveable and have apply button to changes dynamically without closing
 
 - [ ] Log viewer columns: choices for date (and format), time (and format), topic path, topic name, topic full path&name, value — **Full 6-column boolean options done**; date/time format options still open
+- [ ] log viewer colum width seems to change depending on value string length...shoul dbe fixed and full width
+      plus if possible column width shul dbe changeable via mouse and saved in properies
+
 - [ ] IMport and Export dont seem to be able to see Windows clipboard ... is there some permissions to enable it? This was on firefox
 
 - [ ] Serialization: node ID GUIDs in file — map to sequential 1-based IDs for file (need port+link ID remapping too). Needs a json serilaizer class for Dashboard to manage the mapping.
@@ -72,7 +106,6 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] Data explorer dialog -- tree view of all available data
 	- [ ] drag a data item to an existing node to add it to that node
 	- [ ] can this dialog be resizeable and remember is position
-	- [ ] Can there be mutliple topics (just like in node properties) or a comma sep list might be easier.
 
 ### FEAT-F: Link improvements
 - [ ] Links as proper model objects with a properties editor: color, thickness, dash style
@@ -80,7 +113,6 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] Data-driven link styling — color/intensity driven by a topic value
 - [ ] Draggable Bezier control points
 - [ ] Fork/junction points between links
-
 ### FEAT-G: Grouping / layout containers
 - [ ] "Group" box — labeled background rectangle that visually wraps related nodes
 - [ ] Moving a group moves all contained nodes
@@ -88,14 +120,18 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] Nodes can have width/height of 100% (or "dock" options as in previous vb and win forms)
 
 ### FEAT-H: Data layer refactor _(Phases 1–4 complete — see CHANGELOG)_
-- [ ] Lazy cache/Grace period: if last client unsubscribes from a topic, keep the server-side broker subscription alive for a configurable delay (e.g. 30 s) before actually unsubscribing from the broker — avoids churn if a circuit reconnects ✅ done
-
-**Phase X — Plugin / alternate data sources**
-- [ ] Extend plugin architecture for data sources beyond MQTT
-	- [ ] Built-in integrations: REST APIs, WebSockets, Home Assistant local API, Emoncms feeds and time-series
-	- [ ] Mock data generator server implementation (useful for testing / demo without a broker)
-	- [ ] Finance market plugin (e..g Yaho finance?)
-- [ ] Admin configures available plugins; nodes select source and configure connection
+- [ ] Lazy cache/Grace period: if last client unsubscribes from a topic, keep the server-side broker subscription alive for a configurable delay (e.g. 30 s) before actually unsubscribing from the broker — avoids churn if a circuit reconnect
+      -- This is impleented in PSTT.Data not in dashboard, dashboatrd just uses it
+	  -- It would likely be a feature added in builder stage with configurable timeout
+- [ ] In dashbaord it would be enable on each cache that is downstream of a slow/network upstream i.e.
+      - on mqttcache
+	  - on remoteclient cache in wasm config that connects to remote server over signalr
+- [ ] PSTT.Dashboard could expose a remote server listener (confirbale port) with our proprietory tcp protocl.
+- [ ] Then create a simple (windows) app using tree view control to make a request and show content
+	  -- in fact this would be data exporer in an app (without buttons and edit mode features)
+- [ ] Also create command line apps, similar to mosquitto_pub and sub that could be used to
+      publish data into the remote server cache off a Dashboard instance, or query the cache
+	  - these would be in PSTT (data) not in dashboard as no dependency on that repo, jst useful debug tools
 
 ### FEAT-I: Responsive / mobile layout
 - [ ] Responsive layout adapts to screen size
@@ -135,6 +171,23 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] The Latest version check checks for tags ... but the actual Docker image may not be available for some time after a tag is pushed. Can it check actual images in ghcr?
 - [ ] Option to follow release-only stream or latest beta stream of pre-releases
 - [ ] How would we revert to a previous version if an update proved bad?
+
+### FEAT-O: PLugin data enhaancments
+
+- [ ] Extensible plugin architecture for data sources beyond MQTT
+	- [ ] Build integrations for:
+		- [ ] REST APIs
+		- [ ] WebSockets
+		- [ ] Home Assistant local API,
+		- [ ] Emoncms feeds and time-series
+		- [ ] Yahoo finance
+		- [ ] Public Waether APIs
+		- [ ] Publis solar forecast APIs
+		- [ ] 
+	- [ ] Mock data generator server implementation (useful for testing / demo without a broker)
+	- [ ] Finance market plugin (e..g Yaho finance?)
+- [ ] Admin configures available plugins; nodes select source and configure connection
+
 
 
 ---
