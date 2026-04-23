@@ -4,7 +4,7 @@
 
 @if (IsOpen)
 {
-    <div id="@_panelId" style="@ContainerStyle">
+    <div id="@_panelId" style="@ContainerStyle" @onkeydown:stopPropagation @onmousedown="OnPanelMouseDown">
         <MudPaper Elevation="8" Style="@PaperStyle">
             <div class="fp-header" @onmousedown="OnHeaderMouseDown" @onmousedown:preventDefault>
                 <span class="fp-title">@Title</span>
@@ -63,8 +63,11 @@
     private string PersistKey => "fp." + Title.ToLowerInvariant()
         .Replace(" ", "-").Replace("/", "-");
 
+    private static int _globalZ = 2000;
+    private int _zIndex = 2000;
+
     private string ContainerStyle =>
-        $"position:fixed;left:{_left}px;top:{_top}px;z-index:2000;min-width:{MinWidth}px;" +
+        $"position:fixed;left:{_left}px;top:{_top}px;z-index:{_zIndex};min-width:{MinWidth}px;" +
         (_width  > 0 ? $"width:{_width}px;"   : "") +
         (_height > 0 && Resizable ? $"height:{_height}px;" : "");
 
@@ -81,8 +84,9 @@
         _height = InitialHeight;
     }
 
-    private async Task OnHeaderMouseDown(MouseEventArgs e)
-    {
+    private void OnPanelMouseDown() => _zIndex = ++_globalZ;
+
+    private async Task OnHeaderMouseDown(MouseEventArgs e)    {
         if (e.Button != 0) return; // left button only
         _dotNetRef ??= DotNetObjectReference.Create(this);
         await JS.InvokeVoidAsync("FloatingPanel.startDrag", _panelId, (int)e.ClientX, (int)e.ClientY, _dotNetRef);
@@ -100,6 +104,7 @@
         if (IsOpen && !_initialized)
         {
             _initialized = true;
+            _zIndex = ++_globalZ; // bring to front when first opened
             try
             {
                 if (Resizable)

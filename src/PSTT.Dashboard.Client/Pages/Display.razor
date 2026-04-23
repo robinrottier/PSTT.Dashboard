@@ -29,13 +29,16 @@ else
                 {
                     @if (_renamingPageIndex == idx)
                     {
+                        <div @onkeydown:stopPropagation>
                         <MudTextField @bind-Value="_renameValue"
                                       Variant="Variant.Outlined"
                                       Margin="Margin.Dense"
+                                      Immediate="true"
                                       Style="min-width:80px;max-width:150px;font-size:0.8rem;"
-                                      onblur="@(() => CommitRename(idx))"
+                                      @onblur="@(async () => await CommitRename(idx))"
                                       @onkeydown="@(async e => { if (e.Key == "Enter") await CommitRename(idx); else if (e.Key == "Escape") _renamingPageIndex = -1; })"
                                       AutoFocus="true" />
+                        </div>
                     }
                     else
                     {

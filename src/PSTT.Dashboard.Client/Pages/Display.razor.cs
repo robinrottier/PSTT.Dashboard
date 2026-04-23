@@ -544,6 +544,15 @@ public partial class Display : IDisposable
         _pendingDirtyMark = false;
         _ = InvokeAsync(() => _pendingDirtyMark = false);
         UpdateSelectionState();
+
+        // Keep Node Properties panel in sync with the current selection.
+        if (_diagram != null)
+        {
+            var selectedNodes = _diagram.GetSelectedModels().OfType<TextNodeModel>().ToList();
+            if (selectedNodes.Count == 1)
+                _propertiesNode = selectedNodes[0];
+        }
+
         InvokeAsync(StateHasChanged);
     }
 
@@ -871,6 +880,7 @@ public partial class Display : IDisposable
 
     private async Task CommitRename(int index)
     {
+        if (_renamingPageIndex != index) return; // already committed or cancelled
         _renamingPageIndex = -1;
         await RenamePageAsync(index, _renameValue);
     }

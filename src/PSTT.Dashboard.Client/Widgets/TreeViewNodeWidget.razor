@@ -87,10 +87,8 @@
         var isGlobal = IsGlobalWildcard(RootTopicValue);
         var prefix = isGlobal ? null : RootTopicValue.TrimEnd('/') + "/";
 
-        // For the global '#' root topic, use the source DataCache directly so all
-        // available MQTT data is visible regardless of the dashboard's bridge scope.
-        // For all other topics, use BridgedDataCache (dashboard-scoped view).
-        var cache = isGlobal ? AppState.DataCache : (ICache<string, string>)AppState.BridgedDataCache;
+        // Always use BridgedDataCache (dashboard-scoped view), same as Data Explorer.
+        var cache = (ICache<string, string>)AppState.BridgedDataCache;
 
         foreach (var kv in cache.GetSnapshot())
         {
