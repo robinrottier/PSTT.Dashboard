@@ -8,11 +8,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Changed
-- **PSTT data layer — `InvokeCallback` tag refactoring**: Replaced the `bool fireTreeWalk` parameter
-  with an opaque `TTag` generic tag that the base `Cache` class passes through blindly to
-  `OnInvokeCallback`. `CacheItemWithWildcards` sets and interprets the tag (suppress tree walk when
-  `false`, fire tree walk for `null` or `true`). Standard `PublishAsync` overloads pass a `null` tag
-  so wildcard delivery continues to work correctly for locally-published values.
+- **PSTT data layer — sentinel tag replaces `TTag` generic**: `InvokeCallback`, `OnInvokeCallback`,
+  and the upstream-publish helper now use `object?` instead of a generic `TTag` type parameter.
+  `CacheItemWithWildcards` uses a private static sentinel object and `ReferenceEquals` to suppress
+  tree walks — no pattern match, no boxing, cleaner method signatures throughout.
 
 ## [v0.1.4] - 2026-04-23
 

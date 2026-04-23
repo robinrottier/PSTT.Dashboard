@@ -5,6 +5,32 @@ For reviewing work item by item and moving anything back to [TODO.md](TODO.md) i
 
 ---
 
+## 2026-04-26 — Sentinel tag replaces TTag generic in InvokeCallback
+
+### Commits: 41ce69f (PSTT submodule) · branch: develop
+
+### Context
+
+Follow-up to the `TTag` refactoring. The generic added `<TTag>` noise to every method signature
+and call site, and the `is bool fireTreeWalk` pattern match required a runtime type test + unboxing
+on every invocation. Replaced with `object?` + a private sentinel.
+
+### Changes (`src/PSTT.Data/Cache.cs` + `CacheWithWildcards.cs`)
+
+- `InvokeCallback<TTag>`, `OnInvokeCallback<TTag>`, `PublishAsync<TTag>` all become non-generic,
+  using `object?` for the tag parameter — standard virtual dispatch, simpler override signatures
+- `CacheItemWithWildcards` gains `private static readonly object _suppressTreeWalkTag = new()`
+- `OnInvokeCallback` checks `ReferenceEquals(tag, _suppressTreeWalkTag)` — no cast, no boxing
+- `UpstreamCallbackWildcards`: SupportsWildcards=true passes `_suppressTreeWalkTag` (suppress);
+  SupportsWildcards=false passes `null` (same as a normal local publish, tree walk fires)
+- All three standard `PublishAsync` overloads call `InvokeCallback(null, null, ct)` — null tag
+
+### Result
+
+266/266 PSTT.Data.Tests pass.
+
+---
+
 ## 2026-04-26 — `InvokeCallback` tag refactoring (fix two bugs)
 
 ### Commits: f23a28b (PSTT submodule) · branch: develop
