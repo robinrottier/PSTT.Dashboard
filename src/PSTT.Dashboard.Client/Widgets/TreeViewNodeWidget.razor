@@ -3,6 +3,7 @@
 @using PSTT.Dashboard.Components
 @using Blazor.Diagrams.Components.Renderers
 @using PSTT.Data
+@using System.Collections.Concurrent
 @inherits BaseNodeWidget<TreeViewNodeModel>
 
 <div style="@ContainerStyle()"
@@ -44,8 +45,8 @@
     private List<TopicNode> _topicTree = [];
     private readonly HashSet<string> _expandedPaths = new();
     private readonly HashSet<string> _highlightedTopics = new();
-    private readonly Dictionary<string, DateTime> _changedAt = new();
-    private readonly Dictionary<string, string?> _values = new();
+    private readonly ConcurrentDictionary<string, DateTime> _changedAt = new();
+    private readonly ConcurrentDictionary<string, string?> _values = new();
     private bool _disposed;
     private IDisposable? _watchSubscription;
     private IDisposable? _rootWatchSubscription;
@@ -78,6 +79,7 @@
         _watchSubscription?.Dispose(); _watchSubscription = null;
         _rootWatchSubscription?.Dispose(); _rootWatchSubscription = null;
         _values.Clear();
+        _changedAt.Clear();
         _expandedPaths.Clear();
 
         if (string.IsNullOrEmpty(RootTopicValue)) { _topicTree = []; return; }
