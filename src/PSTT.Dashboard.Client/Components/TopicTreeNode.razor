@@ -18,21 +18,21 @@
             {
                 @if (HasSelectedNode && SelectedNodeTopics != null && SelectedNodeTopics.Contains(Node.FullTopic))
                 {
-                    <MudTooltip Text="Already assigned">
+                    <MudTooltip Text="Already assigned" Placement="Placement.Left">
                         <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small"
                                  Color="Color.Success" Style="font-size:14px;flex-shrink:0;" />
                     </MudTooltip>
                 }
                 else
                 {
-                    <MudTooltip Text="@(HasSelectedNode ? "Assign to selected node" : "Assign to selected node — No item selected")">
+                    <MudTooltip Text="@(HasSelectedNode ? "Assign to selected node" : "Assign to selected node — No item selected")" Placement="Placement.Left">
                         <MudIconButton Icon="@Icons.Material.Filled.AddLink" Size="Size.Small"
                                        Style="padding:0;width:20px;height:20px;flex-shrink:0;"
                                        Disabled="@(!HasSelectedNode)"
                                        OnClick="@(() => OnTopicAssigned.InvokeAsync(Node.FullTopic))" />
                     </MudTooltip>
                 }
-                <MudTooltip Text="Create new node with this topic">
+                <MudTooltip Text="Create new node with this topic" Placement="Placement.Left">
                     <MudIconButton Icon="@Icons.Material.Filled.AddBox" Size="Size.Small"
                                    Style="padding:0;width:20px;height:20px;flex-shrink:0;"
                                    OnClick="@(() => OnCreateNodeWithTopic.InvokeAsync(Node.FullTopic))" />
