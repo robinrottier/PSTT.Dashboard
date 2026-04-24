@@ -6,14 +6,14 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 ## BUGS
 
-- [ ] does the treeview use the same widget/control as the tree view widget itself? Current data explorer
-      is nicer so treeview widget should in fact use the one in data explorer
-- [ ] data explorer
-	- [ ] tooltips from dashboard buttons for data explore is centred under the button BUT that means right hand edge is off screen
-
+- [ ] floating properties dialog needs to respond to currently selected item and show its properties
+	  -- if no item or multi-item then I guess its blank or greyed somehow
 
 ## 🟡 Minor Enhancements
 
+- [ ] when exiting edit mode with changes the "discard or save" alert should have checkbox
+      option to auto =save in the future and not show this prompt again -- thats saved as an option and turned off
+	  in menu for users who want to turn it back on
 - [ ] data explorer
 	- [ ] drag drop topics to widget on the dash board to add to their data
 - [ ] add node
@@ -28,28 +28,32 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 	  - [ ] how you edit things on right on canvas if this panel is expandned is another question...needs a horiz scroll bar
 	  - [ ] thing becomes very extendable
 
-
 - [ ] release.ps1
 	- [ ] Can the captured output be scrolled to UI on a single line so user sees something happening during the build process? Currently it just looks like nothing is happening for a long time until the build finishes and then the tail of the output is shown.
     - [ ] if a step is stuck on a command prompt for input can anything be done to detect that and abort or prompt user?
 	- [ ] detailed output review on failure — "Show detailed" option at failure prompt to re-display full captured output (beyond the 50-line tail shown automatically)
 	- [ ] dep check at menu could also transitively resolve (e.g. selecting `tag` + `changelog` without `version` — currently only direct deps are added)
+
 - [ ] Need a way to share dashboards between installations (and dev). Can the API be opened up with a read/write interface to other isntallations via https??
 	- [ ] Then in "OPen" and "Save As" dialogs we could choose destaniotn respository: local file or remote dashboard repo (with list of dashboards to choose from)
 	- [ ] Maybe the app has a oncifigurable http listener on a new port that can be expoed to internet and allows read/write
 	      and other instances can connect to that to share dashboard
+
 - [ ] Serialization:
 	- [ ] logged-on user not yet written to `FileInfo` (always admin for now — fine to leave)
 	- [ ] should include version of this app doing the write, and server written from
 
 - [ ] Node Property dialog - color transition
 	- [ ] Needs a means to drag reordering around the conditions to specify which is first match
+
 - [ ] Data item topics per node
 	- [ ] "Link animation" needs a property for index of which data item to animate upon
+
 - [ ] Page tabs
 	- [ ] Use MudTabs and related controls for displaying. MudTabs has a different model...every page is rendered inside tab component BUT maybe there's a way to use index of selected tab to render it outside MudTabs component?
 	- [ ] Position option for tabs: top/left/right/bottom in dashboard properties
 	- [ ] Drag to reorder pages when in edit mode. MudTabs would support this but need setting noticed and saved.
+
 - [ ] Log viewer columns: choices for date (and format), time (and format), topic path, topic name, topic full path&name, value — **Full 6-column boolean options done**; date/time format options still open
 - [ ] log viewer colum width seems to change depending on value string length...shoul dbe fixed and full width
       plus if possible column width shul dbe changeable via mouse and saved in properies
@@ -64,7 +68,6 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 ### FEAT-A: MQTT topic wildcards per node
 - [ ] Allow node `DataTopic` to use `#` / `+` wildcards (e.g. `home/sensors/#`)
 - [ ] In node text, use named substitution syntax like `{power}` where the key is the trailing topic segment
-- [ ] `MqttTopicSubscriptionManager` already handles wildcard routing server-side; extend client binding
 
 ### FEAT-B: MQTT data processing / calculated values
 - [ ] Support simple expressions/transforms on incoming values before display (unit conversion, arithmetic, string concat)
@@ -92,9 +95,8 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 	- [ ] drag onto the canvas and positioned without loosing the dialog
 - [ ] Keyboard funcionality:
 	- [ ] arrows to move selcted nodes
-- [ ] Data explorer dialog -- tree view of all available data
+- [ ] Data explorer dialog
 	- [ ] drag a data item to an existing node to add it to that node
-	- [ ] can this dialog be resizeable and remember is position
 
 ### FEAT-F: Link improvements
 - [ ] Links as proper model objects with a properties editor: color, thickness, dash style
@@ -102,6 +104,7 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] Data-driven link styling — color/intensity driven by a topic value
 - [ ] Draggable Bezier control points
 - [ ] Fork/junction points between links
+
 ### FEAT-G: Grouping / layout containers
 - [ ] "Group" box — labeled background rectangle that visually wraps related nodes
 - [ ] Moving a group moves all contained nodes
@@ -109,7 +112,6 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] Nodes can have width/height of 100% (or "dock" options as in previous vb and win forms)
 
 ### FEAT-H: Data layer refactor _(Phases 1–4 + lazy-unsubscribe grace period complete — see CHANGELOG)_
-- [ ] Remote client cache (WASM SignalR client): enable grace period so short reconnects don't cause wildcard re-subscription churn
 - [ ] PSTT.Dashboard could expose a remote server listener (configurable port) with our proprietary tcp protocol.
 - [ ] Then create a simple (windows) app using tree view control to make a request and show content
 	  -- in fact this would be data exporer in an app (without buttons and edit mode features)
