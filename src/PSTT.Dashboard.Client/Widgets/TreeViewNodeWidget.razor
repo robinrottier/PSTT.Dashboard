@@ -9,7 +9,7 @@
 <div style="@ContainerStyle()"
      class=@("default-node treeview-node" + (Node.Group != null ? " grouped" : "") + (Node.Selected ? " selected" : ""))
      @ondblclick="OnDoubleClick">
-    <div style="display:flex;flex-direction:column;height:100%;overflow:hidden;min-width:0;">
+    <div style="display:flex;flex-direction:column;height:100%;width:100%;overflow:hidden;min-width:0;">
         @if (!string.IsNullOrEmpty(Node.Title))
         {
             <div style="font-size:0.75rem;font-weight:500;padding:2px 4px 0;">@Node.Title</div>
@@ -49,7 +49,7 @@
     private readonly ConcurrentDictionary<string, string?> _values = new();
     private bool _disposed;
     private IDisposable? _watchSubscription;
-    private IDisposable? _rootWatchSubscription;
+    //private IDisposable? _rootWatchSubscription;
     private System.Threading.Timer? _debounceTimer;
     private System.Threading.Timer? _highlightClearTimer;
 
@@ -76,44 +76,45 @@
 
     private void SetupWatchers()
     {
+        // "#" global wildcard easier to manage as a special case
+        var isGlobal = IsGlobalWildcard(RootTopicValue);
+        // get prefix to match with -- either empty for global, or root topic with trailing slash removed
+        var prefix = isGlobal ? "" : RootTopicValue.TrimEnd('#').Trim('+').TrimEnd('/') + "/";
+        var wildcardTopic = isGlobal ? "#" : prefix + "#";
+
+        // if we already have a sub and it matches...nothign to do
+        if (_watchSubscription != null
+         && _watchSubscription is ISubscription<string, string> sub
+         && sub.Key == wildcardTopic)
+            return;
+
         _watchSubscription?.Dispose(); _watchSubscription = null;
-        _rootWatchSubscription?.Dispose(); _rootWatchSubscription = null;
         _values.Clear();
         _changedAt.Clear();
         _expandedPaths.Clear();
 
         if (string.IsNullOrEmpty(RootTopicValue)) { _topicTree = []; return; }
 
-        var isGlobal = IsGlobalWildcard(RootTopicValue);
-        var prefix = isGlobal ? null : RootTopicValue.TrimEnd('/') + "/";
-
         // Always use BridgedDataCache (dashboard-scoped view), same as Data Explorer.
         var cache = (ICache<string, string>)AppState.BridgedDataCache;
 
+        // get a snapshot of cache and populate _values
+        // -- were doing our own mqtt pattern matching
+        // -- TODO: build this into data
         foreach (var kv in cache.GetSnapshot())
         {
-            if (isGlobal || kv.Key == RootTopicValue || (prefix != null && kv.Key.StartsWith(prefix)))
+            if ((isGlobal && !kv.Key.StartsWith("$") ) || kv.Key == RootTopicValue || (prefix != null && kv.Key.StartsWith(prefix)))
                 _values[kv.Key] = kv.Value;
         }
 
         RebuildTree();
         AutoExpandRoots();
 
-        var wildcardTopic = isGlobal ? RootTopicValue : (RootTopicValue.TrimEnd('/') + "/#");
         _watchSubscription = cache.Subscribe(wildcardTopic, async sub =>
         {
             if (sub.Status.IsPending) return;
             await OnTopicChangedAsync(sub.Key, sub.Value);
         });
-
-        if (!isGlobal)
-        {
-            _rootWatchSubscription = AppState.BridgedDataCache.Subscribe(RootTopicValue, async sub =>
-            {
-                if (sub.Status.IsPending) return;
-                await OnTopicChangedAsync(sub.Key, sub.Value);
-            });
-        }
     }
 
     private Task OnTopicChangedAsync(string topic, string? value)
@@ -214,7 +215,7 @@
         _debounceTimer?.Dispose();
         _highlightClearTimer?.Dispose();
         _watchSubscription?.Dispose();
-        _rootWatchSubscription?.Dispose();
+        //_rootWatchSubscription?.Dispose();
         base.Dispose();
     }
 }
