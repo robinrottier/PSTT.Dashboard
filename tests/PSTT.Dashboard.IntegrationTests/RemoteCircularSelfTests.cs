@@ -51,7 +51,7 @@ public class RemoteCircularSelfTests : IAsyncLifetime
         var saveResp = await _client!.PostAsJsonAsync("/api/dashboard/TestDash1", dashboard);
         Assert.True(saveResp.IsSuccessStatusCode, $"Failed to save locally: {saveResp.StatusCode}");
 
-        var localRead = await _client.GetFromJsonAsync<DashboardModel>("/api/dashboard/TestDash1");
+        var localRead = await _client!.GetFromJsonAsync<DashboardModel>("/api/dashboard/TestDash1");
         Assert.NotNull(localRead);
         Assert.Equal("LocalSave", localRead.Name);
     }
@@ -60,9 +60,9 @@ public class RemoteCircularSelfTests : IAsyncLifetime
     public async Task ListLocalDashboards()
     {
         await _client!.PostAsJsonAsync("/api/dashboard/List1", new DashboardModel { Name = "D1", Pages = new() });
-        await _client.PostAsJsonAsync("/api/dashboard/List2", new DashboardModel { Name = "D2", Pages = new() });
+        await _client!.PostAsJsonAsync("/api/dashboard/List2", new DashboardModel { Name = "D2", Pages = new() });
 
-        var list = await _client.GetFromJsonAsync<List<string>>("/api/dashboard/list");
+        var list = await _client!.GetFromJsonAsync<List<string>>("/api/dashboard/list");
         Assert.NotNull(list);
         Assert.Contains("List1", list);
         Assert.Contains("List2", list);
@@ -72,11 +72,11 @@ public class RemoteCircularSelfTests : IAsyncLifetime
     public async Task DeleteLocalDashboard()
     {
         await _client!.PostAsJsonAsync("/api/dashboard/DelTest", new DashboardModel { Name = "ToDelete", Pages = new() });
-        var delResp = await _client.DeleteAsync("/api/dashboard/DelTest");
+        var delResp = await _client!.DeleteAsync("/api/dashboard/DelTest");
         Assert.True(delResp.IsSuccessStatusCode, $"Failed to delete: {delResp.StatusCode}");
 
         // After delete, getting the dashboard should return 404
-        var getResp = await _client.GetAsync("/api/dashboard/DelTest");
+        var getResp = await _client!.GetAsync("/api/dashboard/DelTest");
         Assert.Equal(System.Net.HttpStatusCode.NotFound, getResp.StatusCode);
     }
 
