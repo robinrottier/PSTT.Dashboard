@@ -9,12 +9,12 @@
         <MudText Typo="Typo.h6">Save Dashboard As</MudText>
     </TitleContent>
     <DialogContent>
-        <MudStack Spacing="3">
+        <MudStack Spacing="2">
             <!-- Destination source -->
             @if (_remoteRepos.Count > 0)
             {
                 <MudSelect T="string" Value="_destination" Label="Destination" Variant="Variant.Outlined" Dense="true"
-                           ValueChanged="OnDestinationChanged">
+                           ValueChanged="OnDestinationChanged" Margin="Margin.Dense">
                     <MudSelectItem T="string" Value="@("local")">Local</MudSelectItem>
                     @foreach (var repo in _remoteRepos)
                     {
@@ -23,23 +23,28 @@
                 </MudSelect>
             }
 
-            <!-- Existing names in destination -->
+            <!-- Name input -->
+            <MudTextField T="string" @bind-Value="_name" Label="Save As Dashboard Name" Variant="Variant.Outlined" Dense="true"
+                          FullWidth="true" AutoFocus="true" Margin="Margin.Dense" />
+
+            <!-- Existing names in destination as listbox -->
             @if (_existingNames.Count > 0)
             {
-                <div>
-                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Existing dashboards in destination:</MudText>
-                    <MudChipSet T="string">
-                        @foreach (var name in _existingNames)
-                        {
-                            <MudChip Text="@name" Variant="Variant.Outlined" Size="Size.Small" />
-                        }
-                    </MudChipSet>
+                <div style="display: flex; flex-direction: column; min-height: 0;">
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="margin-bottom: 4px;">Existing dashboards:</MudText>
+                    <div style="flex: 1; overflow-y: auto; border: 1px solid var(--mud-palette-lines-default); border-radius: 4px; background: var(--mud-palette-background);">
+                        <div style="min-height: calc(1.5em * 5 + 8px);">
+                            @foreach (var name in _existingNames)
+                            {
+                                <div style="padding: 6px 8px; cursor: pointer; border-bottom: 1px solid var(--mud-palette-lines-default); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.875rem;"
+                                     @onclick="@(() => _name = name)">
+                                    @name
+                                </div>
+                            }
+                        </div>
+                    </div>
                 </div>
             }
-
-            <!-- Name input -->
-            <MudTextField T="string" @bind-Value="_name" Label="Dashboard name" Variant="Variant.Outlined" Dense="true"
-                          FullWidth="true" AutoFocus="true" />
         </MudStack>
     </DialogContent>
     <DialogActions>
