@@ -77,20 +77,33 @@ public class RemoteController : ControllerBase
         if (baseUrl == null)
             return NotFound(new { error = $"Remote repository '{repoName}' not found." });
 
+        _logger.LogInformation("[RemoteController] Forwarding {Method} to {Repo}/{Path} with token", 
+            method, repoName, path);
+
         var client = CreateClient(baseUrl, token);
         try
         {
             HttpResponseMessage response;
             if (method == HttpMethod.Post)
             {
-                // Stream the request body through to the remote
-                var content = new StreamContent(Request.Body);
+                // Read the request body into memory to be able to send it to the remote
+                byte[] bodyBytes;
+                using (var memStream = new MemoryStream())
+                {
+                    await Request.Body.CopyToAsync(memStream, ct);
+                    bodyBytes = memStream.ToArray();
+                }
+                
+                var content = new ByteArrayContent(bodyBytes);
                 content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
                 response = await client.PostAsync(path, content, ct);
+                
+                _logger.LogInformation("[RemoteController] POST response: {StatusCode}", response.StatusCode);
             }
             else // DELETE
             {
                 response = await client.DeleteAsync(path, ct);
+                _logger.LogInformation("[RemoteController] DELETE response: {StatusCode}", response.StatusCode);
             }
 
             using (response)
@@ -116,8 +129,16 @@ public class RemoteController : ControllerBase
         client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
         client.Timeout = TimeSpan.FromSeconds(30);
         if (!string.IsNullOrEmpty(token))
+        {
             client.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            _logger.LogInformation("[RemoteController] Added Bearer token to client (first 8 chars: {Token}...", 
+                token.Substring(0, Math.Min(8, token.Length)));
+        }
+        else
+        {
+            _logger.LogWarning("[RemoteController] No token to add to client!");
+        }
         return client;
     }
 }

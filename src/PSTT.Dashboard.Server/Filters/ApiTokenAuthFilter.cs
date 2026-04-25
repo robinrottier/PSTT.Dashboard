@@ -42,7 +42,17 @@ public class ApiTokenAuthFilter : IActionFilter
             {
                 var token = authHeader["Bearer ".Length..].Trim();
                 if (token == storedToken)
+                {
                     return;
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"[ApiTokenAuthFilter] Token mismatch: expected '{storedToken.Substring(0, 8)}...', got '{token.Substring(0, Math.Min(8, token.Length))}...'");
+                }
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"[ApiTokenAuthFilter] No Bearer token in Authorization header. Header value: '{authHeader}'");
             }
         }
 
@@ -51,6 +61,7 @@ public class ApiTokenAuthFilter : IActionFilter
         if (!authEnabled && string.IsNullOrEmpty(storedToken))
             return;
 
+        System.Diagnostics.Debug.WriteLine($"[ApiTokenAuthFilter] Authorization failed for {context.HttpContext.Request.Method} {context.HttpContext.Request.Path}");
         context.Result = new UnauthorizedObjectResult(new { error = "Authentication required" });
     }
 
