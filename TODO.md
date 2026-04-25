@@ -6,27 +6,24 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 ## BUGS
 
-- [ ] floating properties dialog needs to respond to currently selected item and show its properties
-	  -- if no item or multi-item then I guess its blank or greyed somehow
+- [ ] TReeview widget
+	- [ ] expandion state default seems top node only ...it has a snap shot of data so shoudl be all nodes with grandchildren get initial expansion (same as explorer)
 
 ## 🟡 Minor Enhancements
 
 - [ ] when exiting edit mode with changes the "discard or save" alert should have checkbox
       option to auto =save in the future and not show this prompt again -- thats saved as an option and turned off
 	  in menu for users who want to turn it back on
-- [ ] data explorer
-	- [ ] drag drop topics to widget on the dash board to add to their data
-- [ ] add node
-	- [ ] drag a new node onto canvas
-- [ ] should some base class for all modeless floating dialogs be created to include these features?
-	- [ ] maybe dashboard properties windows also
-	- [ ] i.e. all these editing dialogs
-- [ ] Can we have a "sidebar" on right (very much like node-red) where all these editing dialogs
-      live
-	  - [ ] selected by a mini tab bar
-	  - [ ] whole thing is shown/hidden via single button
-	  - [ ] how you edit things on right on canvas if this panel is expandned is another question...needs a horiz scroll bar
-	  - [ ] thing becomes very extendable
+	  OPTION already exists in menu ..just need it seelctable on that discard prompt dialog also
+
+- [ ] floating properties dialog needs to respond to currently selected item and show its properties
+	  -- if no item or multi-item then I guess its blank or greyed somehow
+
+- [ ] TReeview widget
+	- [ ] expansion state is lost even when changing from one tab to next. Is there data persistence between tabs? maybe there shoul dbe. would it be expensive?
+	      Maybe its just some collection of persistent data in nodemodel and a widget decides whether to 
+		  include some member in that or not
+- [ ] OR generalizing that problem, maybe all pages are persistent in memory and just made visible / hidden as user navigates?
 
 - [ ] release.ps1
 	- [ ] Can the captured output be scrolled to UI on a single line so user sees something happening during the build process? Currently it just looks like nothing is happening for a long time until the build finishes and then the tail of the output is shown.
@@ -34,13 +31,23 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 	- [ ] detailed output review on failure — "Show detailed" option at failure prompt to re-display full captured output (beyond the 50-line tail shown automatically)
 	- [ ] dep check at menu could also transitively resolve (e.g. selecting `tag` + `changelog` without `version` — currently only direct deps are added)
 
-- [ ] Need a way to share dashboards between installations (and dev). Can the API be opened up with a read/write interface to other isntallations via https??
-	- [ ] Then in "OPen" and "Save As" dialogs we could choose destaniotn respository: local file or remote dashboard repo (with list of dashboards to choose from)
+- [ ] Need a way to share dashboards between installations (and dev)
+	- [ ] Can the server API be opened up with a read/write interface to other isntallations via https??
 	- [ ] Maybe the app has a oncifigurable http listener on a new port that can be expoed to internet and allows read/write
 	      and other instances can connect to that to share dashboard
+	- [ ] The "remote" repositories would be a list (o, 1 or more) configured in settings.
+		- [ ] Each would have a display name and a url
+		- [ ] Need to think about some sort of authtication for this if its going to be open to the internet -- maybe a simple token-based auth that can be generated on the server and copied to other instances that want to connect?
+		- [ ] How is it configured oer site? Currently all config is in docker compose ..but this is getting complicated, so
+		      maybe there shoul dbe a local settings file copied into the docker image at build time that has some of these settings that can be edited without needing to rebuild the image?
+	- [ ] Then in "OPen" and "Save As" dialogs we could choose destaniotn respository from a drop down llist:
+		- local file or remote dashboard repo by name
+		- with list of dashboards to choose from then display (so API need a "dir" like method too)
+		- Save As shoul dshow list of current files name on target (currently it just lets you enter new name)
 
 - [ ] Serialization:
 	- [ ] logged-on user not yet written to `FileInfo` (always admin for now — fine to leave)
+	- [ ] ALSO server where written from (especially if we have remote sharing) and version of app doing the write would be good to have in the file info for debugging purposes
 	- [ ] should include version of this app doing the write, and server written from
 
 - [ ] Node Property dialog - color transition
@@ -91,12 +98,19 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] Page reordering (drag tabs)
 
 ### FEAT-E: Editing improvements
-- [ ] Add node dialog
+- [ ] View zoom/unzoom option and scroll bars for panning view.
+- [ ] Add node panel
 	- [ ] drag onto the canvas and positioned without loosing the dialog
 - [ ] Keyboard funcionality:
 	- [ ] arrows to move selcted nodes
-- [ ] Data explorer dialog
+- [ ] Data explorer panel
 	- [ ] drag a data item to an existing node to add it to that node
+- [ ] all the edit mode panels could be a tabbed super panel with a tab for each of these functions (add node, edit node, data explorer, page properties, dashboard properties, etc)
+	- [ ] similar to current floating panels but also could be "docked" to right hand side of screen
+	- [ ] that is resizeable (and saves size and position and dock state i,e. floating or ocked)
+	- [ ] and when in edit mode this panel is shown by default but can be hidden to give more canvas space, and then shown again when needed
+	- [ ] whole thing is shown/hidden via single button
+	- [ ] thing becomes very extendable
 
 ### FEAT-F: Link improvements
 - [ ] Links as proper model objects with a properties editor: color, thickness, dash style
@@ -111,7 +125,7 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] Split panel type controls to divide up work area into resizable sections
 - [ ] Nodes can have width/height of 100% (or "dock" options as in previous vb and win forms)
 
-### FEAT-H: Data layer refactor _(Phases 1–4 + lazy-unsubscribe grace period complete — see CHANGELOG)_
+### FEAT-H: Data layer refactor
 - [ ] PSTT.Dashboard could expose a remote server listener (configurable port) with our proprietary tcp protocol.
 - [ ] Then create a simple (windows) app using tree view control to make a request and show content
 	  -- in fact this would be data exporer in an app (without buttons and edit mode features)
@@ -159,7 +173,6 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] How would we revert to a previous version if an update proved bad?
 
 ### FEAT-O: PLugin data enhaancments
-
 - [ ] Extensible plugin architecture for data sources beyond MQTT
 	- [ ] Build integrations for:
 		- [ ] REST APIs
