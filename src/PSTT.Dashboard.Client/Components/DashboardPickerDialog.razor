@@ -1,8 +1,8 @@
 @using MudBlazor
 @using PSTT.Dashboard.Services
 @using PSTT.Dashboard.Models
-@inject IDashboardService DashboardService
-@inject IDialogService DialogService
+@inject PSTT.Dashboard.Services.IDashboardService DashboardService
+@inject MudBlazor.IDialogService DialogService
 
 <MudDialog>
     <TitleContent>
@@ -15,7 +15,7 @@
             {
                 <MudSelect T="string" Value="_selectedSource" Label="Source" Variant="Variant.Outlined" Dense="true"
                            ValueChanged="OnSourceChanged">
-                    <MudSelectItem T="string" Value="@(\"local\")">Local</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("local")">Local</MudSelectItem>
                     @foreach (var repo in _remoteRepos)
                     {
                         <MudSelectItem T="string" Value="@repo.Name">@repo.Name</MudSelectItem>

@@ -141,8 +141,8 @@
         try
         {
             var resp = await Http.PostAsJsonAsync<object>("/api/settings/remote-access/token/regenerate", new { });
-            var content = await resp.Content.ReadAsAsync<TokenResponse>();
-            _token = content.Token;
+            var content = await resp.Content.ReadFromJsonAsync<TokenResponse>();
+            _token = content?.Token ?? string.Empty;
         }
         catch { }
         finally
