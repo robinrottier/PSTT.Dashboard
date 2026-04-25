@@ -1,8 +1,11 @@
 @using MudBlazor
 @using PSTT.Dashboard.Models
 @using PSTT.Dashboard.Services
+@using Microsoft.Extensions.Logging
 @inject PSTT.Dashboard.Services.IDashboardService DashboardService
 @inject MudBlazor.IDialogService DialogService
+@inject HttpClient Http
+@inject ILogger<SaveAsDialog> Logger
 
 <MudDialog>
     <TitleContent>
@@ -45,6 +48,12 @@
                     </div>
                 </div>
             }
+
+            <!-- Error message if loading failed -->
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <MudAlert Severity="Severity.Error">@_errorMessage</MudAlert>
+            }
         </MudStack>
     </DialogContent>
     <DialogActions>
@@ -63,6 +72,7 @@
     private string _destination = "local";
     private List<RemoteRepoInfo> _remoteRepos = [];
     private List<string> _existingNames = [];
+    private string _errorMessage = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -74,26 +84,33 @@
     private async Task OnDestinationChanged(string dest)
     {
         _destination = dest;
+        _errorMessage = string.Empty;
         await RefreshExistingNames();
     }
 
     private async Task RefreshExistingNames()
     {
         _existingNames = [];
-        if (_destination == "local")
+        try
         {
-            _existingNames = await DashboardService.ListDashboardsAsync();
-        }
-        else
-        {
-            var repo = _remoteRepos.FirstOrDefault(r => r.Name == _destination);
-            if (repo != null)
+            if (_destination == "local")
             {
-                var service = new RemoteProxyDashboardService(
-                    new HttpClient { BaseAddress = new Uri("http://localhost/") },
-                    repo.Name);
-                _existingNames = await service.ListDashboardsAsync();
+                _existingNames = await DashboardService.ListDashboardsAsync();
             }
+            else
+            {
+                var repo = _remoteRepos.FirstOrDefault(r => r.Name == _destination);
+                if (repo != null)
+                {
+                    var service = new RemoteProxyDashboardService(Http, repo.Name);
+                    _existingNames = await service.ListDashboardsAsync();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load dashboard list for destination {Destination}", _destination);
+            _errorMessage = $"Failed to load dashboards: {ex.Message}";
         }
         StateHasChanged();
     }

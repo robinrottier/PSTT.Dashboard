@@ -33,7 +33,7 @@ public class RemoteProxyDashboardService : IDashboardService
     {
         try
         {
-            return await _httpClient.GetFromJsonAsync<List<string>>($"api/remote/{Uri.EscapeDataString(_repoName)}/list") ?? [];
+            return await _httpClient.GetFromJsonAsync<List<string>>($"/api/remote/{Uri.EscapeDataString(_repoName)}/list") ?? [];
         }
         catch (Exception ex)
         {
@@ -47,7 +47,7 @@ public class RemoteProxyDashboardService : IDashboardService
         try
         {
             return await _httpClient.GetFromJsonAsync<DashboardModel>(
-                $"api/remote/{Uri.EscapeDataString(_repoName)}/{Uri.EscapeDataString(name)}");
+                $"/api/remote/{Uri.EscapeDataString(_repoName)}/{Uri.EscapeDataString(name)}");
         }
         catch (Exception ex)
         {
@@ -67,7 +67,7 @@ public class RemoteProxyDashboardService : IDashboardService
         {
             _logger?.LogInformation("Saving dashboard '{Name}' to remote '{RepoName}'", name, _repoName);
             var response = await _httpClient.PostAsJsonAsync(
-                $"api/remote/{Uri.EscapeDataString(_repoName)}/{Uri.EscapeDataString(name)}", dashboard);
+                $"/api/remote/{Uri.EscapeDataString(_repoName)}/{Uri.EscapeDataString(name)}", dashboard);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
@@ -81,8 +81,9 @@ public class RemoteProxyDashboardService : IDashboardService
     {
         try
         {
+            _logger?.LogInformation("Deleting dashboard '{Name}' from remote '{RepoName}'", name, _repoName);
             var response = await _httpClient.DeleteAsync(
-                $"api/remote/{Uri.EscapeDataString(_repoName)}/{Uri.EscapeDataString(name)}");
+                $"/api/remote/{Uri.EscapeDataString(_repoName)}/{Uri.EscapeDataString(name)}");
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
