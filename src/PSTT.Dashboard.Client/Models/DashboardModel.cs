@@ -28,6 +28,8 @@ public class DashboardFileInfo
 {
     public string WrittenAt { get; set; } = string.Empty;
     public string? Filename { get; set; }
+    public string? AppVersion { get; set; }
+    public string? WrittenByServer { get; set; }
 }
 
 // ── Node data hierarchy (polymorphic) ─────────────────────────────────────────

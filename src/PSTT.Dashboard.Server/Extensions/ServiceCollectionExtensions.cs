@@ -65,12 +65,14 @@ public static class ServiceCollectionExtensions
         // ── Dashboard services ────────────────────────────────────────────────
 
         services.AddSingleton<DashboardStorageService>();
+        services.AddSingleton<UserSettingsService>();
         services.AddSingleton<LoginTokenStore>();
         services.AddHttpContextAccessor();
         services.AddScoped<HttpClient>(sp => CreateLoopbackHttpClient(sp));
         services.AddScoped<IDashboardService, ServerDashboardService>();
         services.AddScoped<IAuthService, ServerAuthService>();
         services.AddScoped<RequireAdminFilter>();
+        services.AddScoped<ApiTokenAuthFilter>();
 
         services.AddHttpClient("UpdateCheck");
         services.AddSingleton<UpdateCheckService>();

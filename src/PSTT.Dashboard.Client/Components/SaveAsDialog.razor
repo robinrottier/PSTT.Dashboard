@@ -1,0 +1,98 @@
+@using MudBlazor
+@using PSTT.Dashboard.Models
+@inject IDashboardService DashboardService
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Save Dashboard As</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <!-- Destination source -->
+            @if (_remoteRepos.Count > 0)
+            {
+                <MudSelect T="string" Value="_destination" Label="Destination" Variant="Variant.Outlined" Dense="true"
+                           ValueChanged="OnDestinationChanged">
+                    <MudSelectItem T="string" Value="@(\"local\")">Local</MudSelectItem>
+                    @foreach (var repo in _remoteRepos)
+                    {
+                        <MudSelectItem T="string" Value="@repo.Name">@repo.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            }
+
+            <!-- Existing names in destination -->
+            @if (_existingNames.Count > 0)
+            {
+                <div>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Existing dashboards in destination:</MudText>
+                    <MudChipSet>
+                        @foreach (var name in _existingNames)
+                        {
+                            <MudChip Text="@name" Variant="Variant.Outlined" Size="Size.Small" />
+                        }
+                    </MudChipSet>
+                </div>
+            }
+
+            <!-- Name input -->
+            <MudTextField T="string" @bind-Value="_name" Label="Dashboard name" Variant="Variant.Outlined" Dense="true"
+                          FullWidth="true" AutoFocus="true" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Submit"
+                   Disabled="@(string.IsNullOrWhiteSpace(_name))">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string InitialName { get; set; } = string.Empty;
+    [Parameter] public List<RemoteRepoInfo> RemoteRepos { get; set; } = [];
+
+    private string _name = string.Empty;
+    private string _destination = "local";
+    private List<RemoteRepoInfo> _remoteRepos = [];
+    private List<string> _existingNames = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _remoteRepos = RemoteRepos;
+        _name = InitialName;
+        await RefreshExistingNames();
+    }
+
+    private async Task OnDestinationChanged(string dest)
+    {
+        _destination = dest;
+        await RefreshExistingNames();
+    }
+
+    private async Task RefreshExistingNames()
+    {
+        _existingNames = [];
+        if (_destination == "local")
+        {
+            _existingNames = await DashboardService.ListDashboardsAsync();
+        }
+        else
+        {
+            var repo = _remoteRepos.FirstOrDefault(r => r.Name == _destination);
+            if (repo != null)
+            {
+                var service = new RemoteProxyDashboardService(
+                    new HttpClient { BaseAddress = new Uri("http://localhost/") },
+                    repo.Name);
+                _existingNames = await service.ListDashboardsAsync();
+            }
+        }
+        StateHasChanged();
+    }
+
+    private void Submit() => 
+        MudDialog.Close(DialogResult.Ok((_destination, _name.Trim())));
+
+    private void Cancel() => MudDialog.Cancel();
+}

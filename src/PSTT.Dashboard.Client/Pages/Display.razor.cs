@@ -708,6 +708,30 @@ public partial class Display : IDisposable
         });
     }
 
+    private async Task<List<RemoteRepoInfo>> FetchRemoteRepos()
+    {
+        try
+        {
+            return await Http.GetFromJsonAsync<List<RemoteRepoInfo>>("/api/settings/remote-repos") ?? [];
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private IDashboardService GetServiceForDestination(string destination, List<RemoteRepoInfo> remoteRepos)
+    {
+        if (destination == "local")
+            return DashboardService;
+
+        var repo = remoteRepos.FirstOrDefault(r => r.Name == destination);
+        if (repo != null)
+            return new RemoteProxyDashboardService(Http, repo.Name);
+
+        return DashboardService; // fallback
+    }
+
     private async Task ReloadDiagram()
     {
         if (AppState.IsEdited)
@@ -1177,41 +1201,45 @@ public partial class Display : IDisposable
 
     private async Task SaveAsDiagram()
     {
-        var parameters = new DialogParameters<SimpleInputDialog>
+        var remoteRepos = await FetchRemoteRepos();
+        var initialName = AppState.DashboardName;
+        
+        var parameters = new DialogParameters<SaveAsDialog>
         {
-            { d => d.Title, "Save Dashboard As" },
-            { d => d.Label, "Dashboard name" },
-            { d => d.Value, AppState.DashboardName }
+            { d => d.InitialName, initialName },
+            { d => d.RemoteRepos, remoteRepos }
         };
-        // Use a slightly larger, centered dialog for Open (was ExtraSmall/full-width which appeared narrow/left-aligned in some browsers)
         var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = false, CloseButton = true };
-        var dialog = await DialogService.ShowAsync<SimpleInputDialog>("Save As", parameters, options);
+        var dialog = await DialogService.ShowAsync<SaveAsDialog>("Save Dashboard As", parameters, options);
         var result = await dialog.Result;
-        if (result is { Canceled: false, Data: string name } && !string.IsNullOrWhiteSpace(name))
+        
+        if (result is not { Canceled: false, Data: (string destination, string name) } || string.IsNullOrWhiteSpace(name))
+            return;
+
+        // Check for existing file and confirm overwrite
+        var service = GetServiceForDestination(destination, remoteRepos);
+        var existing = await service.ListDashboardsAsync();
+        if (existing.Any(n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase)))
         {
-            // Check for existing file and confirm overwrite
-            var existing = await DashboardService.ListDashboardsAsync();
-            if (existing.Any(n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase)))
-            {
-                var overwrite = await DialogService.ShowMessageBoxAsync(
-                    "Overwrite?",
-                    $"A dashboard named '{name}' already exists. Overwrite it?",
-                    yesText: "Overwrite", cancelText: "Cancel");
-                if (overwrite != true) return;
-            }
-            var state = BuildFullState();
-            var success = await DashboardService.SaveDashboardByNameAsync(name, state);
-            if (success)
-            {
-                AppState.SetDiagramName(name);
-                AppState.MarkSaved();
-                await SaveLastDiagramName(name);
-                Snackbar.Add($"Saved as '{name}'", Severity.Success);
-            }
-            else
-            {
-                Snackbar.Add("Failed to save dashboard", Severity.Error);
-            }
+            var overwrite = await DialogService.ShowMessageBoxAsync(
+                "Overwrite?",
+                $"A dashboard named '{name}' already exists. Overwrite it?",
+                yesText: "Overwrite", cancelText: "Cancel");
+            if (overwrite != true) return;
+        }
+
+        var state = BuildFullState();
+        var success = await service.SaveDashboardByNameAsync(name, state);
+        if (success)
+        {
+            AppState.SetDiagramName(name);
+            AppState.MarkSaved();
+            await SaveLastDiagramName(name);
+            Snackbar.Add($"Saved as '{name}'", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Failed to save dashboard", Severity.Error);
         }
     }
 
@@ -1222,56 +1250,62 @@ public partial class Display : IDisposable
             bool confirmed = await ConfirmDiscardChanges("Open dashboard");
             if (!confirmed) return;
         }
+
+        var remoteRepos = await FetchRemoteRepos();
         var names = await DashboardService.ListDashboardsAsync();
-        if (names.Count == 0)
+        
+        if (names.Count == 0 && remoteRepos.Count == 0)
         {
             Snackbar.Add("No saved dashboards found", Severity.Warning);
             return;
         }
+
         var parameters = new DialogParameters<DashboardPickerDialog>
         {
-            { d => d.DashboardNames, names }
+            { d => d.DashboardNames, names },
+            { d => d.RemoteRepos, remoteRepos }
         };
-        // Use a slightly larger, centered dialog for Open so it appears centered across browsers
         var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = false, CloseButton = true };
         var dialog = await DialogService.ShowAsync<DashboardPickerDialog>("Open Dashboard", parameters, options);
         var result = await dialog.Result;
-        if (result is { Canceled: false, Data: string name } && !string.IsNullOrWhiteSpace(name))
+        
+        if (result is not { Canceled: false, Data: (string source, string name) } || string.IsNullOrWhiteSpace(name))
+            return;
+
+        var service = GetServiceForDestination(source, remoteRepos);
+        var state = await service.LoadDashboardByNameAsync(name);
+        if (state != null)
         {
-            var state = await DashboardService.LoadDashboardByNameAsync(name);
-            if (state != null)
+            AppState.ClearUndoRedo();
+            var prevTopics = AppState.SubscribedTopics.ToHashSet();
+            if (AppState.IsEditMode)
             {
-                AppState.ClearUndoRedo();
-                var prevTopics = AppState.SubscribedTopics.ToHashSet();
-                if (AppState.IsEditMode)
-                {
-                    _diagram?.SelectionChanged -= OnSelectionChanged;
-                    _diagram?.Changed -= OnDiagramChanged;
-                    UnsubscribeEditEvents();
-                }
-                LoadFullState(state, readOnly: !AppState.IsEditMode);
-                await SyncSubscriptionsAsync(prevTopics, AppState.SubscribedTopics);
-                if (AppState.IsEditMode && _diagram != null)
-                {
-                    _diagram.SelectionChanged += OnSelectionChanged;
-                    _diagram.Changed += OnDiagramChanged;
-                    SubscribeEditEvents();
-                    UpdateSelectionState();
-                }
-                AppState.SetDiagramName(name);
-                AppState.MarkSaved();
-                await SaveLastDiagramName(name);
-                var nodeCount = state.Pages.Sum(p => p.Nodes.Count);
-                Snackbar.Add($"Opened '{name}' ({nodeCount} nodes)", Severity.Info);
-                StateHasChanged();
-                await Task.Delay(100);
-                RefreshAll();
-                StateHasChanged();
+                _diagram?.SelectionChanged -= OnSelectionChanged;
+                _diagram?.Changed -= OnDiagramChanged;
+                UnsubscribeEditEvents();
             }
-            else
+            LoadFullState(state, readOnly: !AppState.IsEditMode);
+            await SyncSubscriptionsAsync(prevTopics, AppState.SubscribedTopics);
+            if (AppState.IsEditMode && _diagram != null)
             {
-                Snackbar.Add($"Failed to load '{name}'", Severity.Error);
+                _diagram.SelectionChanged += OnSelectionChanged;
+                _diagram.Changed += OnDiagramChanged;
+                SubscribeEditEvents();
+                UpdateSelectionState();
             }
+            AppState.SetDiagramName(name);
+            AppState.MarkSaved();
+            await SaveLastDiagramName(name);
+            var nodeCount = state.Pages.Sum(p => p.Nodes.Count);
+            Snackbar.Add($"Opened '{name}' ({nodeCount} nodes)", Severity.Info);
+            StateHasChanged();
+            await Task.Delay(100);
+            RefreshAll();
+            StateHasChanged();
+        }
+        else
+        {
+            Snackbar.Add($"Failed to load '{name}'", Severity.Error);
         }
     }
 

@@ -1,0 +1,204 @@
+@using MudBlazor
+@using PSTT.Dashboard.Models
+@inject HttpClient Http
+@inject IDialogService DialogService
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Remote Repositories</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <!-- API Token section -->
+            <div>
+                <MudText Typo="Typo.subtitle2" Class="mb-2">Incoming API Token</MudText>
+                <MudPaper Class="pa-3" Elevation="1">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudTextField T="string" @bind-Value="_token" ReadOnly="true" Dense="true" 
+                                      Style="flex-grow:1" Variant="Variant.Outlined" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" 
+                                   OnClick="CopyToken" Disabled="_copying">
+                            @(_copying ? "Copied!" : "Copy")
+                        </MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Warning" Size="Size.Small" 
+                                   OnClick="RegenerateToken" Disabled="_loading">
+                            Regenerate
+                        </MudButton>
+                    </MudStack>
+                    @if (_authWarning != null)
+                    {
+                        <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">@_authWarning</MudAlert>
+                    }
+                </MudPaper>
+            </div>
+
+            <!-- Existing remote repos -->
+            <div>
+                <MudText Typo="Typo.subtitle2" Class="mb-2">Configured Remote Repositories</MudText>
+                @if (_repos.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">No remote repositories configured</MudText>
+                }
+                else
+                {
+                    <MudList T="RemoteRepoInfo">
+                        @foreach (var repo in _repos)
+                        {
+                            <MudListItem T="RemoteRepoInfo" Value="repo">
+                                <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+                                    <MudStack>
+                                        <MudText Typo="Typo.body2"><strong>@repo.Name</strong></MudText>
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@repo.Url</MudText>
+                                    </MudStack>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                                   OnClick="@(() => RemoveRepo(repo.Name))" />
+                                </div>
+                            </MudListItem>
+                        }
+                    </MudList>
+                }
+            </div>
+
+            <!-- Add new remote repo -->
+            <div>
+                <MudText Typo="Typo.subtitle2" Class="mb-2">Add Remote Repository</MudText>
+                <MudStack Spacing="2">
+                    <MudTextField T="string" @bind-Value="_newName" Label="Name" Variant="Variant.Outlined" Dense="true" />
+                    <MudTextField T="string" @bind-Value="_newUrl" Label="URL (https://...)" Variant="Variant.Outlined" Dense="true" />
+                    <MudTextField T="string" @bind-Value="_newToken" Label="API Token (from target server)" 
+                                  Variant="Variant.Outlined" Dense="true" InputType="InputType.Password" />
+                    @if (!string.IsNullOrEmpty(_addError))
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true">@_addError</MudAlert>
+                    }
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AddRepo" Disabled="_loading"
+                               FullWidth="true">
+                        @(_loading ? "Adding…" : "Add Repository")
+                    </MudButton>
+                </MudStack>
+            </div>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private string _token = string.Empty;
+    private List<RemoteRepoInfo> _repos = [];
+    private string? _authWarning;
+    private string _newName = string.Empty;
+    private string _newUrl = string.Empty;
+    private string _newToken = string.Empty;
+    private string? _addError;
+    private bool _loading;
+    private bool _copying;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadToken();
+        await LoadRepos();
+    }
+
+    private async Task LoadToken()
+    {
+        try
+        {
+            var resp = await Http.GetFromJsonAsync<TokenResponse>("/api/settings/remote-access/token");
+            _token = resp?.Token ?? string.Empty;
+            _authWarning = resp?.Warning;
+        }
+        catch { }
+    }
+
+    private async Task LoadRepos()
+    {
+        try
+        {
+            _repos = await Http.GetFromJsonAsync<List<RemoteRepoInfo>>("/api/settings/remote-repos") ?? [];
+        }
+        catch { }
+    }
+
+    private async Task CopyToken()
+    {
+        if (string.IsNullOrEmpty(_token)) return;
+        await DialogService.ShowMessageBoxAsync("Token", _token);
+        _copying = true;
+        StateHasChanged();
+        await Task.Delay(1500);
+        _copying = false;
+        StateHasChanged();
+    }
+
+    private async Task RegenerateToken()
+    {
+        _loading = true;
+        StateHasChanged();
+        try
+        {
+            var resp = await Http.PostAsJsonAsync<object>("/api/settings/remote-access/token/regenerate", new { });
+            var content = await resp.Content.ReadAsAsync<TokenResponse>();
+            _token = content.Token;
+        }
+        catch { }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task AddRepo()
+    {
+        _addError = null;
+        if (string.IsNullOrWhiteSpace(_newName)) { _addError = "Name required"; return; }
+        if (string.IsNullOrWhiteSpace(_newUrl)) { _addError = "URL required"; return; }
+        if (string.IsNullOrWhiteSpace(_newToken)) { _addError = "Token required"; return; }
+
+        _loading = true;
+        StateHasChanged();
+        try
+        {
+            var resp = await Http.PostAsJsonAsync("/api/settings/remote-repos",
+                new { name = _newName, url = _newUrl, apiToken = _newToken });
+            if (resp.IsSuccessStatusCode)
+            {
+                _newName = _newUrl = _newToken = string.Empty;
+                await LoadRepos();
+            }
+            else
+                _addError = $"Error (HTTP {resp.StatusCode})";
+        }
+        catch (Exception ex)
+        {
+            _addError = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RemoveRepo(string name)
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync("Remove",
+            $"Remove remote repository '{name}'?", yesText: "Remove", cancelText: "Cancel");
+        if (confirmed != true) return;
+
+        try
+        {
+            await Http.DeleteAsync($"/api/settings/remote-repos/{Uri.EscapeDataString(name)}");
+            await LoadRepos();
+        }
+        catch { }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private record TokenResponse(string Token, string? Warning);
+}

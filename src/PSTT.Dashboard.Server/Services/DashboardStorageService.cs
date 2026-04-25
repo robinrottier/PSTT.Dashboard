@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.Json;
 using PSTT.Dashboard.Models;
 using Microsoft.Extensions.Configuration;
@@ -14,6 +15,23 @@ public class DashboardStorageService
     private readonly SemaphoreSlim _lock = new(1, 1);
     private const string DiagramFileName = "Default.json";
     private const string LegacyDiagramFileName = "diagram.json";
+
+    private static readonly string _appVersion =
+        typeof(DashboardStorageService).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion ?? "unknown";
+
+    private static string Stamp(DashboardModel dashboard, string filename)
+    {
+        dashboard.FileInfo = new DashboardFileInfo
+        {
+            WrittenAt = DateTime.UtcNow.ToString("O"),
+            Filename = filename,
+            AppVersion = _appVersion,
+            WrittenByServer = Environment.MachineName,
+        };
+        return Path.GetFileNameWithoutExtension(filename);
+    }
 
     public string StoragePath => _storagePath;
     public string DashboardsPath => _dashboardsPath;
@@ -149,6 +167,7 @@ public class DashboardStorageService
         {
             try
             {
+                Stamp(dashboard, DiagramFileName);
                 var options = new JsonSerializerOptions
                 {
                     WriteIndented = true,
@@ -214,6 +233,7 @@ public class DashboardStorageService
         await _lock.WaitAsync();
         try
         {
+            Stamp(dashboard, $"{safeName}.json");
             var json = JsonSerializer.Serialize(dashboard, new JsonSerializerOptions
             {
                 WriteIndented = true,
