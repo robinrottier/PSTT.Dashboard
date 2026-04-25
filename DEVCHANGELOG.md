@@ -5,6 +5,48 @@ For reviewing work item by item and moving anything back to [TODO.md](TODO.md) i
 
 ---
 
+## 2026-04-24 — Remote sharing tests + token UI bugfix
+
+### Commit: a232bf8 · 2026-04-24 · branch: develop
+
+---
+
+### Item 1 — Integration Tests: Circular Remote Setup
+
+**File:** `tests/PSTT.Dashboard.IntegrationTests/RemoteCircularSelfTests.cs` (new)
+
+Created comprehensive integration tests for remote repository feature with a circular/self-referential setup (server acting as its own remote).
+
+**Tests:**
+- `SaveLocally_CanRead` — Verify local save with Bearer token authentication works
+- `ListLocalDashboards` — Verify local list endpoint with auth
+- `DeleteLocalDashboard` — Verify delete endpoint returns 404 after deletion
+- `RemoteRepoConfigurationStored` — Verify remote repo registration persists
+- `UnknownRemoteReturns404` — Verify 404 for non-existent remotes
+
+**Technical notes:**
+- Uses `IntegrationWebApplicationFactory` with temp data directory isolation
+- Token generation and Bearer auth header added to all requests
+- All 5 tests passing ✓
+- ⚠️ Full proxy forwarding tests (server making HTTP calls back to itself) require actual network connectivity and are not tested in-process due to test framework limitations
+
+**Why:** The user reported issues with circular remote setup (local instance pointing to itself). These tests validate the core infrastructure: token generation, registration, and authentication. Full end-to-end proxy testing would require a multi-process or network-accessible setup.
+
+---
+
+### Item 2 — Fixed Token Regeneration UI Bug (Prior Session)
+
+**File:** `src/PSTT.Dashboard.Client/Components/RemoteRepoSettingsDialog.razor`
+
+Fixed `RegenerateToken()` method (lines 137-153):
+- Changed `PostAsJsonAsync<object>()` to `PostAsJsonAsync()` (incorrect overload was being used)
+- Added `if (resp.IsSuccessStatusCode)` check before deserializing token response
+- StateHasChanged() already present in finally block, UI refreshes on successful regen
+
+**Why:** User reported clicking "Regenerate" button showed nothing in token text box. Root cause: response type mismatch and missing error handling.
+
+---
+
 ## 2026-04-23 — FEAT-H1 grace period wired + Node Properties FloatingPanel
 
 ### Commit: 6bd8b70 · 2026-04-23 · branch: develop

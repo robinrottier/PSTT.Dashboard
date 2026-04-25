@@ -8,6 +8,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Remote Dashboard Sharing** (MVP): Server can be configured to accept connections from other
+  PSTT.Dashboard instances via HTTPS. Access is protected by a generated API token. Remote repositories
+  can be registered in Settings → Remote Repositories. Dashboards can be opened from or saved to remote
+  instances via the Open/Save dialogs (coming soon). Each server generates an access token that can be
+  shared with other instances that wish to access its dashboards. Full proxy forwarding is transparent
+  to the browser (token never leaves the server).
+- **Serialization Metadata**: Dashboard file info now records:
+  - `AppVersion` — version of Dashboard app that saved the file
+  - `WrittenByServer` — hostname of the server that saved it
+  - `WrittenAt` — timestamp of save (previously unused)
+  - `Filename` — name of the file (previously unused)
 - **Node Properties as FloatingPanel**: Node Properties is now a modeless floating panel (drag,
   resize, persist position/size via localStorage) instead of a blocking modal dialog. The panel
   can stay open while navigating the canvas; Cancel reverts size/font changes; the X button closes
@@ -18,6 +29,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   circuit reconnects without re-subscribing.
 
 ### Fixed
+- **Remote token regeneration UI**: Clicking "Regenerate" in Remote Repositories settings now
+  correctly displays the new token. Previously, the button would respond but the token text would
+  not update.
 - **TreeView widget `#` root topic** shows all available data. Previously, setting the root
   topic to `#` yielded an empty tree — the widget was reading from the dashboard's scoped
   `BridgedDataCache` which (per MQTT §4.7.2) never matches `$`-prefixed system topics via `#`.

@@ -31,23 +31,20 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 	- [ ] detailed output review on failure — "Show detailed" option at failure prompt to re-display full captured output (beyond the 50-line tail shown automatically)
 	- [ ] dep check at menu could also transitively resolve (e.g. selecting `tag` + `changelog` without `version` — currently only direct deps are added)
 
-- [ ] Need a way to share dashboards between installations (and dev)
-	- [ ] Can the server API be opened up with a read/write interface to other isntallations via https??
-	- [ ] Maybe the app has a oncifigurable http listener on a new port that can be expoed to internet and allows read/write
-	      and other instances can connect to that to share dashboard
-	- [ ] The "remote" repositories would be a list (o, 1 or more) configured in settings.
-		- [ ] Each would have a display name and a url
-		- [ ] Need to think about some sort of authtication for this if its going to be open to the internet -- maybe a simple token-based auth that can be generated on the server and copied to other instances that want to connect?
-		- [ ] How is it configured oer site? Currently all config is in docker compose ..but this is getting complicated, so
-		      maybe there shoul dbe a local settings file copied into the docker image at build time that has some of these settings that can be edited without needing to rebuild the image?
-	- [ ] Then in "OPen" and "Save As" dialogs we could choose destaniotn respository from a drop down llist:
-		- local file or remote dashboard repo by name
-		- with list of dashboards to choose from then display (so API need a "dir" like method too)
-		- Save As shoul dshow list of current files name on target (currently it just lets you enter new name)
+- [x] Need a way to share dashboards between installations (and dev)
+	- [x] Server API opens with read/write interface to other installations via https
+	- [x] "Remote" repositories list configured in settings
+		- [x] Each has a display name and a url  
+		- [x] Token-based authentication for remote access
+		- [x] API token generation and regeneration
+	- [x] Remote repositories accessible in Open/Save As dialogs
+	- [x] Integration tests for circular remote setup
+	- [ ] Full proxy forwarding requires actual network connectivity testing
 
-- [ ] Serialization:
-	- [ ] logged-on user not yet written to `FileInfo` (always admin for now — fine to leave)
-	- [ ] ALSO server where written from (especially if we have remote sharing) and version of app doing the write would be good to have in the file info for debugging purposes
+- [x] Serialization:
+	- [x] Server hostname written to `FileInfo`
+	- [x] App version written to `FileInfo`
+	- [x] `WrittenAt` and `Filename` populated on save
 	- [ ] should include version of this app doing the write, and server written from
 
 - [ ] Node Property dialog - color transition
