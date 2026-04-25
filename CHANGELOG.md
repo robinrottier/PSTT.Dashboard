@@ -1,4 +1,4 @@
-﻿# Changelog
+# Changelog
 
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
@@ -28,6 +28,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   are configured with a 30-second grace period. Broker and bridge subscriptions survive short
   circuit reconnects without re-subscribing.
 
+- Fixed SaveAs dialog showing empty remote repositories list on first page load
+- Fixed remote file list not loading when selecting remote destination
+- Improved error feedback for failed remote dashboard operations
 ### Fixed
 - **Remote token regeneration UI**: Clicking "Regenerate" in Remote Repositories settings now
   correctly displays the new token. Previously, the button would respond but the token text would
@@ -454,3 +457,4 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [0.1.1] - initial tagged release
 
 _No changelog entry — this predates the changelog._
+

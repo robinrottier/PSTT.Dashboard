@@ -1,3 +1,65 @@
+## 2026-04-25 — SaveAs dialog UI initialization fixes
+
+### Commit: b1ec487 · 2026-04-25 · branch: develop
+
+---
+
+### Item 1 — SaveAs Dialog HttpClient Injection
+
+**File:** src/PSTT.Dashboard.Client/Components/SaveAsDialog.razor
+
+Fixed initialization issue where remote repositories list appeared empty on first page load but showed after F5 refresh.
+
+**Root cause:** SaveAsDialog was creating a new HttpClient instance with hardcoded BaseAddress = "http://localhost/" instead of using the dependency-injected HttpClient from the Blazor application context. This manual instantiation bypassed connection pooling and configuration.
+
+**Fix:** 
+- Added @inject HttpClient Http to SaveAsDialog
+- Pass injected Http to RemoteProxyDashboardService constructor
+- Removed manual 
+ew HttpClient { BaseAddress = ... } initialization
+
+**Why it matters:** The DI-injected HttpClient is properly configured for the Blazor runtime, handles relative URLs correctly, and integrates with the application's HTTP handler pipeline.
+
+---
+
+### Item 2 — RemoteProxyDashboardService URL Format
+
+**File:** src/PSPT.Dashboard.Client/Services/RemoteProxyDashboardService.cs
+
+Fixed file list not loading when selecting remote destination in SaveAs dialog.
+
+**Root cause:** API URLs were missing leading slash (e.g., pi/remote/{repo}/list instead of /api/remote/{repo}/list). In Blazor WASM context, relative URLs without leading slash are resolved relative to the current page, not the root.
+
+**Fix:** Updated all HTTP calls to use absolute paths with leading slash:
+- GetFromJsonAsync($"/api/remote/{repoName}/list")
+- GetFromJsonAsync($"/api/remote/{repoName}/{dashboardName}")
+- PostAsJsonAsync($"/api/remote/{repoName}/{dashboardName}", ...)
+- DeleteAsync($"/api/remote/{repoName}/{dashboardName}")
+
+---
+
+### Item 3 — Error Handling and User Feedback
+
+**File:** src/PSPT.Dashboard.Client/Components/SaveAsDialog.razor
+
+Added error handling and user-visible feedback for failed file list loads.
+
+**Changes:**
+- Added @inject ILogger<SaveAsDialog> Logger for error logging
+- Wrapped RefreshExistingNames() in try-catch
+- Added _errorMessage field to store error text
+- Added <MudAlert> to display error if file list load fails
+- Catch block logs full exception with context
+
+**User experience:** If remote file list fails to load (e.g., network error, 401, timeout), user sees error message in red alert instead of silent failure.
+
+---
+
+**Testing:** All 88 tests passing (5 Client + 9 Server + 66 Integration + 8 Playwright) ✓
+
+**Known remaining issues:** None identified in this session.
+
+---
 # Developer Changelog
 
 Detailed record of each Copilot-assisted work session — what was investigated, changed, and why.
@@ -3320,3 +3382,4 @@ Same issue exists for regular Undo/Redo if they ever snapshot a multi-page state
 
 _Entries above this line represent the Copilot-assisted development history for this project._
 _For release-level summaries see [CHANGELOG.md](CHANGELOG.md)._
+
