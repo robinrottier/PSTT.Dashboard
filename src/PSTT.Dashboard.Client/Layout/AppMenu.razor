@@ -219,6 +219,7 @@
             <MudDivider />
             <MudMenuItem OnClick='() => Nav.NavigateTo("/change-password")'>Change Password…</MudMenuItem>
             <MudMenuItem OnClick="ShowStartupSettings">Startup Settings…</MudMenuItem>
+            <MudMenuItem OnClick="ShowRemoteRepositories">Remote Repositories…</MudMenuItem>
         }
     </MudMenu>
 
@@ -246,6 +247,9 @@
         new DialogParameters(),
         new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true });
     private Task ShowStartupSettings() => DialogService.ShowAsync<StartupSettingsDialog>("Startup Settings");
+    private Task ShowRemoteRepositories() => DialogService.ShowAsync<RemoteRepoSettingsDialog>("Remote Repositories",
+        new DialogParameters(),
+        new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true });
 
     private void NewDiagram()         => AppState.TriggerNewDiagram();
     private void OpenDiagram()        => AppState.TriggerOpen();

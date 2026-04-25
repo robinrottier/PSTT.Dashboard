@@ -6,31 +6,62 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 ## BUGS
 
+- [ ] TReeview widget
+	- [ ] expandion state default seems top node only ...it has a snap shot of data so shoudl be all nodes with grandchildren get initial expansion (same as explorer)
+
 ## 🟡 Minor Enhancements
+
+- [ ] when exiting edit mode with changes the "discard or save" alert should have checkbox
+      option to auto =save in the future and not show this prompt again -- thats saved as an option and turned off
+	  in menu for users who want to turn it back on
+	  OPTION already exists in menu ..just need it seelctable on that discard prompt dialog also
+
+- [ ] floating properties dialog needs to respond to currently selected item and show its properties
+	  -- if no item or multi-item then I guess its blank or greyed somehow
+
+- [ ] TReeview widget
+	- [ ] expansion state is lost even when changing from one tab to next. Is there data persistence between tabs? maybe there shoul dbe. would it be expensive?
+	      Maybe its just some collection of persistent data in nodemodel and a widget decides whether to 
+		  include some member in that or not
+- [ ] OR generalizing that problem, maybe all pages are persistent in memory and just made visible / hidden as user navigates?
 
 - [ ] release.ps1
 	- [ ] Can the captured output be scrolled to UI on a single line so user sees something happening during the build process? Currently it just looks like nothing is happening for a long time until the build finishes and then the tail of the output is shown.
     - [ ] if a step is stuck on a command prompt for input can anything be done to detect that and abort or prompt user?
 	- [ ] detailed output review on failure — "Show detailed" option at failure prompt to re-display full captured output (beyond the 50-line tail shown automatically)
 	- [ ] dep check at menu could also transitively resolve (e.g. selecting `tag` + `changelog` without `version` — currently only direct deps are added)
-- [ ] Need a way to share dashboards between installations (and dev). Can the API be opened up with a read/write interface to other isntallations via https??
-	- [ ] Then in "OPen" and "Save As" dialogs we could choose destaniotn respository: local file or remote dashboard repo (with list of dashboards to choose from)
-- [ ] Serialization:
-	- [ ] logged-on user not yet written to `FileInfo` (always admin for now — fine to leave)
+
+- [x] Need a way to share dashboards between installations (and dev)
+	- [x] Server API opens with read/write interface to other installations via https
+	- [x] "Remote" repositories list configured in settings
+		- [x] Each has a display name and a url  
+		- [x] Token-based authentication for remote access
+		- [x] API token generation and regeneration
+	- [x] Remote repositories accessible in Open/Save As dialogs
+	- [x] Integration tests for circular remote setup
+	- [ ] Full proxy forwarding requires actual network connectivity testing
+
+- [x] Serialization:
+	- [x] Server hostname written to `FileInfo`
+	- [x] App version written to `FileInfo`
+	- [x] `WrittenAt` and `Filename` populated on save
 	- [ ] should include version of this app doing the write, and server written from
 
 - [ ] Node Property dialog - color transition
 	- [ ] Needs a means to drag reordering around the conditions to specify which is first match
+
 - [ ] Data item topics per node
 	- [ ] "Link animation" needs a property for index of which data item to animate upon
+
 - [ ] Page tabs
 	- [ ] Use MudTabs and related controls for displaying. MudTabs has a different model...every page is rendered inside tab component BUT maybe there's a way to use index of selected tab to render it outside MudTabs component?
 	- [ ] Position option for tabs: top/left/right/bottom in dashboard properties
 	- [ ] Drag to reorder pages when in edit mode. MudTabs would support this but need setting noticed and saved.
-- [ ] Node properties dialog
-	- [ ] Can this dialog be moveable and have apply button to changes dynamically without closing
 
 - [ ] Log viewer columns: choices for date (and format), time (and format), topic path, topic name, topic full path&name, value — **Full 6-column boolean options done**; date/time format options still open
+- [ ] log viewer colum width seems to change depending on value string length...shoul dbe fixed and full width
+      plus if possible column width shul dbe changeable via mouse and saved in properies
+
 - [ ] IMport and Export dont seem to be able to see Windows clipboard ... is there some permissions to enable it? This was on firefox
 
 - [ ] Serialization: node ID GUIDs in file — map to sequential 1-based IDs for file (need port+link ID remapping too). Needs a json serilaizer class for Dashboard to manage the mapping.
@@ -41,7 +72,6 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 ### FEAT-A: MQTT topic wildcards per node
 - [ ] Allow node `DataTopic` to use `#` / `+` wildcards (e.g. `home/sensors/#`)
 - [ ] In node text, use named substitution syntax like `{power}` where the key is the trailing topic segment
-- [ ] `MqttTopicSubscriptionManager` already handles wildcard routing server-side; extend client binding
 
 ### FEAT-B: MQTT data processing / calculated values
 - [ ] Support simple expressions/transforms on incoming values before display (unit conversion, arithmetic, string concat)
@@ -65,14 +95,19 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] Page reordering (drag tabs)
 
 ### FEAT-E: Editing improvements
-- [ ] Add node dialog
+- [ ] View zoom/unzoom option and scroll bars for panning view.
+- [ ] Add node panel
 	- [ ] drag onto the canvas and positioned without loosing the dialog
 - [ ] Keyboard funcionality:
 	- [ ] arrows to move selcted nodes
-- [ ] Data explorer dialog -- tree view of all available data
+- [ ] Data explorer panel
 	- [ ] drag a data item to an existing node to add it to that node
-	- [ ] can this dialog be resizeable and remember is position
-	- [ ] Can there be mutliple topics (just like in node properties) or a comma sep list might be easier.
+- [ ] all the edit mode panels could be a tabbed super panel with a tab for each of these functions (add node, edit node, data explorer, page properties, dashboard properties, etc)
+	- [ ] similar to current floating panels but also could be "docked" to right hand side of screen
+	- [ ] that is resizeable (and saves size and position and dock state i,e. floating or ocked)
+	- [ ] and when in edit mode this panel is shown by default but can be hidden to give more canvas space, and then shown again when needed
+	- [ ] whole thing is shown/hidden via single button
+	- [ ] thing becomes very extendable
 
 ### FEAT-F: Link improvements
 - [ ] Links as proper model objects with a properties editor: color, thickness, dash style
@@ -87,15 +122,13 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] Split panel type controls to divide up work area into resizable sections
 - [ ] Nodes can have width/height of 100% (or "dock" options as in previous vb and win forms)
 
-### FEAT-H: Data layer refactor _(Phases 1–4 complete — see CHANGELOG)_
-- [ ] Lazy cache/Grace period: if last client unsubscribes from a topic, keep the server-side broker subscription alive for a configurable delay (e.g. 30 s) before actually unsubscribing from the broker — avoids churn if a circuit reconnects ✅ done
-
-**Phase X — Plugin / alternate data sources**
-- [ ] Extend plugin architecture for data sources beyond MQTT
-	- [ ] Built-in integrations: REST APIs, WebSockets, Home Assistant local API, Emoncms feeds and time-series
-	- [ ] Mock data generator server implementation (useful for testing / demo without a broker)
-	- [ ] Finance market plugin (e..g Yaho finance?)
-- [ ] Admin configures available plugins; nodes select source and configure connection
+### FEAT-H: Data layer refactor
+- [ ] PSTT.Dashboard could expose a remote server listener (configurable port) with our proprietary tcp protocol.
+- [ ] Then create a simple (windows) app using tree view control to make a request and show content
+	  -- in fact this would be data exporer in an app (without buttons and edit mode features)
+- [ ] Also create command line apps, similar to mosquitto_pub and sub that could be used to
+      publish data into the remote server cache off a Dashboard instance, or query the cache
+	  - these would be in PSTT (data) not in dashboard as no dependency on that repo, jst useful debug tools
 
 ### FEAT-I: Responsive / mobile layout
 - [ ] Responsive layout adapts to screen size
@@ -135,6 +168,22 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] The Latest version check checks for tags ... but the actual Docker image may not be available for some time after a tag is pushed. Can it check actual images in ghcr?
 - [ ] Option to follow release-only stream or latest beta stream of pre-releases
 - [ ] How would we revert to a previous version if an update proved bad?
+
+### FEAT-O: PLugin data enhaancments
+- [ ] Extensible plugin architecture for data sources beyond MQTT
+	- [ ] Build integrations for:
+		- [ ] REST APIs
+		- [ ] WebSockets
+		- [ ] Home Assistant local API,
+		- [ ] Emoncms feeds and time-series
+		- [ ] Yahoo finance
+		- [ ] Public Waether APIs
+		- [ ] Publis solar forecast APIs
+		- [ ] 
+	- [ ] Mock data generator server implementation (useful for testing / demo without a broker)
+	- [ ] Finance market plugin (e..g Yaho finance?)
+- [ ] Admin configures available plugins; nodes select source and configure connection
+
 
 
 ---

@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using PSTT.Dashboard.Server.Services;
-using System.Text.Json;
+using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 
 namespace PSTT.Dashboard.Server.Controllers;
@@ -13,13 +13,15 @@ namespace PSTT.Dashboard.Server.Controllers;
 public class SettingsController : ControllerBase
 {
     private readonly IConfiguration _configuration;
-    private readonly DashboardStorageService _storage;
+    private readonly UserSettingsService _userSettings;
 
-    public SettingsController(IConfiguration configuration, DashboardStorageService storage)
+    public SettingsController(IConfiguration configuration, UserSettingsService userSettings)
     {
         _configuration = configuration;
-        _storage = storage;
+        _userSettings = userSettings;
     }
+
+    // ── Startup ───────────────────────────────────────────────────────────────
 
     /// <summary>Returns the system-wide startup dashboard configuration.</summary>
     [HttpGet("startup")]
@@ -30,36 +32,9 @@ public class SettingsController : ControllerBase
         return Ok(new { mode, dashboard });
     }
 
-    /// <summary>Returns system-wide app preferences.</summary>
-    [HttpGet("app")]
-    public IActionResult GetApp()
-    {
-        var autoSaveOnExit = _configuration.GetValue<bool>("App:AutoSaveOnExit", false);
-        return Ok(new { autoSaveOnExit });
-    }
-
-    /// <summary>Sets system-wide app preferences. Admin only.</summary>
-    [HttpPost("app")]
-    public IActionResult SetApp([FromBody] SetAppRequest request)
-    {
-        if (ReadOnlyHelper.IsReadOnly(_configuration, HttpContext))
-            return StatusCode(403, new { error = "Dashboard is in read-only mode." });
-
-        var authEnabled = !string.IsNullOrEmpty(_configuration["Auth:AdminPasswordHash"]);
-        if (authEnabled && User.Identity?.IsAuthenticated != true)
-            return Unauthorized(new { error = "Admin authentication required." });
-
-        SaveApp(request.AutoSaveOnExit);
-
-        if (_configuration is IConfigurationRoot configRoot)
-            configRoot.Reload();
-
-        return Ok(new { success = true });
-    }
-
     /// <summary>Sets the system-wide startup configuration. Admin only.</summary>
     [HttpPost("startup")]
-    public IActionResult SetStartup([FromBody] SetStartupRequest request)
+    public async Task<IActionResult> SetStartup([FromBody] SetStartupRequest request)
     {
         if (ReadOnlyHelper.IsReadOnly(_configuration, HttpContext))
             return StatusCode(403, new { error = "Dashboard is in read-only mode." });
@@ -72,58 +47,194 @@ public class SettingsController : ControllerBase
         if (!allowedModes.Contains(request.Mode, StringComparer.OrdinalIgnoreCase))
             return BadRequest(new { error = "Mode must be one of: LastUsed, SpecificFile, None" });
 
-        Save(request.Mode, request.Dashboard ?? string.Empty);
-
-        if (_configuration is IConfigurationRoot configRoot)
-            configRoot.Reload();
+        await _userSettings.UpdateAsync(root =>
+        {
+            root["Startup"] = new JsonObject
+            {
+                ["Mode"] = request.Mode,
+                ["Dashboard"] = request.Dashboard ?? string.Empty
+            };
+        });
 
         return Ok(new { success = true });
     }
 
-    private void Save(string mode, string dashboard)
+    // ── App preferences ───────────────────────────────────────────────────────
+
+    /// <summary>Returns system-wide app preferences.</summary>
+    [HttpGet("app")]
+    public IActionResult GetApp()
     {
-        var path = Path.Combine(_storage.StoragePath, "appsettings.user.json");
-        var root = ReadUserJson(path);
-
-        root["Startup"] = new JsonObject
-        {
-            ["Mode"] = mode,
-            ["Dashboard"] = dashboard
-        };
-
-        WriteUserJson(path, root);
+        var autoSaveOnExit = _configuration.GetValue<bool>("App:AutoSaveOnExit", false);
+        return Ok(new { autoSaveOnExit });
     }
 
-    private void SaveApp(bool autoSaveOnExit)
+    /// <summary>Sets system-wide app preferences. Admin only.</summary>
+    [HttpPost("app")]
+    public async Task<IActionResult> SetApp([FromBody] SetAppRequest request)
     {
-        var path = Path.Combine(_storage.StoragePath, "appsettings.user.json");
-        var root = ReadUserJson(path);
+        if (ReadOnlyHelper.IsReadOnly(_configuration, HttpContext))
+            return StatusCode(403, new { error = "Dashboard is in read-only mode." });
 
-        if (root["App"] is not JsonObject appObj)
+        var authEnabled = !string.IsNullOrEmpty(_configuration["Auth:AdminPasswordHash"]);
+        if (authEnabled && User.Identity?.IsAuthenticated != true)
+            return Unauthorized(new { error = "Admin authentication required." });
+
+        await _userSettings.UpdateAsync(root =>
         {
-            appObj = new JsonObject();
-            root["App"] = appObj;
-        }
-        appObj["AutoSaveOnExit"] = autoSaveOnExit;
+            if (root["App"] is not JsonObject appObj)
+            {
+                appObj = new JsonObject();
+                root["App"] = appObj;
+            }
+            appObj["AutoSaveOnExit"] = request.AutoSaveOnExit;
+        });
 
-        WriteUserJson(path, root);
+        return Ok(new { success = true });
     }
 
-    private static JsonObject ReadUserJson(string path)
+    // ── Remote access token ───────────────────────────────────────────────────
+
+    /// <summary>Returns the remote API access token, generating one if absent. Admin only.</summary>
+    [HttpGet("remote-access/token")]
+    public async Task<IActionResult> GetRemoteAccessToken()
     {
-        if (System.IO.File.Exists(path))
+        if (!IsAdminOrNoAuth()) return Unauthorized(new { error = "Admin authentication required." });
+
+        var token = _configuration["RemoteAccess:ApiToken"];
+        if (string.IsNullOrEmpty(token))
+            token = await GenerateAndStoreTokenAsync();
+
+        var hasAdminAuth = !string.IsNullOrEmpty(_configuration["Auth:AdminPasswordHash"]);
+        return Ok(new
         {
-            try { return JsonNode.Parse(System.IO.File.ReadAllText(path))?.AsObject() ?? new JsonObject(); }
-            catch { }
-        }
-        return new JsonObject();
+            token,
+            warning = hasAdminAuth ? null : "Remote access token is only effective when admin authentication is configured."
+        });
     }
 
-    private static void WriteUserJson(string path, JsonObject root)
+    /// <summary>Generates a new remote API access token, invalidating the previous one. Admin only.</summary>
+    [HttpPost("remote-access/token/regenerate")]
+    public async Task<IActionResult> RegenerateRemoteAccessToken()
     {
-        System.IO.File.WriteAllText(path, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+        if (!IsAdminOrNoAuth()) return Unauthorized(new { error = "Admin authentication required." });
+
+        var token = await GenerateAndStoreTokenAsync();
+        return Ok(new { token });
+    }
+
+    // ── Remote repositories ───────────────────────────────────────────────────
+
+    /// <summary>Returns configured remote repositories (name + URL only, no tokens). Admin only.</summary>
+    [HttpGet("remote-repos")]
+    public IActionResult GetRemoteRepos()
+    {
+        if (!IsAdminOrNoAuth()) return Unauthorized(new { error = "Admin authentication required." });
+
+        var repos = GetRemoteReposFromConfig();
+        return Ok(repos.Select(r => new { r.Name, r.Url }).ToList());
+    }
+
+    /// <summary>Adds a remote repository. Admin only.</summary>
+    [HttpPost("remote-repos")]
+    public async Task<IActionResult> AddRemoteRepo([FromBody] RemoteRepoRequest request)
+    {
+        if (!IsAdminOrNoAuth()) return Unauthorized(new { error = "Admin authentication required." });
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+            return BadRequest(new { error = "Name is required." });
+
+        if (string.IsNullOrWhiteSpace(request.Url) || !Uri.TryCreate(request.Url, UriKind.Absolute, out var uri) ||
+            (uri.Scheme != "http" && uri.Scheme != "https"))
+            return BadRequest(new { error = "A valid absolute URL (http or https) is required." });
+
+        if (string.IsNullOrWhiteSpace(request.ApiToken))
+            return BadRequest(new { error = "API token is required." });
+
+        var safeName = request.Name.Trim();
+        var existing = GetRemoteReposFromConfig();
+        if (existing.Any(r => string.Equals(r.Name, safeName, StringComparison.OrdinalIgnoreCase)))
+            return Conflict(new { error = $"A remote repository named '{safeName}' already exists." });
+
+        await _userSettings.UpdateAsync(root =>
+        {
+            var arr = root["RemoteRepositories"] as JsonArray ?? new JsonArray();
+            arr.Add(new JsonObject
+            {
+                ["Name"] = safeName,
+                ["Url"] = request.Url.TrimEnd('/'),
+                ["ApiToken"] = request.ApiToken.Trim()
+            });
+            root["RemoteRepositories"] = arr;
+        });
+
+        return Ok(new { success = true });
+    }
+
+    /// <summary>Removes a remote repository by name. Admin only.</summary>
+    [HttpDelete("remote-repos/{name}")]
+    public async Task<IActionResult> DeleteRemoteRepo(string name)
+    {
+        if (!IsAdminOrNoAuth()) return Unauthorized(new { error = "Admin authentication required." });
+
+        var existing = GetRemoteReposFromConfig();
+        if (!existing.Any(r => string.Equals(r.Name, name, StringComparison.OrdinalIgnoreCase)))
+            return NotFound(new { error = $"Remote repository '{name}' not found." });
+
+        await _userSettings.UpdateAsync(root =>
+        {
+            var arr = root["RemoteRepositories"] as JsonArray;
+            if (arr == null) return;
+            var toRemove = arr
+                .OfType<JsonObject>()
+                .FirstOrDefault(o => string.Equals(o["Name"]?.GetValue<string>(), name, StringComparison.OrdinalIgnoreCase));
+            if (toRemove != null) arr.Remove(toRemove);
+        });
+
+        return Ok(new { success = true });
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private bool IsAdminOrNoAuth()
+    {
+        if (ReadOnlyHelper.IsReadOnly(_configuration, HttpContext)) return false;
+        var authEnabled = !string.IsNullOrEmpty(_configuration["Auth:AdminPasswordHash"]);
+        return !authEnabled || User.Identity?.IsAuthenticated == true;
+    }
+
+    private async Task<string> GenerateAndStoreTokenAsync()
+    {
+        var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
+            .Replace('+', '-').Replace('/', '_').TrimEnd('=');
+
+        await _userSettings.UpdateAsync(root =>
+        {
+            if (root["RemoteAccess"] is not JsonObject ra)
+            {
+                ra = new JsonObject();
+                root["RemoteAccess"] = ra;
+            }
+            ra["ApiToken"] = token;
+        });
+
+        return token;
+    }
+
+    private List<RemoteRepoEntry> GetRemoteReposFromConfig()
+    {
+        return _configuration.GetSection("RemoteRepositories")
+            .Get<List<RemoteRepoEntry>>() ?? [];
     }
 }
 
 public record SetStartupRequest(string Mode, string? Dashboard);
 public record SetAppRequest(bool AutoSaveOnExit);
+public record RemoteRepoRequest(string Name, string Url, string ApiToken);
+
+public class RemoteRepoEntry
+{
+    public string Name { get; set; } = string.Empty;
+    public string Url { get; set; } = string.Empty;
+    public string ApiToken { get; set; } = string.Empty;
+}

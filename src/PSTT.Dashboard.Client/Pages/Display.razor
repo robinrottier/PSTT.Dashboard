@@ -29,13 +29,16 @@ else
                 {
                     @if (_renamingPageIndex == idx)
                     {
+                        <div @onkeydown:stopPropagation>
                         <MudTextField @bind-Value="_renameValue"
                                       Variant="Variant.Outlined"
                                       Margin="Margin.Dense"
+                                      Immediate="true"
                                       Style="min-width:80px;max-width:150px;font-size:0.8rem;"
-                                      onblur="@(() => CommitRename(idx))"
+                                      @onblur="@(async () => await CommitRename(idx))"
                                       @onkeydown="@(async e => { if (e.Key == "Enter") await CommitRename(idx); else if (e.Key == "Escape") _renamingPageIndex = -1; })"
                                       AutoFocus="true" />
+                        </div>
                     }
                     else
                     {
@@ -80,13 +83,13 @@ else
             @if (AppState.IsEditMode)
             {
                 <div style="display:flex;flex-shrink:0;gap:0;border-left:1px solid var(--mud-palette-divider);padding-left:4px;margin-left:2px;">
-                    <MudTooltip Text="Add Node (Ctrl+Shift+A)">
+                    <MudTooltip Text="Add Node (Ctrl+Shift+A)" Placement="Placement.Left">
                         <MudIconButton Icon="@Icons.Material.Filled.AddBox" Size="Size.Small"
                                        Color="@(_isAddNodeOpen ? Color.Primary : Color.Default)"
                                        OnClick="@(() => { _isAddNodeOpen = !_isAddNodeOpen; StateHasChanged(); })" />
                     </MudTooltip>
-                    <MudTooltip Text="Data Explorer (Ctrl+Shift+D)">
-                        <MudIconButton Icon="@Icons.Material.Filled.AccountTree" Size="Size.Small"
+                    <MudTooltip Text="Data Explorer (Ctrl+Shift+D)" Placement="Placement.Left">
+                        <MudIconButton Icon="@Icons.Material.Filled.ManageSearch" Size="Size.Small"
                                        Color="@(_isDataExplorerOpen ? Color.Primary : Color.Default)"
                                        OnClick="@(() => { _isDataExplorerOpen = !_isDataExplorerOpen; StateHasChanged(); })" />
                     </MudTooltip>
@@ -171,6 +174,18 @@ else
                            OnTopicAssigned="AssignTopicToSelectedNode"
                            OnCreateNodeWithTopic="AddNodeWithTopic"
                            InitialLeft="900" InitialTop="160" />
+
+        @if (_isPropertiesOpen && _propertiesNode != null)
+        {
+            <FloatingPanel Title="@($"Node Properties – {_propertiesNode.NodeType}")"
+                           @bind-IsOpen="_isPropertiesOpen"
+                           Resizable="true"
+                           InitialLeft="300" InitialTop="140" MinWidth="340">
+                <NodePropertyEditor Node="_propertiesNode"
+                                    OnSaved="OnNodePropertiesSaved"
+                                    OnClose="ClosePropertiesPanel" />
+            </FloatingPanel>
+        }
 
         </div>
     </MudPaper>

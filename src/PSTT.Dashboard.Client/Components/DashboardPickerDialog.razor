@@ -1,28 +1,48 @@
 @using MudBlazor
 @using PSTT.Dashboard.Services
-@inject IDashboardService DashboardService
-@inject IDialogService DialogService
+@using PSTT.Dashboard.Models
+@inject PSTT.Dashboard.Services.IDashboardService DashboardService
+@inject MudBlazor.IDialogService DialogService
 
 <MudDialog>
     <TitleContent>
         <MudText Typo="Typo.h6">Open Dashboard</MudText>
     </TitleContent>
     <DialogContent>
-        <MudList T="string" SelectionMode="SelectionMode.SingleSelection" @bind-SelectedValue="_selected" Dense="true">
-            @foreach (var name in _names)
+        <MudStack Spacing="3">
+            <!-- Source selector -->
+            @if (_remoteRepos.Count > 0)
             {
-                var n = name;
-                <MudListItem Value="@n" Dense="true">
-                    <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
-                        <span>@n</span>
-                        <div @onclick:stopPropagation="true">
-                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
-                                           OnClick="@(() => DeleteAsync(n))" />
-                        </div>
-                    </div>
-                </MudListItem>
+                <MudSelect T="string" Value="_selectedSource" Label="Source" Variant="Variant.Outlined" Dense="true"
+                           ValueChanged="OnSourceChanged">
+                    <MudSelectItem T="string" Value="@("local")">Local</MudSelectItem>
+                    @foreach (var repo in _remoteRepos)
+                    {
+                        <MudSelectItem T="string" Value="@repo.Name">@repo.Name</MudSelectItem>
+                    }
+                </MudSelect>
             }
-        </MudList>
+
+            <!-- Dashboard list -->
+            <MudList T="string" SelectionMode="SelectionMode.SingleSelection" SelectedValueChanged="v => _selected = v" Dense="true">
+                @foreach (var name in _names)
+                {
+                    var n = name;
+                    <MudListItem Value="@n" Dense="true">
+                        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+                            <span>@n</span>
+                            @if (_selectedSource == "local")
+                            {
+                                <div @onclick:stopPropagation="true">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                                   OnClick="@(() => DeleteAsync(n))" />
+                                </div>
+                            }
+                        </div>
+                    </MudListItem>
+                }
+            </MudList>
+        </MudStack>
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="Cancel">Cancel</MudButton>
@@ -30,18 +50,51 @@
                    Disabled="@string.IsNullOrEmpty(_selected)">Open</MudButton>
     </DialogActions>
 </MudDialog>
-
 @code {
     [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
     [Parameter] public List<string> DashboardNames { get; set; } = [];
+    [Parameter] public List<RemoteRepoInfo> RemoteRepos { get; set; } = [];
 
     private string? _selected;
+    private string _selectedSource = "local";
     private List<string> _names = [];
+    private List<RemoteRepoInfo> _remoteRepos = [];
 
-    protected override void OnParametersSet() => _names = [..DashboardNames];
+    protected override void OnParametersSet()
+    {
+        _names = [..DashboardNames];
+        _remoteRepos = [..RemoteRepos];
+    }
+
+    private async Task OnSourceChanged(string source)
+    {
+        _selectedSource = source;
+        _selected = null;
+        await RefreshList();
+    }
+
+    private async Task RefreshList()
+    {
+        if (_selectedSource == "local")
+            _names = [..DashboardNames];
+        else
+        {
+            var repo = _remoteRepos.FirstOrDefault(r => r.Name == _selectedSource);
+            if (repo != null)
+            {
+                var service = new RemoteProxyDashboardService(
+                    new HttpClient { BaseAddress = new Uri("http://localhost/") },
+                    repo.Name);
+                _names = await service.ListDashboardsAsync();
+            }
+        }
+        StateHasChanged();
+    }
 
     private async Task DeleteAsync(string name)
     {
+        if (_selectedSource != "local") return;
+        
         var confirmed = await DialogService.ShowMessageBoxAsync(
             "Delete Dashboard",
             $"Delete '{name}'? This cannot be undone.",
@@ -56,7 +109,6 @@
         }
     }
 
-    private void Submit() => MudDialog.Close(DialogResult.Ok(_selected ?? string.Empty));
+    private void Submit() => MudDialog.Close(DialogResult.Ok((_selectedSource, _selected ?? string.Empty)));
     private void Cancel() => MudDialog.Cancel();
 }
-

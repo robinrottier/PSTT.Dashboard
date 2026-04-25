@@ -4,9 +4,8 @@
 
 @if (IsOpen)
 {
-    <div id="@_panelId"
-         style="position:fixed;left:@(_left)px;top:@(_top)px;z-index:2000;min-width:@(MinWidth)px;">
-        <MudPaper Elevation="8" Style="overflow:hidden;">
+    <div id="@_panelId" style="@ContainerStyle" @onkeydown:stopPropagation @onmousedown="OnPanelMouseDown">
+        <MudPaper Elevation="8" Style="@PaperStyle">
             <div class="fp-header" @onmousedown="OnHeaderMouseDown" @onmousedown:preventDefault>
                 <span class="fp-title">@Title</span>
                 <div class="fp-header-actions">
@@ -22,9 +21,15 @@
             </div>
             @if (!_minimized)
             {
-                <div class="fp-body">
+                <div class="@(Resizable ? "fp-body fp-body-fill" : "fp-body")">
                     @ChildContent
                 </div>
+                @if (Resizable)
+                {
+                    <div class="fp-resize-handle"
+                         @onmousedown="OnResizeHandleMouseDown"
+                         @onmousedown:preventDefault></div>
+                }
             }
         </MudPaper>
     </div>
@@ -37,35 +42,87 @@
     [Parameter] public int InitialLeft { get; set; } = 80;
     [Parameter] public int InitialTop { get; set; } = 120;
     [Parameter] public int MinWidth { get; set; } = 260;
+    /// <summary>When true, a bottom-right resize handle is shown and position/size are persisted to localStorage.</summary>
+    [Parameter] public bool Resizable { get; set; } = false;
+    /// <summary>Initial panel width in pixels (0 = auto-size to content). Ignored when saved state exists.</summary>
+    [Parameter] public int InitialWidth { get; set; } = 0;
+    /// <summary>Initial panel height in pixels (0 = auto-size to content). Ignored when saved state exists.</summary>
+    [Parameter] public int InitialHeight { get; set; } = 0;
     [Parameter] public RenderFragment? ChildContent { get; set; }
 
     private string _panelId = "fp-" + Guid.NewGuid().ToString("N")[..8];
     private int _left;
     private int _top;
+    private int _width;
+    private int _height;
     private bool _minimized;
-    private bool _positionClamped;
+    private bool _initialized;
     private DotNetObjectReference<FloatingPanel>? _dotNetRef;
+
+    // localStorage key derived from the panel title — stable across sessions.
+    private string PersistKey => "fp." + Title.ToLowerInvariant()
+        .Replace(" ", "-").Replace("/", "-");
+
+    private static int _globalZ = 2000;
+    private int _zIndex = 2000;
+
+    private string ContainerStyle =>
+        $"position:fixed;left:{_left}px;top:{_top}px;z-index:{_zIndex};min-width:{MinWidth}px;" +
+        (_width  > 0 ? $"width:{_width}px;"   : "") +
+        (_height > 0 && Resizable ? $"height:{_height}px;" : "");
+
+    private string PaperStyle =>
+        Resizable
+            ? "overflow:hidden;display:flex;flex-direction:column;height:100%;position:relative;"
+            : "overflow:hidden;";
 
     protected override void OnInitialized()
     {
-        _left = InitialLeft;
-        _top  = InitialTop;
+        _left  = InitialLeft;
+        _top   = InitialTop;
+        _width  = InitialWidth;
+        _height = InitialHeight;
     }
 
-    private async Task OnHeaderMouseDown(MouseEventArgs e)
-    {
+    private void OnPanelMouseDown() => _zIndex = ++_globalZ;
+
+    private async Task OnHeaderMouseDown(MouseEventArgs e)    {
         if (e.Button != 0) return; // left button only
         _dotNetRef ??= DotNetObjectReference.Create(this);
         await JS.InvokeVoidAsync("FloatingPanel.startDrag", _panelId, (int)e.ClientX, (int)e.ClientY, _dotNetRef);
     }
 
+    private async Task OnResizeHandleMouseDown(MouseEventArgs e)
+    {
+        if (e.Button != 0) return;
+        _dotNetRef ??= DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("FloatingPanel.startResize", _panelId, (int)e.ClientX, (int)e.ClientY, _dotNetRef);
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (IsOpen && !_positionClamped)
+        if (IsOpen && !_initialized)
         {
-            _positionClamped = true;
+            _initialized = true;
+            _zIndex = ++_globalZ; // bring to front when first opened
             try
             {
+                if (Resizable)
+                {
+                    // Try restoring saved position + size first
+                    var saved = await JS.InvokeAsync<SavedState?>("FloatingPanel.loadState", PersistKey);
+                    if (saved != null)
+                    {
+                        _left   = saved.Left;
+                        _top    = saved.Top;
+                        _width  = saved.Width  > 0 ? saved.Width  : _width;
+                        _height = saved.Height > 0 ? saved.Height : _height;
+                        await InvokeAsync(StateHasChanged);
+                        return;
+                    }
+                }
+
+                // Fall back to clamping initial position to viewport
                 var pos = await JS.InvokeAsync<int[]>("FloatingPanel.clampToViewport", _panelId);
                 if (pos is { Length: >= 2 } && (pos[0] != _left || pos[1] != _top))
                 {
@@ -83,6 +140,17 @@
     {
         _left = left;
         _top  = top;
+        if (Resizable)
+            _ = JS.InvokeVoidAsync("FloatingPanel.saveState", PersistKey, _left, _top, _width, _height);
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public void OnResizeEnd(int width, int height)
+    {
+        _width  = width;
+        _height = height;
+        _ = JS.InvokeVoidAsync("FloatingPanel.saveState", PersistKey, _left, _top, _width, _height);
         InvokeAsync(StateHasChanged);
     }
 
@@ -100,5 +168,14 @@
     {
         _dotNetRef?.Dispose();
         await ValueTask.CompletedTask;
+    }
+
+    // Deserialization target for JS loadState result
+    private sealed class SavedState
+    {
+        public int Left   { get; set; }
+        public int Top    { get; set; }
+        public int Width  { get; set; }
+        public int Height { get; set; }
     }
 }

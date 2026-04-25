@@ -1,10 +1,24 @@
 
-/* Ensure MudBlazor popovers (tooltips, menus, dropdowns) appear above floating panels */
+/* Ensure dialogs, tooltips, and popovers appear above FloatingPanel (z-index 2000).
+   MudBlazor 9 computes overlay z-index as calc(--mud-zindex-dialog + 1) and popover
+   as calc(--mud-zindex-popover + 1). Do NOT add !important overrides on .mud-overlay
+   or .mud-dialog-container — they fight MudBlazor's internal stacking context. */
 :root {
+    --mud-zindex-dialog:  2100;
     --mud-zindex-popover: 2500;
+    --mud-zindex-tooltip: 2500;
 }
 
- — MudMainContent handles its own internal scrolling.
+/* Belt-and-suspenders: MudBlazor 9 may overwrite popover/tooltip z-index via JS
+   inline styles; !important on the class rule overrides non-!important inline styles. */
+.mud-popover {
+    z-index: 2500 !important;
+}
+.mud-tooltip {
+    z-index: 2500 !important;
+}
+
+/* MudMainContent handles its own internal scrolling.
    Without this a tiny overflow (~8px from pa-2 bottom padding) shows a spurious scrollbar. */
 html, body {
     height: 100%;
@@ -23,40 +37,13 @@ html, body, .mud-layout, .mud-main-content, main, .page, .sidebar, .dashboard-ca
     min-width: 0 !important;
 }
 
-/* Make dialogs and overlays adapt to narrow viewports */
+/* Make dialogs adapt to narrow viewports */
 .mud-dialog, .mud-dialog-container, .mud-dialog-paper {
     min-width: 0 !important;
     max-width: 100% !important;
     width: auto !important;
 }
 
-/* Center dialogs within the viewport to avoid left-aligned appearance
-   on some browsers / viewports (e.g. Firefox). Keep responsive padding. */
-.mud-dialog-container {
-    position: fixed !important;
-    inset: 0 !important; /* top:0; right:0; bottom:0; left:0 */
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    padding: 16px !important;
-}
-.mud-dialog-paper {
-    margin: 0 auto !important;
-    max-width: 720px !important;
-    width: calc(100% - 64px) !important; /* keep padding on narrow viewports */
-}
-
-/* Strong centering fallback: center dialog using fixed position + translate
-   This ensures centering even if other layout/styles interfere. Keep
-   responsive constraints so small screens still behave correctly. */
-.mud-dialog {
-    position: fixed !important;
-    left: 50% !important;
-    top: 50% !important;
-    transform: translate(-50%, -50%) !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-}
 
 /* Ensure MudDrawer / side panels can shrink */
 .mud-drawer {

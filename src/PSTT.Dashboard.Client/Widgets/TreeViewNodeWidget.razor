@@ -1,12 +1,15 @@
 @using PSTT.Dashboard.Models
 @using PSTT.Dashboard.Services
+@using PSTT.Dashboard.Components
 @using Blazor.Diagrams.Components.Renderers
+@using PSTT.Data
+@using System.Collections.Concurrent
 @inherits BaseNodeWidget<TreeViewNodeModel>
 
 <div style="@ContainerStyle()"
      class=@("default-node treeview-node" + (Node.Group != null ? " grouped" : "") + (Node.Selected ? " selected" : ""))
      @ondblclick="OnDoubleClick">
-    <div style="display:flex;flex-direction:column;height:100%;overflow:hidden;min-width:0;">
+    <div style="display:flex;flex-direction:column;height:100%;width:100%;overflow:hidden;min-width:0;">
         @if (!string.IsNullOrEmpty(Node.Title))
         {
             <div style="font-size:0.75rem;font-weight:500;padding:2px 4px 0;">@Node.Title</div>
@@ -18,10 +21,15 @@
         else
         {
             <div style="flex:1;overflow-y:auto;font-size:0.75rem;min-height:0;padding:2px 0;">
-                <MudTreeView T="TreeNode" Dense="true" Hover="true"
-                             Style="font-size:0.75rem;font-family:monospace;overflow:auto;width:100%;height:100%;">
-                    @RenderMudTreeItem(_tree)
-                </MudTreeView>
+                @foreach (var node in _topicTree)
+                {
+                    <TopicTreeNode @key="@node.FullTopic"
+                                   Node="node"
+                                   ShowActions="false"
+                                   HighlightedTopics="@_highlightedTopics"
+                                   ExpandedPaths="_expandedPaths"
+                                   OnToggleExpand="EventCallback.Factory.Create<string>(this, ToggleExpand)" />
+                }
             </div>
         }
     </div>
@@ -32,28 +40,20 @@
 </div>
 
 @code {
-    // The root MQTT topic is DataTopics[0] (inherited from TextNodeModel).
     private string RootTopicValue => Node.DataTopics.Count > 0 ? Node.DataTopics[0] : string.Empty;
 
-    private TreeNode _tree = new("", "");
+    private List<TopicNode> _topicTree = [];
+    private readonly HashSet<string> _expandedPaths = new();
+    private readonly HashSet<string> _highlightedTopics = new();
+    private readonly ConcurrentDictionary<string, DateTime> _changedAt = new();
+    private readonly ConcurrentDictionary<string, string?> _values = new();
     private bool _disposed;
     private IDisposable? _watchSubscription;
-    private IDisposable? _rootWatchSubscription;
-    private readonly Dictionary<string, bool> _expandedState = new();
-    private readonly Dictionary<string, DateTime> _changedAt = new();
-    private readonly Dictionary<string, string?> _values = new();
-    private bool _pendingRebuild;
+    //private IDisposable? _rootWatchSubscription;
     private System.Threading.Timer? _debounceTimer;
     private System.Threading.Timer? _highlightClearTimer;
 
-    private sealed class TreeNode(string fullTopic, string label)
-    {
-        public string FullTopic { get; } = fullTopic;
-        public string Label { get; } = label;
-        public string? Value { get; set; }
-        public List<TreeNode> Children { get; set; } = [];
-        public bool Expanded { get; set; } = true;
-    }
+    private static bool IsGlobalWildcard(string topic) => topic is "#";
 
     protected override void OnInitialized()
     {
@@ -76,20 +76,41 @@
 
     private void SetupWatchers()
     {
-        _watchSubscription?.Dispose(); _watchSubscription = null;
-        _rootWatchSubscription?.Dispose(); _rootWatchSubscription = null;
+        // "#" global wildcard easier to manage as a special case
+        var isGlobal = IsGlobalWildcard(RootTopicValue);
+        // get prefix to match with -- either empty for global, or root topic with trailing slash removed
+        var prefix = isGlobal ? "" : RootTopicValue.TrimEnd('#').Trim('+').TrimEnd('/') + "/";
+        var wildcardTopic = isGlobal ? "#" : prefix + "#";
 
-        if (string.IsNullOrEmpty(RootTopicValue)) { _tree = new("", ""); return; }
+        // if we already have a sub and it matches...nothign to do
+        if (_watchSubscription != null
+         && _watchSubscription is ISubscription<string, string> sub
+         && sub.Key == wildcardTopic)
+            return;
+
+        _watchSubscription?.Dispose(); _watchSubscription = null;
+        _values.Clear();
+        _changedAt.Clear();
+        _expandedPaths.Clear();
+
+        if (string.IsNullOrEmpty(RootTopicValue)) { _topicTree = []; return; }
+
+        // Always use BridgedDataCache (dashboard-scoped view), same as Data Explorer.
+        var cache = (ICache<string, string>)AppState.BridgedDataCache;
+
+        // get a snapshot of cache and populate _values
+        // -- were doing our own mqtt pattern matching
+        // -- TODO: build this into data
+        foreach (var kv in cache.GetSnapshot())
+        {
+            if ((isGlobal && !kv.Key.StartsWith("$") ) || kv.Key == RootTopicValue || (prefix != null && kv.Key.StartsWith(prefix)))
+                _values[kv.Key] = kv.Value;
+        }
 
         RebuildTree();
+        AutoExpandRoots();
 
-        var wildcardTopic = RootTopicValue.TrimEnd('/') + "/#";
-        _watchSubscription = AppState.BridgedDataCache.Subscribe(wildcardTopic, async sub =>
-        {
-            if (sub.Status.IsPending) return;
-            await OnTopicChangedAsync(sub.Key, sub.Value);
-        });
-        _rootWatchSubscription = AppState.BridgedDataCache.Subscribe(RootTopicValue, async sub =>
+        _watchSubscription = cache.Subscribe(wildcardTopic, async sub =>
         {
             if (sub.Status.IsPending) return;
             await OnTopicChangedAsync(sub.Key, sub.Value);
@@ -101,13 +122,6 @@
         if (_disposed) return Task.CompletedTask;
         _values[topic] = value;
         _changedAt[topic] = DateTime.Now;
-        var node = FindNode(_tree, topic);
-        if (node != null)
-            node.Value = value;
-        else
-            _pendingRebuild = true;
-
-        // Debounce: coalesce rapid MQTT bursts into one render
         _debounceTimer?.Change(80, System.Threading.Timeout.Infinite);
         return Task.CompletedTask;
     }
@@ -115,113 +129,85 @@
     private void OnDebounceElapsed(object? _)
     {
         if (_disposed) return;
-        if (_pendingRebuild)
-        {
-            _pendingRebuild = false;
-            SaveExpansionState(_tree);
-            RebuildTree();
-            RestoreExpansionState(_tree);
-        }
+        RebuildTree();
+        UpdateHighlights();
         try { InvokeAsync(StateHasChanged); } catch { }
-        // Schedule a re-render to clear the 2s highlight window once it expires
         _highlightClearTimer?.Change(2200, System.Threading.Timeout.Infinite);
     }
 
     private void OnHighlightClearElapsed(object? _)
     {
         if (_disposed) return;
+        UpdateHighlights();
         try { InvokeAsync(StateHasChanged); } catch { }
+    }
+
+    private void UpdateHighlights()
+    {
+        _highlightedTopics.Clear();
+        foreach (var (topic, changedTime) in _changedAt)
+        {
+            if ((DateTime.Now - changedTime).TotalSeconds < 2)
+                _highlightedTopics.Add(topic);
+        }
     }
 
     private void RebuildTree()
     {
-        if (string.IsNullOrEmpty(RootTopicValue)) { _tree = new("", ""); return; }
+        if (string.IsNullOrEmpty(RootTopicValue)) { _topicTree = []; return; }
 
-        var root = new TreeNode(RootTopicValue, RootTopicValue.Split('/').Last());
-        root.Value = _values.TryGetValue(RootTopicValue, out var rv) ? rv : AppState.BridgedDataCache.GetValue(RootTopicValue);
-        root.Expanded = true;
-
-        var prefix = RootTopicValue.TrimEnd('/') + "/";
-        var matches = _values.Where(kvp => kvp.Key.StartsWith(prefix));
-
-        foreach (var kvp in matches.OrderBy(x => x.Key))
+        var root = new Dictionary<string, TopicNode>();
+        foreach (var (topic, value) in _values.OrderBy(kv => kv.Key))
         {
-            var relativeParts = kvp.Key.Substring(RootTopicValue.Length).TrimStart('/').Split('/');
-            var node = root;
-            var currentPath = RootTopicValue;
-            var depth = 0;
-            foreach (var part in relativeParts)
+            var parts = topic.Split('/');
+            var current = root;
+            TopicNode? node = null;
+            for (int i = 0; i < parts.Length; i++)
             {
-                currentPath += "/" + part;
-                depth++;
-                var child = node.Children.FirstOrDefault(c => c.Label == part);
-                if (child == null)
+                var part = parts[i];
+                if (!current.TryGetValue(part, out node))
                 {
-                    child = new TreeNode(currentPath, part) { Expanded = depth <= 1 };
-                    node.Children.Add(child);
+                    node = new TopicNode
+                    {
+                        Label = part,
+                        FullTopic = string.Join("/", parts[..(i + 1)])
+                    };
+                    current[part] = node;
                 }
-                node = child;
+                if (i == parts.Length - 1)
+                    node.Value = value ?? string.Empty;
+                current = node.ChildMap;
             }
-            node.Value = kvp.Value;
         }
-        _tree = root;
+
+        FlattenTree(root);
+        _topicTree = root.Values.OrderBy(n => n.Label).ToList();
     }
 
-    private void SaveExpansionState(TreeNode node)
+    private static void FlattenTree(Dictionary<string, TopicNode> map)
     {
-        _expandedState[node.FullTopic] = node.Expanded;
-        foreach (var child in node.Children)
-            SaveExpansionState(child);
-    }
-
-    private void RestoreExpansionState(TreeNode node)
-    {
-        if (_expandedState.TryGetValue(node.FullTopic, out var expanded))
-            node.Expanded = expanded;
-        foreach (var child in node.Children)
-            RestoreExpansionState(child);
-    }
-
-    private TreeNode? FindNode(TreeNode node, string fullTopic)
-    {
-        if (node.FullTopic == fullTopic) return node;
-        foreach (var child in node.Children)
+        foreach (var node in map.Values)
         {
-            var found = FindNode(child, fullTopic);
-            if (found != null) return found;
+            node.Children = node.ChildMap.Values.OrderBy(n => n.Label).ToList();
+            FlattenTree(node.ChildMap);
         }
-        return null;
     }
 
-    private RenderFragment RenderMudTreeItem(TreeNode node) => builder =>
+    private void AutoExpandRoots()
     {
-        var isHighlighted = _changedAt.TryGetValue(node.FullTopic, out var changedTime) &&
-                            (DateTime.Now - changedTime).TotalSeconds < 2;
-
-        builder.OpenComponent<MudTreeViewItem<TreeNode>>(0);
-        builder.AddAttribute(1, "Value", node);
-        builder.AddAttribute(2, "Expanded", node.Expanded);
-        builder.AddAttribute(3, "ExpandedChanged", EventCallback.Factory.Create<bool>(this, v => node.Expanded = v));
-
-        var displayText = node.Children.Count > 0
-            ? node.Label
-            : (Node.ShowValues && node.Value != null ? $"{node.Label}: {node.Value}" : node.Label);
-        builder.AddAttribute(4, "Text", displayText);
-
-        if (isHighlighted)
-            builder.AddAttribute(5, "Style", "background:var(--mud-palette-warning-hover);");
-
-        if (node.Children.Count > 0)
+        foreach (var node in _topicTree)
         {
-            builder.AddAttribute(6, "ChildContent", (RenderFragment)(childBuilder =>
-            {
-                foreach (var child in node.Children)
-                    childBuilder.AddContent(0, RenderMudTreeItem(child));
-            }));
+            if (!node.IsLeaf)
+                _expandedPaths.Add(node.FullTopic);
         }
+    }
 
-        builder.CloseComponent();
-    };
+    private void ToggleExpand(string fullTopic)
+    {
+        if (!_expandedPaths.Remove(fullTopic))
+            _expandedPaths.Add(fullTopic);
+        StateHasChanged();
+    }
 
     public override void Dispose()
     {
@@ -229,7 +215,7 @@
         _debounceTimer?.Dispose();
         _highlightClearTimer?.Dispose();
         _watchSubscription?.Dispose();
-        _rootWatchSubscription?.Dispose();
+        //_rootWatchSubscription?.Dispose();
         base.Dispose();
     }
 }

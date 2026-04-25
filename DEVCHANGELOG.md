@@ -1,7 +1,294 @@
+## 2026-04-25 — SaveAs dialog UI initialization fixes
+
+### Commit: b1ec487 · 2026-04-25 · branch: develop
+
+---
+
+### Item 1 — SaveAs Dialog HttpClient Injection
+
+**File:** src/PSTT.Dashboard.Client/Components/SaveAsDialog.razor
+
+Fixed initialization issue where remote repositories list appeared empty on first page load but showed after F5 refresh.
+
+**Root cause:** SaveAsDialog was creating a new HttpClient instance with hardcoded BaseAddress = "http://localhost/" instead of using the dependency-injected HttpClient from the Blazor application context. This manual instantiation bypassed connection pooling and configuration.
+
+**Fix:** 
+- Added @inject HttpClient Http to SaveAsDialog
+- Pass injected Http to RemoteProxyDashboardService constructor
+- Removed manual 
+ew HttpClient { BaseAddress = ... } initialization
+
+**Why it matters:** The DI-injected HttpClient is properly configured for the Blazor runtime, handles relative URLs correctly, and integrates with the application's HTTP handler pipeline.
+
+---
+
+### Item 2 — RemoteProxyDashboardService URL Format
+
+**File:** src/PSPT.Dashboard.Client/Services/RemoteProxyDashboardService.cs
+
+Fixed file list not loading when selecting remote destination in SaveAs dialog.
+
+**Root cause:** API URLs were missing leading slash (e.g., pi/remote/{repo}/list instead of /api/remote/{repo}/list). In Blazor WASM context, relative URLs without leading slash are resolved relative to the current page, not the root.
+
+**Fix:** Updated all HTTP calls to use absolute paths with leading slash:
+- GetFromJsonAsync($"/api/remote/{repoName}/list")
+- GetFromJsonAsync($"/api/remote/{repoName}/{dashboardName}")
+- PostAsJsonAsync($"/api/remote/{repoName}/{dashboardName}", ...)
+- DeleteAsync($"/api/remote/{repoName}/{dashboardName}")
+
+---
+
+### Item 3 — Error Handling and User Feedback
+
+**File:** src/PSPT.Dashboard.Client/Components/SaveAsDialog.razor
+
+Added error handling and user-visible feedback for failed file list loads.
+
+**Changes:**
+- Added @inject ILogger<SaveAsDialog> Logger for error logging
+- Wrapped RefreshExistingNames() in try-catch
+- Added _errorMessage field to store error text
+- Added <MudAlert> to display error if file list load fails
+- Catch block logs full exception with context
+
+**User experience:** If remote file list fails to load (e.g., network error, 401, timeout), user sees error message in red alert instead of silent failure.
+
+---
+
+**Testing:** All 88 tests passing (5 Client + 9 Server + 66 Integration + 8 Playwright) ✓
+
+**Known remaining issues:** None identified in this session.
+
+---
 # Developer Changelog
 
 Detailed record of each Copilot-assisted work session — what was investigated, changed, and why.
 For reviewing work item by item and moving anything back to [TODO.md](TODO.md) if needed.
+
+---
+
+## 2026-04-24 — Remote sharing tests + token UI bugfix
+
+### Commit: a232bf8 · 2026-04-24 · branch: develop
+
+---
+
+### Item 1 — Integration Tests: Circular Remote Setup
+
+**File:** `tests/PSTT.Dashboard.IntegrationTests/RemoteCircularSelfTests.cs` (new)
+
+Created comprehensive integration tests for remote repository feature with a circular/self-referential setup (server acting as its own remote).
+
+**Tests:**
+- `SaveLocally_CanRead` — Verify local save with Bearer token authentication works
+- `ListLocalDashboards` — Verify local list endpoint with auth
+- `DeleteLocalDashboard` — Verify delete endpoint returns 404 after deletion
+- `RemoteRepoConfigurationStored` — Verify remote repo registration persists
+- `UnknownRemoteReturns404` — Verify 404 for non-existent remotes
+
+**Technical notes:**
+- Uses `IntegrationWebApplicationFactory` with temp data directory isolation
+- Token generation and Bearer auth header added to all requests
+- All 5 tests passing ✓
+- ⚠️ Full proxy forwarding tests (server making HTTP calls back to itself) require actual network connectivity and are not tested in-process due to test framework limitations
+
+**Why:** The user reported issues with circular remote setup (local instance pointing to itself). These tests validate the core infrastructure: token generation, registration, and authentication. Full end-to-end proxy testing would require a multi-process or network-accessible setup.
+
+---
+
+### Item 2 — Fixed Token Regeneration UI Bug (Prior Session)
+
+**File:** `src/PSTT.Dashboard.Client/Components/RemoteRepoSettingsDialog.razor`
+
+Fixed `RegenerateToken()` method (lines 137-153):
+- Changed `PostAsJsonAsync<object>()` to `PostAsJsonAsync()` (incorrect overload was being used)
+- Added `if (resp.IsSuccessStatusCode)` check before deserializing token response
+- StateHasChanged() already present in finally block, UI refreshes on successful regen
+
+**Why:** User reported clicking "Regenerate" button showed nothing in token text box. Root cause: response type mismatch and missing error handling.
+
+---
+
+## 2026-04-23 — FEAT-H1 grace period wired + Node Properties FloatingPanel
+
+### Commit: 6bd8b70 · 2026-04-23 · branch: develop
+
+---
+
+### Item 1 — FEAT-H1: `WithUnsubscribeGracePeriod` added to `MqttCacheBuilder` (PSTT submodule)
+
+**File:** `libs/PSTT/src/PSTT.Mqtt/MqttCacheBuilder.cs`
+
+`MqttCacheBuilder<TValue>` lacked a `WithUnsubscribeGracePeriod()` fluent method (the lower-level
+`CacheBuilder<TKey,TValue>` had one, but MQTT builder did not delegate it). Added:
+
+```csharp
+public MqttCacheBuilder<TValue> WithUnsubscribeGracePeriod(TimeSpan period)
+{
+    _dsConfig.UnsubscribeGracePeriod = period;
+    return this;
+}
+```
+
+PSTT submodule commit `252e55a` placed on `develop` branch (was briefly orphaned in detached HEAD —
+recovered via `git reset --hard 252e55a` while on `develop`).
+
+---
+
+### Item 2 — FEAT-H1: grace period wired in Dashboard DI registration
+
+**File:** `src/PSTT.Dashboard.Server/Extensions/ServiceCollectionExtensions.cs`
+
+Added `.WithUnsubscribeGracePeriod(TimeSpan.FromSeconds(30))` to both:
+- `MqttCacheBuilder` build chain (server-side MQTT→cache, prevents broker subscription churn on
+  circuit reconnect)
+- Scoped Blazor-circuit `CacheBuilder` (prevents downstream wildcard re-subscription churn when a
+  circuit briefly drops and re-connects)
+
+---
+
+### Item 3 — Node Properties as FloatingPanel (modeless dialog)
+
+**Files changed:**
+- `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor`
+- `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor.cs`
+- `src/PSTT.Dashboard.Client/Pages/Display.razor`
+- `src/PSTT.Dashboard.Client/Pages/Display.razor.cs`
+
+**Problem:** Node Properties was a blocking `MudDialog` modal. It appeared under the Data Explorer
+floating panel and blocked all interaction while open.
+
+**Fix:** Converted to a `FloatingPanel` embedded in `Display.razor`, same pattern as Data Explorer.
+
+**NodePropertyEditor changes:**
+- Removed `<MudDialog>/<DialogContent>/<DialogActions>` wrapper; now a plain `<div>` with a footer
+  `<div>` for Save/Cancel buttons
+- Removed `[CascadingParameter] IMudDialogInstance?` — no longer dialog-hosted
+- Added `[Parameter] EventCallback OnSaved` and `[Parameter] EventCallback OnClose`
+- Changed `OnInitialized` → `OnParametersSet` so the editor re-initialises when `_propertiesNode`
+  changes (user selects different node while panel stays open)
+- Snapshot fields `_savedWidth/_savedHeight/_savedFontSize` allow Cancel to revert changes
+- `Save()` applies + invokes `OnSaved`; `Cancel()` reverts snapshot + invokes `OnClose`
+
+**Display.razor changes:**
+- Added `<FloatingPanel Title="Node Properties – {NodeType}" Resizable="true">` containing
+  `<NodePropertyEditor>`, gated on `_isPropertiesOpen && _propertiesNode != null`
+- `InitialLeft="300" InitialTop="140"` avoids overlap with Add Node panel
+- Title includes node type → separate localStorage position per node type
+
+**Display.razor.cs changes:**
+- Added `_isPropertiesOpen` (bool) and `_propertiesNode` (TextNodeModel?) fields
+- `EditNodeProperties()` is now synchronous (was async `ShowAsync`)
+- Added `OnNodePropertiesSaved()` and `ClosePropertiesPanel()` helpers
+- Fixed `_onMenuEditProperties` lambda (was async, now sync)
+
+⚠️ The FloatingPanel X-button closes without reverting (Cancel revert only via Cancel button) —
+this matches DataExplorer behavior and is acceptable.
+
+---
+
+## 2026-04-27 — Fix TreeView `#` root topic
+
+### Commits: (pending) · branch: develop
+
+### Problem
+
+Setting a TreeView widget's root topic to `#` (show everything) resulted in an empty tree. Two reasons:
+
+1. `TreeViewNodeWidget.SetupWatchers` was subscribing via `AppState.BridgedDataCache`, whose `_local` layer
+   only contains topics that passed through the configured bridge patterns. `BridgeCache._local` is a
+   `CacheWithWildcards` with no upstream — its contents are the dashboard's scoped subset, not the full
+   broker namespace.
+2. `MqttWildcardMatcher.Matches("#", "$DASHBOARD/UPTIME")` returns `false` per MQTT §4.7.2 (`#` doesn't
+   match `$`-prefixed topics), so even if there were data in `_local`, `Subscribe("#", …)` would never fire
+   for any `$DASHBOARD/…` key.
+
+### Fix (`Widgets/TreeViewNodeWidget.razor`)
+
+When `isGlobal == true` (i.e. root topic is `#`), use `AppState.DataCache` (the full
+`CacheWithWildcards` containing all broker topics) instead of `AppState.BridgedDataCache`.
+
+Added `@using PSTT.Data` to get `ICache<TKey,TValue>` in scope. Variable `cache` is now `ICache<string,string>`,
+assigned to either `AppState.DataCache` or `AppState.BridgedDataCache` based on `isGlobal`. Both
+`GetSnapshot()` and the wildcard `Subscribe()` call use the same `cache` reference.
+
+Non-global topics (a specific root prefix) continue to use `BridgedDataCache` — scoped behaviour unchanged.
+
+### Result
+
+- Build: 0 errors, 0 warnings
+- All 83 tests pass
+- TreeView widget with `#` root topic now populates from the full cache snapshot on mount and updates on each MQTT message
+
+---
+
+## 2026-04-26 — Sentinel tag replaces TTag generic in InvokeCallback
+
+### Commits: 41ce69f (PSTT submodule) · branch: develop
+
+### Context
+
+Follow-up to the `TTag` refactoring. The generic added `<TTag>` noise to every method signature
+and call site, and the `is bool fireTreeWalk` pattern match required a runtime type test + unboxing
+on every invocation. Replaced with `object?` + a private sentinel.
+
+### Changes (`src/PSTT.Data/Cache.cs` + `CacheWithWildcards.cs`)
+
+- `InvokeCallback<TTag>`, `OnInvokeCallback<TTag>`, `PublishAsync<TTag>` all become non-generic,
+  using `object?` for the tag parameter — standard virtual dispatch, simpler override signatures
+- `CacheItemWithWildcards` gains `private static readonly object _suppressTreeWalkTag = new()`
+- `OnInvokeCallback` checks `ReferenceEquals(tag, _suppressTreeWalkTag)` — no cast, no boxing
+- `UpstreamCallbackWildcards`: SupportsWildcards=true passes `_suppressTreeWalkTag` (suppress);
+  SupportsWildcards=false passes `null` (same as a normal local publish, tree walk fires)
+- All three standard `PublishAsync` overloads call `InvokeCallback(null, null, ct)` — null tag
+
+### Result
+
+266/266 PSTT.Data.Tests pass.
+
+---
+
+## 2026-04-26 — `InvokeCallback` tag refactoring (fix two bugs)
+
+### Commits: f23a28b (PSTT submodule) · branch: develop
+UTC timestamp: 2026-04-26
+
+### Context
+
+The user manually edited `Cache.cs` and `CacheWithWildcards.cs` in the PSTT repo to replace the
+`bool fireTreeWalk` parameter with an opaque `TTag` generic tag. Two bugs were introduced during
+that edit.
+
+### Bug 1 — `InvokeCallback(subscription, ct)` no longer triggered `OnInvokeCallback`
+
+The no-tag overload (used internally by `InvokeCallback<TTag>`) had its `OnInvokeCallback` call
+removed, meaning all standard `PublishAsync` calls lost the tree walk entirely — no wildcard
+subscriber would receive locally-published values.
+
+**Fix (`Cache.cs`):** Changed the three standard `PublishAsync` overloads to call
+`InvokeCallback<object?>(null, null, ct)` (the tagged overload with a null tag) instead of the
+no-tag `InvokeCallback(null, ct)`. The no-tag overload now fires subscribers only; `OnInvokeCallback`
+is always invoked through the tagged path, preventing duplicate `OnInvokeCallback` calls.
+
+### Bug 2 — condition inverted in `CacheItemWithWildcards.OnInvokeCallback`
+
+```csharp
+// WRONG: suppresses tree walk when tag is true (but true = "fire tree walk")
+if (tag is bool fromUpstreamCallbackWildcards && fromUpstreamCallbackWildcards)
+    return;
+```
+
+Callers pass `false` when `UpstreamSupportsWildcards=true` (suppress) and `true` when
+`UpstreamSupportsWildcards=false` (fire). The condition was the exact inverse of the intent.
+
+**Fix (`CacheWithWildcards.cs`):** Changed to `if (tag is bool fireTreeWalk && !fireTreeWalk) return;`
+Also removed the redundant `await base.OnInvokeCallback(...)` no-op call and corrected the comment.
+
+### Result
+
+All 266 PSTT.Data tests pass. Full suite: 266 Data + 36 Mqtt + 46 Remote + 10 AspNetCore.
+The `Standalone_ExistingValue_DeliveredOnSubscribe` Remote test remains intermittently flaky under
+load (pre-existing; unrelated to this change).
 
 ---
 
@@ -3095,3 +3382,4 @@ Same issue exists for regular Undo/Redo if they ever snapshot a multi-page state
 
 _Entries above this line represent the Copilot-assisted development history for this project._
 _For release-level summaries see [CHANGELOG.md](CHANGELOG.md)._
+

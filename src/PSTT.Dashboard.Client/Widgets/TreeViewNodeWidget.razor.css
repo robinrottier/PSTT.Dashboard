@@ -1,5 +1,6 @@
-/* Force the MudTreeView to fill the widget width */
-::deep .mud-treeview {
+/* Ensure TopicTreeNode rows fill the widget width */
+::deep .de-row {
     width: 100%;
     min-width: 0;
+    box-sizing: border-box;
 }

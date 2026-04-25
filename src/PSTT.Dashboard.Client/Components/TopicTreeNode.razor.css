@@ -1,0 +1,13 @@
+.de-row {
+    border-radius: 3px;
+    transition: background 0.1s;
+}
+
+.de-row-hover {
+    background: var(--mud-palette-action-hover);
+}
+
+/* Flash highlight for recently-changed topics (used by TreeViewNodeWidget) */
+.de-row-highlight {
+    background: var(--mud-palette-warning-hover) !important;
+}

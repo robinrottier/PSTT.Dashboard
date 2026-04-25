@@ -45,7 +45,7 @@ public class DashboardController : ControllerBase
     }
 
     [HttpPost]
-    [ServiceFilter(typeof(RequireAdminFilter))]
+    [ServiceFilter(typeof(ApiTokenAuthFilter))]
     public async Task<ActionResult> SaveDashboard([FromBody] DashboardModel dashboard)
     {
         _logger.LogInformation("[DashboardController] POST diagram requested with {PageCount} pages", 
@@ -94,7 +94,7 @@ public class DashboardController : ControllerBase
     }
 
     [HttpPost("{name}")]
-    [ServiceFilter(typeof(RequireAdminFilter))]
+    [ServiceFilter(typeof(ApiTokenAuthFilter))]
     public async Task<ActionResult> SaveDiagramByName(string name, [FromBody] DashboardModel dashboard)
     {
         if (string.IsNullOrWhiteSpace(name)) return BadRequest("Name required");
@@ -103,7 +103,7 @@ public class DashboardController : ControllerBase
     }
 
     [HttpDelete("{name}")]
-    [ServiceFilter(typeof(RequireAdminFilter))]
+    [ServiceFilter(typeof(ApiTokenAuthFilter))]
     public async Task<ActionResult> DeleteDiagramByName(string name)
     {
         if (string.IsNullOrWhiteSpace(name)) return BadRequest("Name required");
