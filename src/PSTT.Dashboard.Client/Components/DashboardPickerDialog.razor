@@ -14,7 +14,7 @@
             @if (_remoteRepos.Count > 0)
             {
                 <MudSelect T="string" Value="_selectedSource" Label="Source" Variant="Variant.Outlined" Dense="true"
-                           ValueChanged="OnSourceChanged">
+                           ValueChanged="OnSourceChanged" Disabled="_isLoading">
                     <MudSelectItem T="string" Value="@("local")">Local</MudSelectItem>
                     @foreach (var repo in _remoteRepos)
                     {
@@ -58,6 +58,7 @@
     private string? _selected;
     private string _selectedSource = "local";
     private List<string> _names = [];
+    private bool _isLoading = false;
     private List<RemoteRepoInfo> _remoteRepos = [];
 
     protected override void OnParametersSet()
@@ -112,3 +113,9 @@
     private void Submit() => MudDialog.Close(DialogResult.Ok((_selectedSource, _selected ?? string.Empty)));
     private void Cancel() => MudDialog.Cancel();
 }
+
+
+
+
+
+
