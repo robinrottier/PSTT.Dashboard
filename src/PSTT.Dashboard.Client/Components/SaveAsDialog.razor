@@ -6,6 +6,7 @@
 @inject MudBlazor.IDialogService DialogService
 @inject HttpClient Http
 @inject ILogger<SaveAsDialog> Logger
+@inject ILoggerFactory LoggerFactory
 
 <MudDialog>
     <TitleContent>
@@ -17,7 +18,7 @@
             @if (_remoteRepos.Count > 0)
             {
                 <MudSelect T="string" Value="_destination" Label="Destination" Variant="Variant.Outlined" Dense="true"
-                           ValueChanged="OnDestinationChanged" Margin="Margin.Dense">
+                           ValueChanged="OnDestinationChanged" Margin="Margin.Dense" Disabled="_isLoading">
                     <MudSelectItem T="string" Value="@("local")">Local</MudSelectItem>
                     @foreach (var repo in _remoteRepos)
                     {
@@ -31,7 +32,13 @@
                           FullWidth="true" AutoFocus="true" Margin="Margin.Dense" />
 
             <!-- Existing names in destination as listbox -->
-            @if (_existingNames.Count > 0)
+            @if (_isLoading)
+            {
+                <div style="display: flex; justify-content: center; align-items: center; min-height: calc(1.5em * 5 + 8px); border: 1px solid var(--mud-palette-lines-default); border-radius: 4px; background: var(--mud-palette-background);">
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                </div>
+            }
+            else if (_existingNames.Count > 0)
             {
                 <div style="display: flex; flex-direction: column; min-height: 0;">
                     <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="margin-bottom: 4px;">Existing dashboards:</MudText>
@@ -59,7 +66,7 @@
     <DialogActions>
         <MudButton OnClick="Cancel">Cancel</MudButton>
         <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Submit"
-                   Disabled="@(string.IsNullOrWhiteSpace(_name))">Save</MudButton>
+                   Disabled="@(string.IsNullOrWhiteSpace(_name) || _isLoading)">Save</MudButton>
     </DialogActions>
 </MudDialog>
 
@@ -73,6 +80,7 @@
     private List<RemoteRepoInfo> _remoteRepos = [];
     private List<string> _existingNames = [];
     private string _errorMessage = string.Empty;
+    private bool _isLoading = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -91,6 +99,10 @@
     private async Task RefreshExistingNames()
     {
         _existingNames = [];
+        _errorMessage = string.Empty;
+        _isLoading = true;
+        StateHasChanged(); // Show loading spinner immediately
+
         try
         {
             if (_destination == "local")
@@ -102,16 +114,29 @@
                 var repo = _remoteRepos.FirstOrDefault(r => r.Name == _destination);
                 if (repo != null)
                 {
-                    var service = new RemoteProxyDashboardService(Http, repo.Name);
+                    Logger.LogInformation("Loading dashboards from remote '{RepoName}'", repo.Name);
+                    var remoteLogger = LoggerFactory.CreateLogger<RemoteProxyDashboardService>();
+                    var service = new RemoteProxyDashboardService(Http, repo.Name, remoteLogger);
                     _existingNames = await service.ListDashboardsAsync();
+                    Logger.LogInformation("Loaded {Count} dashboards from remote '{RepoName}'", _existingNames.Count, repo.Name);
+                }
+                else
+                {
+                    _errorMessage = $"Remote repository '{_destination}' not found in configuration.";
+                    Logger.LogWarning("Remote repo not found: {Destination}", _destination);
                 }
             }
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to load dashboard list for destination {Destination}", _destination);
-            _errorMessage = $"Failed to load dashboards: {ex.Message}";
+            _errorMessage = $"Failed to load dashboards from {_destination}: {ex.Message}";
         }
+        finally
+        {
+            _isLoading = false;
+        }
+
         StateHasChanged();
     }
 
@@ -120,3 +145,4 @@
 
     private void Cancel() => MudDialog.Cancel();
 }
+
