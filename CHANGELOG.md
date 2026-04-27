@@ -8,6 +8,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- TreeView widget now persists expansion/collapse state per node: collapsed paths are saved in the dashboard file and restored after tab switches or page reload. Explicitly collapsed branches stay collapsed; newly discovered MQTT topics still auto-expand.
+- New "Unsaved Changes" dialog (Save / Discard / Cancel) replaces the plain confirmation prompt when leaving edit mode. Includes an "Auto-save in future" checkbox — ticking it suppresses the dialog for all subsequent exits.
+- Floating Node Properties panel now follows the selection: stays visible when you switch to a different node (updates to show the new node's properties), and shows a "Select a single node" hint when nothing or multiple nodes are selected.
 - Remote repository entries can now be edited in place (click Edit icon in Configure Remotes dialog). Previously only Add + Delete were supported.
 - Circular self-remote integration tests (15 tests): local CRUD, Bearer token auth (valid/invalid/none), circular proxy CRUD (list/get/save/delete), remote repo CRUD (add duplicate, edit, rename conflict).
 

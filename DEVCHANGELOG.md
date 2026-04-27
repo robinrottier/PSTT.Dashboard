@@ -1,3 +1,35 @@
+## 2026-04-28 — TreeView persistence, UnsavedChanges dialog, floating props panel
+
+### Commit: 6930285 · 2026-04-28 · branch: develop
+
+---
+
+### Item 1 — TreeView expansion state persistence
+
+**Files:** `Widgets/TreeViewNodeWidget.razor`, `Models/TreeViewNodeModel.cs`, `Models/DashboardModel.cs`
+
+Added `SavedCollapsedPaths HashSet<string>` to `TreeViewNodeModel`. On `ToggleExpand`, both `_userCollapsedPaths` (in-widget, render-thread) and `Node.SavedCollapsedPaths` (in-model, durable) are updated together. On `SetupWatchers` (topic change or re-subscribe), collapsed paths are cleared and then restored from the model — so a tab switch that recreates the widget component recovers the same state. `ToData`/`FromData` round-trip the list via `TreeViewNodeData.CollapsedPaths` (nullable).
+
+⚠️ Old saved dashboards without `CollapsedPaths` field will auto-expand all nodes on first load (default behaviour); from that point on, any explicit collapse is persisted.
+
+---
+
+### Item 2 — UnsavedChanges dialog with auto-save checkbox
+
+**Files:** `Components/UnsavedChangesDialog.razor` (new), `Pages/Display.razor.cs`
+
+Replaced the plain `ShowMessageBoxAsync` prompt in `SwitchMode` with a proper `MudDialog` that has three actions (Save / Discard / Cancel) and a checkbox "Auto-save in future (don't show this again)". If the user checks the box, `AppState.SetAutoSaveOnExitEditMode(true)` is called so subsequent exits save silently. Discard still reverts to the pre-edit snapshot as before.
+
+---
+
+### Item 3 — Floating Node Properties panel follows selection
+
+**Files:** `Pages/Display.razor`, `Pages/Display.razor.cs`
+
+Panel is now conditionally rendered when `_isPropertiesOpen` (not `_propertiesOpen && _propertiesNode != null`). When 0 or 2+ nodes are selected, `_propertiesNode` is cleared and the panel shows "Select a single node to edit its properties." When exactly 1 node is selected, the full `NodePropertyEditor` renders as before. The panel stays open across selection changes instead of disappearing.
+
+---
+
 ## 2026-04-27 — Circular self-remote integration tests (15 passing)
 
 ### Commit: 05e37f7 · 2026-04-27 · branch: develop
