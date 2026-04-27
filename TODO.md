@@ -111,12 +111,11 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] Nodes can have width/height of 100% (or "dock" options as in previous vb and win forms)
 
 ### FEAT-H: Data layer refactor
-- [ ] PSTT.Dashboard could expose a remote server listener (configurable port) with our proprietary tcp protocol.
-- [ ] Then create a simple (windows) app using tree view control to make a request and show content
-	  -- in fact this would be data exporer in an app (without buttons and edit mode features)
-- [ ] Also create command line apps, similar to mosquitto_pub and sub that could be used to
-      publish data into the remote server cache off a Dashboard instance, or query the cache
-	  - these would be in PSTT (data) not in dashboard as no dependency on that repo, jst useful debug tools
+- [x] PSTT.Dashboard exposes a TCP cache server (configurable via `CacheSettings:TcpPort`, default 0 = disabled). External tools connect with `RemoteCacheBuilder<string>.WithTcpTransport(host, port).WithUtf8Encoding().Build()`.
+- [ ] Create command line apps, similar to mosquitto_pub and sub that could be used to publish data into the remote server cache off a Dashboard instance, or query the cache
+	  - these would be in PSTT (data) not in dashboard as no dependency on that repo, just useful debug tools
+- [ ] Create a simple (Windows) app using tree view control to make a request and show content
+	  -- in fact this would be a data explorer app (without buttons and edit mode features)
 
 ### FEAT-I: Responsive / mobile layout
 - [ ] Responsive layout adapts to screen size

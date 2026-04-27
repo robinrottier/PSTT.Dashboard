@@ -8,6 +8,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- TCP cache server endpoint (FEAT-H first step): set `CacheSettings:TcpPort` to a non-zero port to expose the PSTT cache over TCP. External tools can subscribe to topics and publish values using `RemoteCacheBuilder<string>.WithTcpTransport(host, port).WithUtf8Encoding().Build()`. Disabled by default (port 0).
 - TreeView widget now persists expansion/collapse state per node: collapsed paths are saved in the dashboard file and restored after tab switches or page reload. Explicitly collapsed branches stay collapsed; newly discovered MQTT topics still auto-expand.
 - New "Unsaved Changes" dialog (Save / Discard / Cancel) replaces the plain confirmation prompt when leaving edit mode. Includes an "Auto-save in future" checkbox — ticking it suppresses the dialog for all subsequent exits.
 - Floating Node Properties panel now follows the selection: stays visible when you switch to a different node (updates to show the new node's properties), and shows a "Select a single node" hint when nothing or multiple nodes are selected.

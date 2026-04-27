@@ -1,3 +1,36 @@
+## 2026-04-27 — TCP cache server endpoint (FEAT-H first step)
+
+### Commit: d7d6bff (Dashboard) · b99baea (PSTT submodule) · 2026-04-27 · branch: develop
+
+---
+
+### Item 1 — `AddCacheTcpServer` extension in `PSTT.Remote.AspNetCore`
+
+**File:** `libs/PSTT/src/PSTT.Remote.AspNetCore/Extensions/DataSourceRemoteServiceCollectionExtensions.cs`
+
+Added `AddCacheTcpServer<TValue>` alongside the existing `AddCacheSignalRServer` / `AddCacheWebSocketServer` extensions. Creates a `TcpServerTransport` (binds `IPAddress.Any` by default for cross-machine access) and `RemoteCacheServer<TValue>`, registers both as singletons, and adds a `TcpCacheServerLifetime : IHostedService` so the TCP socket is properly started and closed with the application lifetime.
+
+---
+
+### Item 2 — Dashboard server wiring
+
+**Files:** `src/PSTT.Dashboard.Server/Extensions/ServiceCollectionExtensions.cs`, `appsettings.json`
+
+Reads `CacheSettings:TcpPort` from configuration. When > 0, calls `AddCacheTcpServer<string>` with UTF-8 encoding and `forwardPublish: true` so client publishes flow through to the MQTT broker. Default is 0 (disabled, opt-in).
+
+External tools connect with:
+```csharp
+var cache = new RemoteCacheBuilder<string>()
+    .WithTcpTransport("hostname", port)
+    .WithUtf8Encoding()
+    .Build();
+await cache.ConnectAsync();
+```
+
+⚠️ No authentication on the TCP port — it is disabled by default and must be explicitly enabled by the server admin. Auth can be layered on a future transport.
+
+---
+
 ## 2026-04-28 — TreeView persistence, UnsavedChanges dialog, floating props panel
 
 ### Commit: 6930285 · 2026-04-28 · branch: develop
