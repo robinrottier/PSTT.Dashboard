@@ -44,6 +44,7 @@
 
     private List<TopicNode> _topicTree = [];
     private readonly HashSet<string> _expandedPaths = new();
+    private readonly HashSet<string> _userCollapsedPaths = new();
     private readonly HashSet<string> _highlightedTopics = new();
     private readonly ConcurrentDictionary<string, DateTime> _changedAt = new();
     private readonly ConcurrentDictionary<string, string?> _values = new();
@@ -92,6 +93,10 @@
         _values.Clear();
         _changedAt.Clear();
         _expandedPaths.Clear();
+        _userCollapsedPaths.Clear();
+        // Restore user-collapsed paths from model so expansion survives tab switches.
+        foreach (var path in Node.SavedCollapsedPaths)
+            _userCollapsedPaths.Add(path);
 
         if (string.IsNullOrEmpty(RootTopicValue)) { _topicTree = []; return; }
 
@@ -108,7 +113,7 @@
         }
 
         RebuildTree();
-        AutoExpandRoots();
+        AutoExpandNewNodes(_topicTree);
 
         _watchSubscription = cache.Subscribe(wildcardTopic, async sub =>
         {
@@ -130,6 +135,7 @@
     {
         if (_disposed) return;
         RebuildTree();
+        AutoExpandNewNodes(_topicTree);
         UpdateHighlights();
         try { InvokeAsync(StateHasChanged); } catch { }
         _highlightClearTimer?.Change(2200, System.Threading.Timeout.Infinite);
@@ -193,19 +199,34 @@
         }
     }
 
-    private void AutoExpandRoots()
+    // Auto-expands all non-leaf nodes that the user has not explicitly collapsed.
+    // Safe to call on every rebuild — already-expanded paths are idempotent, and
+    // user-collapsed paths are skipped so the user's choice is preserved.
+    private void AutoExpandNewNodes(IList<TopicNode> nodes)
     {
-        foreach (var node in _topicTree)
+        foreach (var node in nodes)
         {
-            if (!node.IsLeaf)
+            if (!node.IsLeaf && !_userCollapsedPaths.Contains(node.FullTopic))
+            {
                 _expandedPaths.Add(node.FullTopic);
+                AutoExpandNewNodes(node.Children);
+            }
         }
     }
 
     private void ToggleExpand(string fullTopic)
     {
-        if (!_expandedPaths.Remove(fullTopic))
+        if (_expandedPaths.Remove(fullTopic))
+        {
+            _userCollapsedPaths.Add(fullTopic);
+            Node.SavedCollapsedPaths.Add(fullTopic);
+        }
+        else
+        {
             _expandedPaths.Add(fullTopic);
+            _userCollapsedPaths.Remove(fullTopic);
+            Node.SavedCollapsedPaths.Remove(fullTopic);
+        }
         StateHasChanged();
     }
 

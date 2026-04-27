@@ -104,6 +104,7 @@ public class TreeViewNodeData : NodeData
 {
     public string? RootTopic { get; set; }
     public bool? ShowValues { get; set; }
+    public List<string>? CollapsedPaths { get; set; }
 }
 
 // ── Shared nested value types ─────────────────────────────────────────────────

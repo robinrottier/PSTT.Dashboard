@@ -175,15 +175,24 @@ else
                            OnCreateNodeWithTopic="AddNodeWithTopic"
                            InitialLeft="900" InitialTop="160" />
 
-        @if (_isPropertiesOpen && _propertiesNode != null)
+        @if (_isPropertiesOpen)
         {
-            <FloatingPanel Title="@($"Node Properties – {_propertiesNode.NodeType}")"
+            <FloatingPanel Title="@(_propertiesNode != null ? $"Node Properties – {_propertiesNode.NodeType}" : "Node Properties")"
                            @bind-IsOpen="_isPropertiesOpen"
                            Resizable="true"
                            InitialLeft="300" InitialTop="140" MinWidth="340">
-                <NodePropertyEditor Node="_propertiesNode"
-                                    OnSaved="OnNodePropertiesSaved"
-                                    OnClose="ClosePropertiesPanel" />
+                @if (_propertiesNode != null)
+                {
+                    <NodePropertyEditor Node="_propertiesNode"
+                                        OnSaved="OnNodePropertiesSaved"
+                                        OnClose="ClosePropertiesPanel" />
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Class="pa-4" Color="Color.Secondary">
+                        Select a single node to edit its properties.
+                    </MudText>
+                }
             </FloatingPanel>
         }
 

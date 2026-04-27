@@ -337,14 +337,14 @@ public partial class Display : IDisposable
             }
             else
             {
-                var confirm = await DialogService.ShowMessageBoxAsync(
-                    "Unsaved Changes",
-                    "You have unsaved changes. Save before leaving edit mode?",
-                    yesText: "Save",
-                    noText: "Discard",
-                    cancelText: "Cancel");
-                if (confirm == null) return; // Cancel — stay in edit mode
-                if (confirm == true)
+                var dlg = await DialogService.ShowAsync<UnsavedChangesDialog>("Unsaved Changes",
+                    new DialogOptions { Position = DialogPosition.Center, CloseButton = false, BackdropClick = false });
+                var result = await dlg.Result;
+                if (result == null || result.Canceled) return; // Cancel — stay in edit mode
+                var choice = result.Data as UnsavedChangesDialog.UnsavedChangesResult;
+                if (choice?.EnableAutoSave == true)
+                    AppState.SetAutoSaveOnExitEditMode(true);
+                if (choice?.Save == true)
                 {
                     var saved = await SaveDashboard();
                     if (!saved) return; // Stay in edit mode if save failed
@@ -550,8 +550,7 @@ public partial class Display : IDisposable
         if (_diagram != null)
         {
             var selectedNodes = _diagram.GetSelectedModels().OfType<TextNodeModel>().ToList();
-            if (selectedNodes.Count == 1)
-                _propertiesNode = selectedNodes[0];
+            _propertiesNode = selectedNodes.Count == 1 ? selectedNodes[0] : null;
         }
 
         InvokeAsync(StateHasChanged);
