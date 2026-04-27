@@ -112,8 +112,9 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 ### FEAT-H: Data layer refactor
 - [x] PSTT.Dashboard exposes a TCP cache server (configurable via `CacheSettings:TcpPort`, default 0 = disabled). External tools connect with `RemoteCacheBuilder<string>.WithTcpTransport(host, port).WithUtf8Encoding().Build()`.
-- [ ] Create command line apps, similar to mosquitto_pub and sub that could be used to publish data into the remote server cache off a Dashboard instance, or query the cache
-	  - these would be in PSTT (data) not in dashboard as no dependency on that repo, just useful debug tools
+- [x] TCP integration tests in `PSTT.Dashboard.Server.Tests` covering subscribe, wildcard, publish-forward, multi-client, and lifecycle.
+- [x] `PSTT.Remote.Sub` (`pstt-sub`) CLI tool — subscribe to topics on a PSTT TCP cache server and print values.
+- [x] `PSTT.Remote.Pub` (`pstt-pub`) CLI tool — publish a value to a topic on a PSTT TCP cache server.
 - [ ] Create a simple (Windows) app using tree view control to make a request and show content
 	  -- in fact this would be a data explorer app (without buttons and edit mode features)
 

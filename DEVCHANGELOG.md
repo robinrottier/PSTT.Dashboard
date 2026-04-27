@@ -1,3 +1,52 @@
+## 2026-04-27 — TCP integration tests + CLI tools (FEAT-H completion)
+
+### Commits: 8d40ed8 (Dashboard) · d9a4436 (PSTT submodule) · 2026-04-27 · branch: develop
+
+---
+
+### Item 1 — TCP integration tests in `PSTT.Dashboard.Server.Tests`
+
+**File:** `tests/PSTT.Dashboard.Server.Tests/TcpCacheServerTests.cs` (new)
+
+Tests the `AddCacheTcpServer` DI extension (Dashboard-level glue) rather than the raw PSTT TCP protocol (already covered in `PSTT.Remote.Tests`). Uses a `CacheWithWildcards<string,string>` as upstream to avoid any MQTT dependency.
+
+Five tests:
+- `Subscribe_ReceivesUpstreamPublish` — client subscribes, server upstream publishes, client receives.
+- `Subscribe_Wildcard_ReceivesMultipleTopics` — wildcard `devices/+/state` matches two different publishes.
+- `Publish_ForwardedToUpstream` — client publishes with `forwardPublish: true`; upstream sees the value.
+- `MultipleClients_AllReceivePublish` — two independent clients both receive a single broadcast.
+- `HostedServiceLifetime_StartStop_Works` — server starts (port opens), stops (port closes), second connect fails.
+
+All 14 server tests pass (5 new + 9 pre-existing).
+
+---
+
+### Item 2 — `PSTT.Remote.Sub` CLI tool
+
+**Files:**
+- `libs/PSTT/src/PSTT.Remote.Sub/PSTT.Remote.Sub.csproj` (new)
+- `libs/PSTT/src/PSTT.Remote.Sub/Program.cs` (new)
+- `libs/PSTT/PSTT.slnx` (updated — added to `/src/` folder)
+
+`pstt-sub` connects to a PSTT TCP cache server and subscribes to one or more topics/wildcards. Prints `topic=value` to stdout on each update. All diagnostic messages go to stderr (so stdout can be piped). Supports `--timestamp` for UTC-prefixed output. Runs until Ctrl+C.
+
+Usage: `pstt-sub --port 5010 --topic sensors/# --topic home/+`
+
+---
+
+### Item 3 — `PSTT.Remote.Pub` CLI tool
+
+**Files:**
+- `libs/PSTT/src/PSTT.Remote.Pub/PSTT.Remote.Pub.csproj` (new)
+- `libs/PSTT/src/PSTT.Remote.Pub/Program.cs` (new)
+- `libs/PSTT/PSTT.slnx` (updated — added to `/src/` folder)
+
+`pstt-pub` connects to a PSTT TCP cache server, publishes a single value to a topic, and exits.
+
+Usage: `pstt-pub --port 5010 --topic sensors/temp --value 22.5`
+
+---
+
 ## 2026-04-27 — TCP cache server endpoint (FEAT-H first step)
 
 ### Commit: d7d6bff (Dashboard) · b99baea (PSTT submodule) · 2026-04-27 · branch: develop
