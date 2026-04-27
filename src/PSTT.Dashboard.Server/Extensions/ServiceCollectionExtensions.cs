@@ -53,6 +53,19 @@ public static class ServiceCollectionExtensions
             deserializer: b => Encoding.UTF8.GetString(b),
             forwardPublish: true);
 
+        // Optional TCP cache server: enables external tools to subscribe/publish via PSTT TCP protocol.
+        // Set CacheSettings:TcpPort > 0 to enable (0 = disabled).
+        var tcpPort = int.TryParse(configuration["CacheSettings:TcpPort"], out var tp) ? tp : 0;
+        if (tcpPort > 0)
+        {
+            services.AddCacheTcpServer<string>(
+                serverCache,
+                tcpPort,
+                serializer:    v => Encoding.UTF8.GetBytes(v),
+                deserializer:  b => Encoding.UTF8.GetString(b),
+                forwardPublish: true);
+        }
+
         // Scoped per-circuit cache: downstream of serverCache, wildcards forwarded.
         // 30 s grace period avoids MQTT churn when Blazor reconnects or the user navigates.
         services.AddScoped<ICache<string,string>>(sp => new CacheBuilder<string,string>()
