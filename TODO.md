@@ -15,22 +15,9 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 - [ ] release.ps1
 	- [ ] if a step is stuck on a command prompt for input can anything be done to detect that and abort or prompt user?
-
-- [x] Need a way to share dashboards between installations (and dev)
-	- [x] Server API opens with read/write interface to other installations via https
-	- [x] "Remote" repositories list configured in settings
-		- [x] Each has a display name and a url  
-		- [x] Token-based authentication for remote access
-		- [x] API token generation and regeneration
-	- [x] Remote repositories accessible in Open/Save As dialogs
-	- [x] Integration tests for circular remote setup
-	- [ ] Full proxy forwarding requires actual network connectivity testing
-
-- [x] Serialization:
-	- [x] Server hostname written to `FileInfo`
-	- [x] App version written to `FileInfo`
-	- [x] `WrittenAt` and `Filename` populated on save
-	- [ ] should include version of this app doing the write, and server written from
+	- [ ] shouwld accept "a" for "all" to run all steps without prompting for each one
+	- [ ] shoudl accept r and run aswell as just enter to start the run -- maybe enter is dangerous and should be accepted, you have to enter r[un]
+	- [ ] command line -a or --all to preload all steps without prompting (but still be interactive and allow changing)
 
 - [ ] Node Property dialog - color transition
 	- [ ] Needs a means to drag reordering around the conditions to specify which is first match
@@ -108,10 +95,9 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] Nodes can have width/height of 100% (or "dock" options as in previous vb and win forms)
 
 ### FEAT-H: Data layer refactor
-- [x] PSTT.Dashboard exposes a TCP cache server (configurable via `CacheSettings:TcpPort`, default 0 = disabled). External tools connect with `RemoteCacheBuilder<string>.WithTcpTransport(host, port).WithUtf8Encoding().Build()`.
-- [x] TCP integration tests in `PSTT.Dashboard.Server.Tests` covering subscribe, wildcard, publish-forward, multi-client, and lifecycle.
-- [x] `PSTT.Remote.Sub` (`pstt-sub`) CLI tool — subscribe to topics on a PSTT TCP cache server and print values.
-- [x] `PSTT.Remote.Pub` (`pstt-pub`) CLI tool — publish a value to a topic on a PSTT TCP cache server.
+- [ ] `PSTT.Remote.Sub` (`pstt-sub`) CLI tool
+	- [ ] are there cli app libraries that would allow easy display f a tre structure on a terminal? rather than streaming update?
+	      ...or maybe thats another console app variation "pstt-monitor" which shows tree view and aloows navigation (like dbus-monitor program)
 - [ ] Create a simple (Windows) app using tree view control to make a request and show content
 	  -- in fact this would be a data explorer app (without buttons and edit mode features)
 
