@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [v0.1.6] - 2026-04-28
+
 ### Added
 - TCP cache server endpoint (FEAT-H first step): set `CacheSettings:TcpPort` to a non-zero port to expose the PSTT cache over TCP. External tools can subscribe to topics and publish values using `RemoteCacheBuilder<string>.WithTcpTransport(host, port).WithUtf8Encoding().Build()`. Disabled by default (port 0).
 - `pstt-sub` CLI tool (PSTT submodule): subscribe to topics/wildcards on a PSTT TCP cache server; prints `topic=value` to stdout, supports multiple `--topic` args and `--timestamp` flag.
