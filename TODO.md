@@ -7,26 +7,11 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 ## BUGS
 
 - [ ] TReeview widget
-	- [ ] expandion state default seems top node only ...it has a snap shot of data so shoudl be all nodes with grandchildren get initial expansion (same as explorer)
 	- [ ] the "GetSnapshot" is called on the cache
 	      -- but actually it sholu dbe implemented and called on the wildcard subscription(s) so it reflects them in terms of requests or wildcards etc
 		  -- but actually if you think about it isnt that was a Subscribe for a wildcard does anyway?--just nened a way to force it to be syncronous maybe so perhaps another method returning the collection makes sense
 
 ## 🟡 Minor Enhancements
-
-- [ ] when exiting edit mode with changes the "discard or save" alert should have checkbox
-      option to auto =save in the future and not show this prompt again -- thats saved as an option and turned off
-	  in menu for users who want to turn it back on
-	  OPTION already exists in menu ..just need it seelctable on that discard prompt dialog also
-
-- [ ] floating properties dialog needs to respond to currently selected item and show its properties
-	  -- if no item or multi-item then I guess its blank or greyed somehow
-
-- [ ] TReeview widget
-	- [ ] expansion state is lost even when changing from one tab to next. Is there data persistence between tabs? maybe there shoul dbe. would it be expensive?
-	      Maybe its just some collection of persistent data in nodemodel and a widget decides whether to 
-		  include some member in that or not
-- [ ] OR generalizing that problem, maybe all pages are persistent in memory and just made visible / hidden as user navigates?
 
 - [ ] release.ps1
 	- [ ] Can the captured output be scrolled to UI on a single line so user sees something happening during the build process? Currently it just looks like nothing is happening for a long time until the build finishes and then the tail of the output is shown.
