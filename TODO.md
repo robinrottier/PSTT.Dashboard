@@ -8,6 +8,9 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 - [ ] TReeview widget
 	- [ ] expandion state default seems top node only ...it has a snap shot of data so shoudl be all nodes with grandchildren get initial expansion (same as explorer)
+	- [ ] the "GetSnapshot" is called on the cache
+	      -- but actually it sholu dbe implemented and called on the wildcard subscription(s) so it reflects them in terms of requests or wildcards etc
+		  -- but actually if you think about it isnt that was a Subscribe for a wildcard does anyway?--just nened a way to force it to be syncronous maybe so perhaps another method returning the collection makes sense
 
 ## 🟡 Minor Enhancements
 
