@@ -755,10 +755,16 @@ function Step-PrepSubmodules {
     Write-Step "Pinning Dashboard submodule pointer to PSTT main..."
     Assert-Cmd git @('config', '-f', '.gitmodules', 'submodule.libs/PSTT.branch', 'main') "Failed to update .gitmodules"
     Assert-Cmd git @('add', '.gitmodules', 'libs/PSTT') "git add failed"
-    Assert-Cmd git @('commit', '-m', 'chore: pre-release — pin PSTT submodule to main') "git commit failed"
-    if ($IsDryRun) { Write-Warn "DRYRUN: skipping push of submodule prep commit"; return }
-    $branch = if ($script:CurrentBranch) { $script:CurrentBranch } else { Get-CmdOutput git @('rev-parse', '--abbrev-ref', 'HEAD') }
-    Assert-Cmd git @('push', 'origin', $branch) "git push failed after submodule prep"
+    # Nothing staged = submodule already pinned at the right commit; treat as success
+    $hasStaged = (& git diff --cached --quiet; $LASTEXITCODE) -ne 0
+    if ($hasStaged) {
+        Assert-Cmd git @('commit', '-m', 'chore: pre-release — pin PSTT submodule to main') "git commit failed"
+        if ($IsDryRun) { Write-Warn "DRYRUN: skipping push of submodule prep commit"; return }
+        $branch = if ($script:CurrentBranch) { $script:CurrentBranch } else { Get-CmdOutput git @('rev-parse', '--abbrev-ref', 'HEAD') }
+        Assert-Cmd git @('push', 'origin', $branch) "git push failed after submodule prep"
+    } else {
+        Write-Warn "Submodule pointer already up to date — nothing to commit"
+    }
     Write-Ok "PSTT submodule pinned to main — ready for release PR"
 }
 
@@ -793,10 +799,16 @@ function Step-CreateMergePR {
     Write-Step "Creating PR: $branch → main for $($script:NextVersion)"
     if ($IsDryRun) { Write-Warn "DRYRUN: skipping PR create/merge"; return }
 
-    Assert-Cmd gh @('pr', 'create', '--title', "Release $($script:NextVersion)", '--body', "Prepare release $($script:NextVersion)", '--base', 'main', '--head', $branch) "Failed to create PR"
-    $prNum = Get-CmdOutput gh @('pr', 'view', '--json', 'number', '--jq', '.number')
-    if (-not $prNum) { throw "Could not determine PR number" }
-    Write-Ok "PR #$prNum created"
+    # Reuse an existing open PR for this branch rather than failing
+    $prNum = Get-CmdOutput gh @('pr', 'view', '--head', $branch, '--json', 'number', '--jq', '.number')
+    if ($prNum) {
+        Write-Warn "PR #$prNum already exists for '$branch' — reusing it"
+    } else {
+        Assert-Cmd gh @('pr', 'create', '--title', "Release $($script:NextVersion)", '--body', "Prepare release $($script:NextVersion)", '--base', 'main', '--head', $branch) "Failed to create PR"
+        $prNum = Get-CmdOutput gh @('pr', 'view', '--json', 'number', '--jq', '.number')
+        if (-not $prNum) { throw "Could not determine PR number" }
+        Write-Ok "PR #$prNum created"
+    }
 
     # Wait for CI checks using gh pr checks (accurate per-check status)
     $timeoutSec = $WorkflowTimeoutMinutes * 60
