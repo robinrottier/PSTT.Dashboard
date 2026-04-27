@@ -1,6 +1,49 @@
+## 2026-04-27 — Circular self-remote integration tests (15 passing)
+
+### Commit: 05e37f7 · 2026-04-27 · branch: develop
+
+---
+
+### Item 1 — Fix `InProcessHttpClientFactory` startup crash
+
+**File:** `tests/PSTT.Dashboard.IntegrationTests/RemoteCircularSelfTests.cs`
+
+**Problem:** `ObjectDisposedException` during `WebApplicationFactory` startup. `UpdateCheckService` called `IHttpClientFactory.CreateClient()` during host startup (before the in-process handler was initialized), which threw `InvalidOperationException` from our custom factory, causing the host's `ServiceProvider` to be disposed mid-build.
+
+**Fix:** `InProcessHttpClientFactory.CreateClient()` now returns `new HttpClient()` as a fallback when `_inProcessHandler` is null. These callers (like `UpdateCheckService`) don't need the in-process route.
+
+---
+
+### Item 2 — Fix fixture auth so local CRUD tests can write dashboards
+
+**File:** `tests/PSTT.Dashboard.IntegrationTests/RemoteCircularSelfTests.cs`
+
+**Problem:** `CircularTestFixture.InitializeAsync()` calls `GET /api/settings/remote-access/token` to obtain the API token. This generates and stores the token, which activates `ApiTokenAuthFilter` on all `POST`/`DELETE /api/dashboard/...` endpoints. The fixture's `Client` had no auth headers, so tests like `SaveLocally_CanRead` got 401 instead of 200.
+
+**Fix:** After obtaining `Token`, set `Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token)`. Tests that need a client WITHOUT a token create their own via `Factory.CreateClient()` (which is unaffected).
+
+---
+
+### Item 3 — Fix proxy 200 → 204 coercion in `RemoteController`
+
+**File:** `src/PSTT.Dashboard.Server/Controllers/RemoteController.cs`
+
+**Problem:** `StreamResponseAsync` called `StatusCode(200, null)` when the upstream returned 200 with an empty body. ASP.NET Core's `ObjectResult` with a null value is silently converted to 204 No Content by the output formatters. This caused `CircularProxy_SaveDashboard_CanReadBack` and `CircularProxy_DeleteDashboard_RemovesIt` to fail with `Actual: NoContent`.
+
+**Fix:** Use `new StatusCodeResult(status)` (no body) when the upstream body is empty, reserving `StatusCode(status, body)` for non-empty bodies. This also fixes the same silent-204 bug in production when saving/deleting via a remote proxy.
+
+---
+
+### Test results
+
+- All 15 new circular self-remote tests pass
+- Full suite: 98 tests, 0 failures
+
+---
+
 ## 2026-04-27 — Dialog polish, auth logging, remote repo editing
 
-### Commit: (pending) · 2026-04-27 · branch: develop
+### Commit: dd62465 · 2026-04-27 · branch: develop
 
 ---
 
