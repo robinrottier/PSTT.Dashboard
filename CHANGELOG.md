@@ -7,6 +7,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Remote repository entries can now be edited in place (click Edit icon in Configure Remotes dialog). Previously only Add + Delete were supported.
+
+### Fixed
+- Open and Save As dialogs now open centred on the window instead of top-left.
+- Server logs now show the reason for 401/403 on dashboard write endpoints (token mismatch, read-only mode, no auth header), making remote save failures diagnosable.
+
 ## [v0.1.5] - 2026-04-25
 
 ### Added

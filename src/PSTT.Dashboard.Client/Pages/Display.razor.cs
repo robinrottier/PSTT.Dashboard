@@ -1210,7 +1210,7 @@ public partial class Display : IDisposable
             { d => d.InitialName, initialName },
             { d => d.RemoteRepos, remoteRepos }
         };
-        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = false, CloseButton = true };
+        var options = new DialogOptions { Position = DialogPosition.Center, CloseButton = true, CloseOnEscapeKey = true };
         var dialog = await DialogService.ShowAsync<SaveAsDialog>("Save Dashboard As", parameters, options);
         var result = await dialog.Result;
         
@@ -1266,7 +1266,7 @@ public partial class Display : IDisposable
             { d => d.DashboardNames, names },
             { d => d.RemoteRepos, remoteRepos }
         };
-        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = false, CloseButton = true };
+        var options = new DialogOptions { Position = DialogPosition.Center, CloseButton = true, CloseOnEscapeKey = true };
         var dialog = await DialogService.ShowAsync<DashboardPickerDialog>("Open Dashboard", parameters, options);
         var result = await dialog.Result;
         

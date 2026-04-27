@@ -1,4 +1,49 @@
-## 2026-04-25 — SaveAs dialog UI initialization fixes
+## 2026-04-27 — Dialog polish, auth logging, remote repo editing
+
+### Commit: (pending) · 2026-04-27 · branch: develop
+
+---
+
+### Item 1 — Dialog centering and draggable
+
+**File:** src/PSTT.Dashboard.Client/Pages/Display.razor.cs
+
+Both `SaveAsDialog` and `DashboardPickerDialog` were opening with default MudBlazor dialog placement (top-left). Changed `DialogOptions` for both to set `Position = DialogPosition.Center` and removed old `MaxWidth`/`FullWidth` overrides. Dialogs now open centred on the viewport.
+
+---
+
+### Item 2 — ApiTokenAuthFilter: replaced Debug.WriteLine with ILogger
+
+**File:** src/PSTT.Dashboard.Server/Filters/ApiTokenAuthFilter.cs
+
+All `System.Diagnostics.Debug.WriteLine` calls replaced with `ILogger<ApiTokenAuthFilter>` injected via constructor. The filter is registered as a scoped service so DI provides the logger automatically. Server logs will now show:
+- `LogWarning` when server is in read-only mode (403 path)
+- `LogWarning` when Bearer token mismatches (includes first 8 chars of both expected and received)
+- `LogWarning` when no/invalid Authorization header present
+- `LogDebug` when allowed via cookie, Bearer, or open-access paths
+
+This unblocks diagnosing the 403 reported on remote save (likely read-only mode or token mismatch, now visible in Serilog server logs).
+
+---
+
+### Item 3 — Edit remote repository (PUT endpoint + UI)
+
+**File:** src/PSTT.Dashboard.Server/Controllers/SettingsController.cs  
+**File:** src/PSTT.Dashboard.Client/Components/RemoteRepoSettingsDialog.razor
+
+Added `PUT /api/settings/remote-repos/{name}` endpoint to `SettingsController`. Validates new name/URL/token, checks for rename conflicts, updates the JSON entry in `appsettings.user.json`.
+
+In `RemoteRepoSettingsDialog`, clicking the Edit icon (or clicking the name/URL row) on a repo now:
+- Selects it (highlights the row)
+- Populates the form fields below (name + URL, token blank for re-entry)
+- Changes the form heading to "Edit: {name}"
+- Replaces the Add button with "Save Changes" + "Cancel"
+- On Save, calls `PUT /api/settings/remote-repos/{originalName}`
+- On success, clears editing mode and refreshes the list
+
+⚠️ Token is not round-tripped (server never sends stored tokens to browser). User must re-enter token when editing.
+
+
 
 ### Commit: b1ec487 · 2026-04-25 · branch: develop
 
