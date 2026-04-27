@@ -18,9 +18,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Circular self-remote integration tests (15 tests): local CRUD, Bearer token auth (valid/invalid/none), circular proxy CRUD (list/get/save/delete), remote repo CRUD (add duplicate, edit, rename conflict).
 
 ### Fixed
+- `release.ps1`: step failure error messages showed the action name rather than the actual error — fixed `$_` clobbering inside `switch` inside `catch`.
+- `release.ps1`: "The property 'Count' cannot be found" crash after a step failure — fixed by using `[string[]]@(...)` wrappers.
 - Open and Save As dialogs now open centred on the window instead of top-left.
 - Server logs now show the reason for 401/403 on dashboard write endpoints (token mismatch, read-only mode, no auth header), making remote save failures diagnosable.
 - Remote proxy (RemoteController) no longer silently converts 200 responses with empty bodies to 204 No Content — write operations (save/delete via remote) now correctly return 200.
+
+### Added
+- `release.ps1` spinner now shows last build output line + elapsed time (live feedback during long builds).
+- `release.ps1` stuck-command warning: ⚠ appears in spinner after 90 s with no new output.
+- `release.ps1` `[L]ogs` option at failure prompt to review full captured output without re-running.
+- `release.ps1` transitive dependency resolution in step menu and dep+retry prompt (BFS, not just direct parents).
 
 ## [v0.1.5] - 2026-04-25
 

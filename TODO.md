@@ -14,10 +14,7 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 ## 🟡 Minor Enhancements
 
 - [ ] release.ps1
-	- [ ] Can the captured output be scrolled to UI on a single line so user sees something happening during the build process? Currently it just looks like nothing is happening for a long time until the build finishes and then the tail of the output is shown.
-    - [ ] if a step is stuck on a command prompt for input can anything be done to detect that and abort or prompt user?
-	- [ ] detailed output review on failure — "Show detailed" option at failure prompt to re-display full captured output (beyond the 50-line tail shown automatically)
-	- [ ] dep check at menu could also transitively resolve (e.g. selecting `tag` + `changelog` without `version` — currently only direct deps are added)
+	- [ ] if a step is stuck on a command prompt for input can anything be done to detect that and abort or prompt user?
 
 - [x] Need a way to share dashboards between installations (and dev)
 	- [x] Server API opens with read/write interface to other installations via https

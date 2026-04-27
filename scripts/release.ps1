@@ -370,15 +370,18 @@ function Get-StepsToRun {
 }
 
 # ─── Shared state populated by steps ─────────────────────────────────────────
-$script:NextVersion    = $null
-$script:CurrentBranch  = $null
+$script:NextVersion         = $null
+$script:CurrentBranch       = $null
+$script:LastCapturedLines   = @()  # lines from last failed Invoke-Cmd; shown via [L]ogs in Prompt-OnFailure
 
 # ─── Command helpers ──────────────────────────────────────────────────────────
 
 # Run a command with a spinner in interactive mode; stream verbosely otherwise.
-# On success: single ✓ line with elapsed time. On failure: last ≤50 lines dumped.
+# In interactive mode: shows spinner + last output line; detects no-output-for-90s stalls.
+# On failure: last ≤50 lines dumped; all lines stored in $script:LastCapturedLines for [L]ogs.
 function Invoke-Cmd([string]$Exe, [string[]]$ArgList) {
     $label = "$Exe $($ArgList -join ' ')"
+    $script:LastCapturedLines = @()
 
     if (-not $IsInteractive) {
         Write-Step "→ $label"
@@ -402,8 +405,6 @@ function Invoke-Cmd([string]$Exe, [string[]]$ArgList) {
     $proc = [System.Diagnostics.Process]::new()
     $proc.StartInfo = $psi
     $proc.Start() | Out-Null
-    $stdoutTask = $proc.StandardOutput.ReadToEndAsync()
-    $stderrTask = $proc.StandardError.ReadToEndAsync()
 
     $width = try { [Math]::Max(40, $Host.UI.RawUI.WindowSize.Width) } catch { 80 }
     $maxLbl = $width - 14
@@ -412,12 +413,56 @@ function Invoke-Cmd([string]$Exe, [string[]]$ArgList) {
     $si     = 0
     $sw     = [System.Diagnostics.Stopwatch]::StartNew()
 
-    while (-not $proc.HasExited) {
+    # Incremental line reading to enable live preview and avoid backpressure
+    $allOut         = [System.Collections.Generic.List[string]]::new()
+    $lastDispLine   = ''
+    $lastOutputTime = 0.0   # seconds elapsed when last line was received
+    $stuckWarnSec   = 90
+    $stdoutDone     = $false
+    $stderrDone     = $false
+    $stdoutTask     = $proc.StandardOutput.ReadLineAsync()
+    $stderrTask     = $proc.StandardError.ReadLineAsync()
+
+    while (-not ($stdoutDone -and $stderrDone)) {
+        # Drain stdout in a tight loop to avoid pipe backpressure
+        while (-not $stdoutDone -and $stdoutTask.IsCompleted) {
+            $line = try { $stdoutTask.Result } catch { $null }
+            if ($null -ne $line) {
+                $allOut.Add($line)
+                $lastDispLine   = $line
+                $lastOutputTime = $sw.Elapsed.TotalSeconds
+                $stdoutTask     = $proc.StandardOutput.ReadLineAsync()
+            } else { $stdoutDone = $true }
+        }
+        # Drain stderr in a tight loop to avoid pipe backpressure
+        while (-not $stderrDone -and $stderrTask.IsCompleted) {
+            $line = try { $stderrTask.Result } catch { $null }
+            if ($null -ne $line) {
+                $allOut.Add($line)
+                $lastDispLine   = $line
+                $lastOutputTime = $sw.Elapsed.TotalSeconds
+                $stderrTask     = $proc.StandardError.ReadLineAsync()
+            } else { $stderrDone = $true }
+        }
+        if ($stdoutDone -and $stderrDone) { break }
+
+        # Spinner with last output line and stuck-command warning
         $elapsed  = $sw.Elapsed.ToString('m\:ss')
-        $spinLine = "  $($spin[$si % $spin.Count])  $disp  [$elapsed]"
-        $pad      = ' ' * [Math]::Max(0, $width - $spinLine.Length - 1)
-        Write-Host "`r$spinLine$pad" -NoNewline -ForegroundColor $C.Dim
+        $stuckFor = $sw.Elapsed.TotalSeconds - $lastOutputTime
+        $spinCore = "  $($spin[$si % $spin.Count])  $disp  [$elapsed]"
         $si++
+        $spinLine = if ($stuckFor -gt $stuckWarnSec) {
+            "$spinCore  ⚠ no new output for $([int]$stuckFor)s — may be waiting for input"
+        } elseif ($lastDispLine) {
+            $maxX = $width - $spinCore.Length - 4
+            if ($maxX -gt 10) {
+                $trimmed = ($lastDispLine.Trim() -replace '\x1B\[[0-9;]*m', '') -replace '\s+', ' '
+                if ($trimmed.Length -gt $maxX) { $trimmed = $trimmed.Substring(0, $maxX - 1) + '…' }
+                "$spinCore  $trimmed"
+            } else { $spinCore }
+        } else { $spinCore }
+        $pad = ' ' * [Math]::Max(0, $width - $spinLine.Length - 1)
+        Write-Host "`r$spinLine$pad" -NoNewline -ForegroundColor $C.Dim
         Start-Sleep -Milliseconds 100
     }
     $proc.WaitForExit()
@@ -425,15 +470,14 @@ function Invoke-Cmd([string]$Exe, [string[]]$ArgList) {
 
     $ec      = $proc.ExitCode
     $elapsed = $sw.Elapsed.ToString('m\:ss')
-    $stdout  = $stdoutTask.Result
-    $stderr  = $stderrTask.Result
+    $lines   = $allOut.ToArray()
 
     if ($ec -eq 0) {
         Write-Host "  ✓  $disp  [$elapsed]" -ForegroundColor $C.Ok
     } else {
-        $lines = @((($stdout + "`n" + $stderr).Trim() -split "`r?\n") | Where-Object { $_ -ne '' })
-        $tail  = if ($lines.Count -gt 50) { $lines[-50..-1] } else { $lines }
-        if ($lines.Count -gt 50) { Write-Host "    ... ($($lines.Count - 50) earlier lines omitted) ..." -ForegroundColor $C.Dim }
+        $script:LastCapturedLines = $lines
+        $tail = if ($lines.Count -gt 50) { $lines[-50..-1] } else { $lines }
+        if ($lines.Count -gt 50) { Write-Host "    ... ($($lines.Count - 50) earlier lines omitted; press L at prompt for full output) ..." -ForegroundColor $C.Dim }
         foreach ($ln in $tail) { Write-Host "    $ln" -ForegroundColor $C.Dim }
     }
     return $ec
@@ -937,10 +981,20 @@ function Show-StepMenu([string[]]$planned) {
                 Write-Host "  Auto-add missing steps? [Y/n] " -ForegroundColor $C.Yellow -NoNewline
                 $ans = (Read-Host).Trim().ToLower()
                 if ($ans -eq '' -or $ans -eq 'y') {
-                    foreach ($s in $StepOrder) {
-                        if (-not $selected.Contains($s)) { continue }
-                        if (-not $StepDeps.ContainsKey($s)) { continue }
-                        foreach ($dep in $StepDeps[$s]) { [void]$selected.Add($dep) }
+                    # Auto-add transitively via BFS
+                    $bfsQ = [System.Collections.Generic.Queue[string]]::new()
+                    foreach ($s in @($selected)) {
+                        if ($StepDeps.ContainsKey($s)) {
+                            foreach ($dep in $StepDeps[$s]) {
+                                if (-not $selected.Contains($dep)) { [void]$bfsQ.Enqueue($dep) }
+                            }
+                        }
+                    }
+                    while ($bfsQ.Count -gt 0) {
+                        $dep = $bfsQ.Dequeue()
+                        if ($selected.Add($dep) -and $StepDeps.ContainsKey($dep)) {
+                            foreach ($dd in $StepDeps[$dep]) { [void]$bfsQ.Enqueue($dd) }
+                        }
                     }
                     continue  # redisplay menu with deps added
                 }
@@ -989,35 +1043,62 @@ function Show-StepMenu([string[]]$planned) {
     }
 
     # Return in canonical step order
-    return [string[]]($StepOrder | Where-Object { $selected.Contains($_) })
+    return [string[]]@($StepOrder | Where-Object { $selected.Contains($_) })
 }
 
-# Interactive prompt when a step fails: Retry / Dep+retry / Skip / Abort
+# Interactive prompt when a step fails: Retry / Dep+retry / Skip / Logs / Abort
 function Prompt-OnFailure([string]$stepName) {
     if (-not $IsInteractive) { return 'abort' }
     Write-Host "`n  Step '$stepName' failed." -ForegroundColor $C.Fail
 
-    # Identify deps that can be run to unblock this step
-    # Use [string[]] cast so an absent key gives empty array, never $null
-    [string[]]$deps = if ($StepDeps.ContainsKey($stepName)) { $StepDeps[$stepName] } else { @() }
-    if ($deps.Count -gt 0) {
-        Write-Host "  This step requires: $($deps -join ', ')" -ForegroundColor $C.Warn
-        Write-Host "  [R]etry  [D]ep+retry (run deps first)  [S]kip  [A]bort (default)" -ForegroundColor $C.Yellow
-    } else {
-        Write-Host "  [R]etry  [S]kip  [A]bort (default)" -ForegroundColor $C.Yellow
+    # Resolve transitive deps via BFS (same logic as menu dep check)
+    $depSet = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $bfsQ   = [System.Collections.Generic.Queue[string]]::new()
+    if ($StepDeps.ContainsKey($stepName)) {
+        foreach ($d in $StepDeps[$stepName]) { [void]$bfsQ.Enqueue($d) }
     }
-    $choice = (Read-Host '  Choice').Trim().ToLower()
+    while ($bfsQ.Count -gt 0) {
+        $d = $bfsQ.Dequeue()
+        if ($depSet.Add($d) -and $StepDeps.ContainsKey($d)) {
+            foreach ($dd in $StepDeps[$d]) { [void]$bfsQ.Enqueue($dd) }
+        }
+    }
+    [string[]]$deps = @($StepOrder | Where-Object { $depSet.Contains($_) })
+
+    $hasLogs = $script:LastCapturedLines.Count -gt 0
+    $logsHint = if ($hasLogs) { '  [L]ogs' } else { '' }
+
+    $choice = ''
+    while ($true) {
+        if ($deps.Count -gt 0) {
+            Write-Host "  This step requires: $($deps -join ', ')" -ForegroundColor $C.Warn
+            Write-Host "  [R]etry  [D]ep+retry (run deps first)  [S]kip$logsHint  [A]bort (default)" -ForegroundColor $C.Yellow
+        } else {
+            Write-Host "  [R]etry  [S]kip$logsHint  [A]bort (default)" -ForegroundColor $C.Yellow
+        }
+        $raw    = Read-Host '  Choice'
+        $choice = if ($raw) { $raw.Trim().ToLower() } else { '' }
+
+        if ($choice -eq 'l' -and $hasLogs) {
+            Write-Host "`n  --- Full command output ($($script:LastCapturedLines.Count) lines) ---" -ForegroundColor $C.Dim
+            foreach ($ln in $script:LastCapturedLines) { Write-Host "    $ln" -ForegroundColor $C.Dim }
+            Write-Host "  --- End of output ---`n" -ForegroundColor $C.Dim
+            continue  # re-show prompt
+        }
+        break
+    }
 
     if ($choice -eq 'r') { return 'retry' }
     if ($choice -eq 's') { return 'skip' }
     if ($choice -eq 'd' -and $deps.Count -gt 0) {
-        # Run each dep step inline so the failed step can succeed on retry
+        # Run each dep step in canonical order (deps already transitively resolved)
         foreach ($dep in $deps) {
             Write-Header "[dep] $dep — $($StepDesc[$dep])"
             try {
                 & $StepFns[$dep]
             } catch {
-                Write-Fail "Dependency step '$dep' failed: $_"
+                $depErr = $_
+                Write-Fail "Dependency step '$dep' failed: $depErr"
                 Write-Warn "Aborting — fix '$dep' first, then retry '$stepName'"
                 return 'abort'
             }
@@ -1054,11 +1135,11 @@ try {
     if ($IsVerify)  { Write-Warn "VERIFY MODE — local checks only, no git state changes" }
     if ($IsDryRun)  { Write-Warn "DRY RUN — no pushes, merges or tags will be made" }
 
-    $stepsToRun = [string[]](Get-StepsToRun)
+    $stepsToRun = [string[]]@(Get-StepsToRun)
 
     # When running interactively with no explicit step selection, show the menu
     if ($IsInteractive -and -not $Only -and -not $From -and $SkipSet.Count -eq 0) {
-        $stepsToRun = [string[]](Show-StepMenu $stepsToRun)
+        $stepsToRun = [string[]]@(Show-StepMenu $stepsToRun)
     } else {
         Write-Host "`nSteps to run: $($stepsToRun -join ' → ')" -ForegroundColor $C.Cyan
     }
@@ -1076,12 +1157,13 @@ try {
                 & $StepFns[$step]
                 $succeeded = $true
             } catch {
-                Write-Fail "Step '$step' failed: $_"
+                $stepErr = $_
+                Write-Fail "Step '$step' failed: $stepErr"
                 $action = Prompt-OnFailure $step
                 switch ($action) {
                     'retry' { Write-Warn "Retrying '$step'..." }
                     'skip'  { Write-Warn "Skipping '$step'"; $succeeded = $true }
-                    default { throw "Aborted at step '$step': $_" }
+                    default { throw "Aborted at step '$step': $stepErr" }
                 }
             }
         }

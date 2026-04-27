@@ -1,4 +1,62 @@
-## 2026-04-27 — TCP integration tests + CLI tools (FEAT-H completion)
+## 2026-04-28 — release.ps1 bug fixes and enhancements
+
+### Commits: (see below) · 2026-04-28 · branch: develop
+
+---
+
+### Item 1 — Bug fix: `$_` clobbered inside `switch` inside `catch`
+
+**File:** `scripts/release.ps1` (main try block, inner catch)
+
+In PowerShell, `$_` inside a `switch` body refers to the switch input, not the enclosing `catch` exception. The `default { throw "Aborted at step '$step': $_" }` arm was emitting the action string (e.g. `"abort"`) rather than the actual error. Fixed by capturing `$stepErr = $_` at the top of the catch block and using `$stepErr` throughout (in `Write-Fail`, the `throw`, and the `Prompt-OnFailure` call site).
+
+---
+
+### Item 2 — Bug fix: `[string[]]` without `@()` → `.Count` throws under strict mode
+
+**File:** `scripts/release.ps1` (`Get-StepsToRun`, `Show-StepMenu`, main block)
+
+With `Set-StrictMode -Version Latest`, accessing `.Count` on `$null` throws "The property 'Count' cannot be found on this object." When a pipeline returns nothing, `[string[]]($pipeline)` can produce `$null` rather than an empty array. Fixed by wrapping all three sites with `@()`: `[string[]]@(...)` always yields an array even for empty pipelines.
+
+---
+
+### Item 3 — Enhancement: live last-line spinner in `Invoke-Cmd`
+
+**File:** `scripts/release.ps1` (`Invoke-Cmd` function, full rewrite)
+
+Previously: `ReadToEndAsync()` waited until the process exited with no visibility during long builds (no output for minutes).
+
+Now: uses `ReadLineAsync()` polling with a tight drain loop per stream per 100 ms tick. The spinner now shows the last received output line alongside elapsed time — giving real feedback during multi-minute builds. Line display strips ANSI colour codes and truncates to terminal width.
+
+---
+
+### Item 4 — Enhancement: stuck-command detection
+
+**File:** `scripts/release.ps1` (`Invoke-Cmd` function)
+
+If no new output line arrives for 90 seconds, the spinner changes to show "⚠ no new output for Xs — may be waiting for input". The process is not killed automatically (user may intentionally be waiting), but the warning surfaces the symptom immediately.
+
+⚠ Known limitation: the 90-second threshold is hard-coded. A future enhancement could make it configurable.
+
+---
+
+### Item 5 — Enhancement: `[L]ogs` option in `Prompt-OnFailure`
+
+**File:** `scripts/release.ps1` (`Prompt-OnFailure` function)
+
+All output lines from a failed command are stored in `$script:LastCapturedLines` (initialized to `@()` at script startup and reset to `@()` at the start of each `Invoke-Cmd` call, populated only on non-zero exit). At the failure prompt, when logs are available, a `[L]ogs` option appears. Pressing `L` reprints all captured lines and loops back to the prompt. Key `D` is reserved for dep+retry, so `L` was chosen to avoid conflict.
+
+---
+
+### Item 6 — Enhancement: transitive dep resolution in menu and `Prompt-OnFailure`
+
+**File:** `scripts/release.ps1` (`Show-StepMenu` dep-add block; `Prompt-OnFailure`)
+
+Previously, auto-adding missing deps only walked one level. Now both sites use an iterative BFS (`Queue<string>`) to resolve deps transitively (e.g. selecting `tag` without `version` without `changelog` — all three are auto-added in canonical order). `HashSet.Add()` return value prevents cycles.
+
+---
+
+
 
 ### Commits: 8d40ed8 (Dashboard) · d9a4436 (PSTT submodule) · 2026-04-27 · branch: develop
 
