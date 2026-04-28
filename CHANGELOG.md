@@ -8,6 +8,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **RemoteCache auto-reconnect**: `RemoteCacheBuilder.WithAutoReconnect()` (in PSTT library) — when the server drops, the client automatically retries and re-subscribes to all topics. `pstt-sub` uses this by default.
+
+### Fixed
+- Ctrl-S no longer opens the browser's native Save dialog while the dashboard is open.
+- Copy/paste of TextEntry and DropDown nodes now preserves all type-specific properties (placeholder, publish topic, options, etc.).
+- Floating panels (Add Node, Data Explorer, Properties) are now closed automatically when leaving edit mode.
+- Auto-save preference set via the Unsaved Changes dialog is now persisted to the server and survives page refresh.
+- Cross-window clipboard paste (psttClipboard JS object) was misnamed and not working — fixed.
+
+### Changed
+- All ASP.NET Core packages updated to 10.0.7 (were split between 10.0.3 and 10.0.6).
+- MudBlazor updated from 9.1.0 to 9.4.0 (MudSelect, MudColorPicker, MudInput bug fixes).
+
 - **Slider node**: MudSlider widget with configurable Min/Max/Step/Unit. Displays the current MQTT value and allows the user to publish a new value by dragging. Publishes only on mouse release to avoid flooding the broker. Supports read-only mode. Min/Max labels shown below the slider.
 - **Button node**: Single MudButton that publishes a configured payload to a topic on click. Configurable label, publish value, topic, style (Filled/Outlined/Text), and colour (Primary/Secondary/Success/Error/Warning/Info/Default). Supports read-only mode.
 - **HTML node**: Renders the node's Text property as raw HTML markup (`MarkupString`). Content is static (no MQTT value substitution) to avoid injection from untrusted broker payloads. Intended for dashboard-author-controlled rich content.

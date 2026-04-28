@@ -1,3 +1,75 @@
+## 2026-04-29 — Bug fixes + package upgrades
+
+### Commit: 567ea83 · 2026-04-29 · branch: develop
+
+---
+
+### Item 1 — Build fixes from last session (TextEntry/DropDown/AppErrorBoundary)
+
+**Files:** `src/PSTT.Dashboard.Client/Widgets/DropDownNodeWidget.razor`,
+`src/PSTT.Dashboard.Client/Widgets/TextEntryNodeWidget.razor`,
+`src/PSTT.Dashboard.Client/Components/AppErrorBoundary.razor`
+
+**What:** Three compiler errors introduced by the last feature batch:
+- RZ9986 in both widget files: `Style="font-size:@(FontSizeStyle);"` mixes literal text with C# in a component attribute — changed to `Style="@($"font-size:{FontSizeStyle};")"`.
+- `AppErrorBoundary.MaximumErrorCount` override removed — `ErrorBoundaryBase.MaximumErrorCount` is not virtual in the current SDK.
+
+---
+
+### Item 2 — Package upgrades: ASP.NET Core 10.0.7 + MudBlazor 9.4.0
+
+**Files:** all `*.csproj` files referencing ASP.NET Core 10.x or MudBlazor.
+
+**What:**
+- All ASP.NET Core 10.x packages unified to **10.0.7** (were split between 10.0.3 and 10.0.6).
+- MudBlazor bumped from **9.1.0 → 9.4.0**. Key improvements: MudSelect (4 bug fixes), MudColorPicker black-color initialisation, MudInput duplicate blur, MudAppBar scroll-lock.
+
+---
+
+### Item 3 — Ctrl-S browser save dialog suppressed
+
+**Files:** `src/PSTT.Dashboard.Client/wwwroot/clipboard.js`
+
+**What:** Added a capture-phase `document.addEventListener('keydown', ...)` that calls `preventDefault()` for Ctrl+S/Cmd+S. Previously the dashboard handled Ctrl+S internally but the browser also opened its native Save dialog.
+
+Also fixed a naming mismatch: JS object was `mqttClipboard` but all C# callers used `psttClipboard` — renamed to `psttClipboard`. Cross-window paste was silently falling back to in-memory clipboard; it will now work correctly.
+
+---
+
+### Item 4 — Copy/paste preserves TextEntry and DropDown types
+
+**Files:** `src/PSTT.Dashboard.Client/Pages/Display.razor.cs`
+
+**What:** `PasteNodesAsync` had no cases for `TextEntryNodeData` / `DropDownNodeData` and fell through to `TextNodeModel.FromData()`, losing all type-specific properties (placeholder, publish topic, options, etc.). Added the two missing `switch` arms. JSON deserialization already produced the correct subtypes via `[JsonDerivedType]` — the switch just needed them wired up.
+
+---
+
+### Item 5 — Exit edit mode closes floating panels
+
+**Files:** `src/PSTT.Dashboard.Client/Pages/Display.razor.cs`
+
+**What:** `SwitchMode(false)` now sets `_isAddNodeOpen`, `_isDataExplorerOpen`, and `_isPropertiesOpen` all to `false`. Previously those panels stayed open after leaving edit mode.
+
+---
+
+### Item 6 — AutoSave-via-dialog persisted to server
+
+**Files:** `src/PSTT.Dashboard.Client/Pages/Display.razor.cs`
+
+**What:** When the user enables auto-save via the Unsaved Changes dialog (not the menu), the setting was applied in memory but never posted to `/api/settings/app`, so it reset on next page load. Added the missing `Http.PostAsJsonAsync` call in the dialog result handler.
+
+---
+
+### Item 7 — RemoteCache auto-reconnect (in PSTT library)
+
+**Files:** `libs/PSTT/src/PSTT.Remote/RemoteCache.cs`,
+`libs/PSTT/src/PSTT.Remote/RemoteCacheBuilder.cs`,
+`libs/PSTT/src/PSTT.Remote.Sub/Program.cs`
+
+**What:** `RemoteCacheBuilder<TValue>` gained `WithAutoReconnect(TimeSpan? delay = null)`. When enabled, `RemoteCache.OnDisconnectedAsync` spawns a background retry loop that waits `delay` (default 5 s) then calls `ConnectAsync()` (which already calls `ResubscribeAllAsync`). `pstt-sub` enables this by default so it recovers when the server restarts. All 382 PSTT lib tests pass.
+
+---
+
 ## 2026-04-28 — TextEntry + DropDown widgets (FEAT-C)
 
 ### Commit: 3f33bd2 · 2026-04-28 · branch: develop

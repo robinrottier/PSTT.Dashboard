@@ -13,15 +13,8 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 		  -- the logic for wildcards/$ etc sholdnt be in widget
 	- [ ] I selected data as ess1/servers/+/+ and expected to only get 2 levels of matching nodes. BUT also got (for example) ess/servers/HUB-3/schedules/setpoint which I dont beleiwve matches.
 	      -- may be consequence of above issue i.e. node filtering done in wrong place on the snapshot
-- [ ] "auto save" option ...I selected option in popup when exiting edit mode, and saved. BUT next time exiting edit mode got same popoup. OPtion selection should be persisted.
-      -- it is persisted so 2nd time in a session it applied BUT never on first time...hit F5 to refresh page, enter edit, exit edit and prompted again rather than autosave.
-	  -- didnt seem to be written to setting sfile...on restarting the setting was not set even though it had been?
 - [ ] MinVer:I am developing on develop branch, in sync with main which has tag 0.1.6 .. but I only see a version like 0.1.3-dev.89. Why cant I see full 0.1.6 version which is my develop is based on?
-- [ ] Data explorer on show ... exit edit mode and edit mode dialogs should then be hidden
-- [ ] pstt-sub cli app got a stale when server went down ... but did not auto -reconnect when it was back up...it should do
 - [ ] data explorer ...watching ess/# and temp/# ... nothin on temp to start with so not shonw BUT when it became available it was not shown either until a refresh. cli app watching just "#" showed the value when it was published so it was inthe cache.
-- [ ] I did ctrl-s to save file ...correct -- but then browser went into save dialog so it got the ctrl-s also
-- [ ] I did copy/paste on a text entry control and the topic was not copied over--> becuase it appears to be a text control not a text entry control?
 
 ## 🟡 Minor Enhancements
 
@@ -90,7 +83,7 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] **Checkbox group** — similar to button group but with independent selection
 - [ ] **Drop down list** — select from a list of options, with the selected value published to a topic
 - [ ] **Text entry** — single-line text input, with value published to a topic on change. Format options for input validation (e.g. numeric only, regex pattern, date, date time, ...)
-- [ ] ** Markdown** - html widget shows html -- need a markdown also, is there a library to do that? OR is it an option on html widget?
+- [ ] **Markdown** - html widget shows html -- need a markdown also, is there a library to do that? OR is it an option on html widget?
 
 - [ ] **Chart**
       — in-memory time-series sparkline graph. Difficult!! where does it get history from?
