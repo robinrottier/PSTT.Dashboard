@@ -756,8 +756,8 @@ function Step-PrepSubmodules {
     Assert-Cmd git @('config', '-f', '.gitmodules', 'submodule.libs/PSTT.branch', 'main') "Failed to update .gitmodules"
     Assert-Cmd git @('add', '.gitmodules', 'libs/PSTT') "git add failed"
     # Nothing staged = submodule already pinned at the right commit; treat as success
-    $hasStaged = (& git diff --cached --quiet; $LASTEXITCODE) -ne 0
-    if ($hasStaged) {
+    $hasStaged = (& git diff --cached --quiet); $LASTEXITCODE
+    if ($hasStaged -ne 0) {
         Assert-Cmd git @('commit', '-m', 'chore: pre-release — pin PSTT submodule to main') "git commit failed"
         if ($IsDryRun) { Write-Warn "DRYRUN: skipping push of submodule prep commit"; return }
         $branch = if ($script:CurrentBranch) { $script:CurrentBranch } else { Get-CmdOutput git @('rev-parse', '--abbrev-ref', 'HEAD') }
