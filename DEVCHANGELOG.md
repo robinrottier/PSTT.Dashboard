@@ -1,4 +1,48 @@
-## 2026-04-28 — Global error boundary + diagnostic logger
+## 2026-04-28 — TextEntry + DropDown widgets (FEAT-C)
+
+### Commit: 3f33bd2 · 2026-04-28 · branch: develop
+
+---
+
+### Item 1 — TextEntryNodeModel + TextEntryNodeWidget
+
+**Files:** `src/PSTT.Dashboard.Client/Models/TextEntryNodeModel.cs` (NEW),
+`src/PSTT.Dashboard.Client/Widgets/TextEntryNodeWidget.razor` (NEW)
+
+**What:** A single-line MudTextField widget that displays the current MQTT value and publishes a new value on blur or Enter. Properties: Placeholder, PublishTopic, IsReadOnly, Retain, PublishGlobally.
+
+**How:** Inherits `BaseNodeWithDataWidget<TextEntryNodeModel>`. `OnDataUpdated()` updates `_displayValue` only when the field is not focused (guarded by `_isFocused` flag) to avoid clobbering text the user is currently editing. On submit, calls `target.PublishAsync(...)` where target is `DataCache` (global) or `LocalDataCache` (dashboard-local) depending on `PublishGlobally`.
+
+---
+
+### Item 2 — DropDownNodeModel + DropDownNodeWidget
+
+**Files:** `src/PSTT.Dashboard.Client/Models/DropDownNodeModel.cs` (NEW),
+`src/PSTT.Dashboard.Client/Widgets/DropDownNodeWidget.razor` (NEW)
+
+**What:** A MudSelect dropdown populated from a comma-separated Options string. Publishes the selected value on change. Properties: Options, PublishTopic, IsReadOnly, Retain, PublishGlobally.
+
+**How:** Inherits `BaseNodeWithDataWidget<DropDownNodeModel>`. `OnDataUpdated()` updates `_selectedValue` only if the incoming MQTT value is one of the configured options (ignores values that don't match). Computed property `OptionList` on the model splits Options by comma with trimming.
+
+---
+
+### Item 3 — Wiring + serialization
+
+**Files modified:** `DashboardModel.cs`, `ApplicationState.cs`, `AddNodePanelContent.razor`, `Display.razor.cs`, `DashboardSerializerTests.cs`
+
+**What:** Full registration of both new types:
+- `TextEntryNodeData` and `DropDownNodeData` classes added to `DashboardModel.cs` with `[JsonDerivedType]` attributes
+- `RegisterComponent<>` calls added in `ApplicationState.CreateDiagramFromState()`
+- Switch cases added to the nodeData switch in `ApplicationState`
+- Entries added to `AddNodePanelContent._nodeTypes` (icons: TextFields / ArrowDropDown)
+- Switch cases added in `Display.razor.cs OnAddNodeTypeSelected()`
+- 2 new round-trip serialization tests added to `DashboardSerializerTests.cs`
+
+⚠️ Build could not be verified from CLI (terminal still only has .NET 9 SDK; project targets .NET 10). Code was verified structurally against existing patterns (ButtonNodeWidget, SliderNodeModel). Verify with VS after upgrade completes.
+
+---
+
+
 
 ### Commit: 91e1c8d · 2026-04-28 · branch: develop
 

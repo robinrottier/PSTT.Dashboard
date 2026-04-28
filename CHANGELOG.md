@@ -16,7 +16,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Export dialog now has a **Full Dashboard** option (in addition to Selected Nodes and Current Page). Exports all pages as a portable JSON envelope that can be imported into another dashboard installation.
 - Import dialog now accepts full-dashboard exports; imported pages are appended to the current dashboard (not replacing it).
 - Export/Import now use sequential IDs (same remapping as file save) — exported JSON is compact and readable.
-- **Global error boundary**: unhandled component exceptions are now caught in C# before they crash the Blazor Server circuit. A red error panel with the exception type, message, and a **Dismiss** button appears in place of a blank/crashed page. Full stack traces are written to the Serilog server log. In debug builds, the debugger breaks automatically at the C# catch point so component bugs are trivially breakpointable.
+- **Text Entry node**: Single-line MudTextField widget. Displays the current MQTT value; publishes a new value on blur/Enter. Configurable placeholder, publish topic, read-only mode, retain flag, and publish scope (broker vs dashboard-local). Does not overwrite text the user is currently editing when an MQTT update arrives.
+- **Drop Down node**: MudSelect dropdown with a comma-separated options list. Publishes the selected value. Syncs with incoming MQTT value only when the value matches one of the configured options. Same publish options as Text Entry.
 
 ### Fixed
 - Opening a dashboard from a remote source and then pressing **Save** now redirects to **Save As**, preventing silent overwrite of a local file with the same name.
