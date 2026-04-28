@@ -358,6 +358,153 @@ public class DashboardSerializerTests
         Assert.Equal("3", data[1].GetProperty("Id").GetString());
     }
 
+    // ── FEAT-C new node types round-trip ─────────────────────────────────────
+
+    [Fact]
+    public void Serialize_SliderNodeData_RoundTrip()
+    {
+        var model = new DashboardModel
+        {
+            Name = "Slider test",
+            Pages =
+            [
+                new DashboardPageModel
+                {
+                    Id = "p1",
+                    Nodes = [new SliderNodeData { Id = "s1", Min = 0, Max = 50, Step = 0.5, Unit = "%", PublishTopic = "cmd/slider" }],
+                    Links = []
+                }
+            ]
+        };
+
+        var json = DashboardSerializer.Serialize(model, WriteOptions);
+        var loaded = JsonSerializer.Deserialize<DashboardModel>(json)!;
+
+        var node = Assert.IsType<SliderNodeData>(loaded.Pages[0].Nodes[0]);
+        Assert.Equal(0, node.Min);
+        Assert.Equal(50, node.Max);
+        Assert.Equal(0.5, node.Step);
+        Assert.Equal("%", node.Unit);
+        Assert.Equal("cmd/slider", node.PublishTopic);
+        // ID was remapped
+        Assert.Equal("2", node.Id);
+    }
+
+    [Fact]
+    public void Serialize_ButtonNodeData_RoundTrip()
+    {
+        var model = new DashboardModel
+        {
+            Name = "Button test",
+            Pages =
+            [
+                new DashboardPageModel
+                {
+                    Id = "p1",
+                    Nodes = [new ButtonNodeData { Id = "b1", ButtonLabel = "Press me", PublishValue = "1", PublishTopic = "cmd/btn", ButtonVariant = "Filled", ButtonColor = "Primary" }],
+                    Links = []
+                }
+            ]
+        };
+
+        var json = DashboardSerializer.Serialize(model, WriteOptions);
+        var loaded = JsonSerializer.Deserialize<DashboardModel>(json)!;
+
+        var node = Assert.IsType<ButtonNodeData>(loaded.Pages[0].Nodes[0]);
+        Assert.Equal("Press me", node.ButtonLabel);
+        Assert.Equal("1", node.PublishValue);
+        Assert.Equal("cmd/btn", node.PublishTopic);
+        Assert.Equal("Filled", node.ButtonVariant);
+        Assert.Equal("Primary", node.ButtonColor);
+        Assert.Equal("2", node.Id);
+    }
+
+    [Fact]
+    public void Serialize_HtmlNodeData_RoundTrip()
+    {
+        var model = new DashboardModel
+        {
+            Name = "HTML test",
+            Pages =
+            [
+                new DashboardPageModel
+                {
+                    Id = "p1",
+                    Nodes = [new HtmlNodeData { Id = "h1" }],
+                    Links = []
+                }
+            ]
+        };
+
+        var json = DashboardSerializer.Serialize(model, WriteOptions);
+        var loaded = JsonSerializer.Deserialize<DashboardModel>(json)!;
+
+        Assert.IsType<HtmlNodeData>(loaded.Pages[0].Nodes[0]);
+        Assert.Equal("2", loaded.Pages[0].Nodes[0].Id);
+    }
+
+    [Fact]
+    public void Serialize_IFrameNodeData_RoundTrip()
+    {
+        var model = new DashboardModel
+        {
+            Name = "IFrame test",
+            Pages =
+            [
+                new DashboardPageModel
+                {
+                    Id = "p1",
+                    Nodes = [new IFrameNodeData { Id = "i1", SourceUrl = "https://example.com" }],
+                    Links = []
+                }
+            ]
+        };
+
+        var json = DashboardSerializer.Serialize(model, WriteOptions);
+        var loaded = JsonSerializer.Deserialize<DashboardModel>(json)!;
+
+        var node = Assert.IsType<IFrameNodeData>(loaded.Pages[0].Nodes[0]);
+        Assert.Equal("https://example.com", node.SourceUrl);
+        Assert.Equal("2", node.Id);
+    }
+
+    [Fact]
+    public void Serialize_AllFeatCTypes_TypesPreserved()
+    {
+        var model = new DashboardModel
+        {
+            Name = "All FEAT-C",
+            Pages =
+            [
+                new DashboardPageModel
+                {
+                    Id = "p1",
+                    Nodes =
+                    [
+                        new SliderNodeData { Id = "s1", Max = 100 },
+                        new ButtonNodeData { Id = "b1", ButtonLabel = "Click" },
+                        new HtmlNodeData { Id = "h1" },
+                        new IFrameNodeData { Id = "i1", SourceUrl = "https://example.com" }
+                    ],
+                    Links = []
+                }
+            ]
+        };
+
+        var json = DashboardSerializer.Serialize(model, WriteOptions);
+        var loaded = JsonSerializer.Deserialize<DashboardModel>(json)!;
+        var nodes = loaded.Pages[0].Nodes;
+
+        Assert.IsType<SliderNodeData>(nodes[0]);
+        Assert.IsType<ButtonNodeData>(nodes[1]);
+        Assert.IsType<HtmlNodeData>(nodes[2]);
+        Assert.IsType<IFrameNodeData>(nodes[3]);
+
+        Assert.Equal(100, ((SliderNodeData)nodes[0]).Max);
+        Assert.Equal("Click", ((ButtonNodeData)nodes[1]).ButtonLabel);
+        Assert.Equal("https://example.com", ((IFrameNodeData)nodes[3]).SourceUrl);
+    }
+
     // ── SerializeDashboard helper ─────────────────────────────────────────────
 
     [Fact]

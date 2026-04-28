@@ -44,7 +44,7 @@
 
     protected override void OnDataUpdated()
     {
-        if (double.TryParse(Node.DataValues?[0]?.ToString(), System.Globalization.NumberStyles.Any,
+        if (double.TryParse(Node.DataValue(0)?.ToString(), System.Globalization.NumberStyles.Any,
             System.Globalization.CultureInfo.InvariantCulture, out var d))
         {
             // Update display position from MQTT without triggering a publish
@@ -55,7 +55,7 @@
 
     private string FormatValue()
     {
-        var raw = Node.DataValues?[0]?.ToString();
+        var raw = Node.DataValue(0)?.ToString();
         if (string.IsNullOrEmpty(raw))
             return _sliderValue.ToString("G6");
         return raw;

@@ -12,7 +12,7 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 		  -- but actually if you think about it isnt that was a Subscribe for a wildcard does anyway?--just nened a way to force it to be syncronous maybe so perhaps another method returning the collection makes sense
 		  -- the logic for wildcards/$ etc sholdnt be in widget
 	- [ ] I selected data as ess1/servers/+/+ and expected to only get 2 levels of matching nodes. BUT also got (for example) ess/servers/HUB-3/schedules/setpoint which I dont beleiwve matches.
-	      -- may be consequence of above issue i.e. node filtering done in wring place on the snapshot
+	      -- may be consequence of above issue i.e. node filtering done in wrong place on the snapshot
 - [ ] "auto save" option ...I selected option in popup when exiting edit mode, and saved. BUT next time exiting edit mode got same popoup. OPtion selection should be persisted.
       -- it is persisted so 2nd time in a session it applied BUT never on first time...hit F5 to refresh page, enter edit, exit edit and prompted again rather than autosave.
 - [ ] I did "add node" and saw same dialog list as before -- none of the new controls??
