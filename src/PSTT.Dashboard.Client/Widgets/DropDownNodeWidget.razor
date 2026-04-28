@@ -13,7 +13,7 @@
                        Margin="Margin.Dense"
                        FullWidth="true"
                        Dense="true"
-                       Style="font-size:@(FontSizeStyle);">
+                       Style="@($"font-size:{FontSizeStyle};")">
                 @foreach (var option in Node.OptionList)
                 {
                     <MudSelectItem T="string" Value="@option">@option</MudSelectItem>

@@ -16,7 +16,7 @@
                           FullWidth="true"
                           @onfocus="@(() => _isFocused = true)"
                           @onblur="@(() => _isFocused = false)"
-                          Style="font-size:@(FontSizeStyle);" />
+                          Style="@($"font-size:{FontSizeStyle};")" />
         </div>
     </ExtraContent>
 </StandardNodeLayout>
