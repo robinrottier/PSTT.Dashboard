@@ -16,6 +16,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 - Opening a dashboard from a remote source and then pressing **Save** now redirects to **Save As**, preventing silent overwrite of a local file with the same name.
 - A second **Open Dashboard** dialog can no longer be triggered while the first is still open (previously two concurrent dialogs could stack up if the open was slow).
+- **Open** and **Save As** dialogs now appear instantly — remote repos and dashboard list are fetched inside the dialog (with a loading spinner) rather than blocking before showing the dialog.
+- Dialog guard extended to all primary modal dialogs: Export, Import, Save As, Dashboard Properties (Display page) and About, Startup Settings, Remote Repositories (app menu) — any of these now blocks until closed.
+- Remote repositories list failed to show in dialogs on first app start. Root cause: the server-side loopback HTTP client was being constructed with the HTTPS port (from the active Blazor Server circuit) instead of the HTTP port cached at startup, causing silent HTTP→HTTPS connection failures. Fixed by preferring the startup-cached HTTP port.
 
 ## [v0.1.6] - 2026-04-28
 

@@ -52,7 +52,7 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] Option: "virtual topics" defined at dashboard level, computed from raw MQTT values, reusable across nodes
 - [ ] Option to write calculated values back to the MQTT broker
 
-### FEAT-C: Additional node types _(Gauge, Switch, Battery, Log, TreeView done — see CHANGELOG)_
+### FEAT-C: Additional node types and display improvements
 - [ ] **Text node** - different node shapes (circle, diamond, etc.) Perhaps the "shapre" applies to all derived
       nodes too e.g. a guage inside a triangle or circle. Or maybe shape is just a property of the base node.
 - [ ] **Guage**
@@ -61,8 +61,13 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 	- [ ] options to draw "needle" also from some center point to the guage ...	  
 - [ ] **Markdown / HTML** — formatted static content, optionally with data substitution
 - [ ] **IFrame** — embed another web page ...the url could be "data driven" i.e with substitution from topic values. NO working examples of usefulness of that however!
+- [ ] **Grid** — tabular display of multiple topic values (e.g. all sensors in a room), or same sensor from alternate locations
+- [ ] **Slider** — for controlling a topic value (e.g. dimmer or setpoint)
+- [ ] **Button** and **Button groups** — for controlling topic values (e.g. on/off, mode selection)
 
-- [ ] **Chart** — in-memory time-series sparkline graph
+- [ ] **Chart**
+      — in-memory time-series sparkline graph. Difficult!! where does it get history from?
+      - Self collected easy to do but little application if looses it every refresh.
 
 - [ ] Widget libraries- What libraries or packages are availble (FOSS) that would enhance the package?? Are there any emerging standards or widely used packages?
 

@@ -1,4 +1,44 @@
+## 2026-04-28 — Dialog delay fix + loopback port bug fix
+
+### Commits: d5e59fb · 2026-04-28 · branch: develop
+
+---
+
+### Item 1 — Eliminate pre-dialog delay for Open and Save As
+
+**Files:**
+- `src/PSTT.Dashboard.Client/Components/DashboardPickerDialog.razor` — removed `DashboardNames` and `RemoteRepos` parameters; `OnInitializedAsync` now self-fetches remote repos and calls `DashboardService.ListDashboardsAsync()` via `RefreshList()`
+- `src/PSTT.Dashboard.Client/Components/SaveAsDialog.razor` — removed `RemoteRepos` parameter; `OnInitializedAsync` now self-fetches remote repos
+- `src/PSTT.Dashboard.Client/Pages/Display.razor.cs` — removed `FetchRemoteRepos()` method entirely; `OpenDiagramCore` shows dialog immediately (no pre-fetch); simplified `GetServiceForDestination` (no longer needs remoteRepos list param)
+
+Previously both dialogs were passed pre-fetched remote repos as parameters, requiring an HTTP call and a dashboard list fetch BEFORE the dialog appeared. Now each dialog fetches its own data during `OnInitializedAsync` (behind a loading spinner). The dialog appears immediately on click.
+
+---
+
+### Item 2 — Dialog guard extended to all primary modals
+
+**Files:**
+- `src/PSTT.Dashboard.Client/Pages/Display.razor.cs` — renamed `_openDialogActive` → `_dialogActive`; added guard to `ExportNodesAsync`, `ImportNodesAsync`, `SaveAsDiagram`, `ShowDiagramPropertiesAsync`
+- `src/PSTT.Dashboard.Client/Layout/AppMenu.razor` — added separate `_dialogActive` guard for `ShowAbout`, `ShowStartupSettings`, `ShowRemoteRepositories`
+
+Confirmation prompts within guarded flows (delete page, discard changes) are left unguarded — they appear within an already-active dialog flow.
+
+---
+
+### Item 3 — Fix loopback HTTP client port priority (remote repos on first app start)
+
+**File:** `src/PSTT.Dashboard.Server/Extensions/ServiceCollectionExtensions.cs`
+
+**Root cause:** `CreateLoopbackHttpClient` prioritised `IHttpContextAccessor.HttpContext.Connection.LocalPort` over the startup-cached `LoopbackPort`. In a Blazor Server SignalR circuit, the active HTTP context is the WebSocket upgrade request which arrives on the HTTPS port (e.g. 7xxx). This made the loopback client try `http://localhost:7xxx/` — an HTTP connection to an HTTPS port — which fails and is caught silently, resulting in an empty remote repos list.
+
+**Fix:** Swapped the lookup order — the startup-cached HTTP `LoopbackPort` is checked first; the current HTTP context port is only used as a last resort when no startup-cached port is available. The startup callback in `WebApplicationExtensions` specifically searches for an `http://` listener address, so this always produces the correct HTTP port.
+
+This fix makes remote repos visible in dialogs on first app start (server-side interactive mode). After WASM loads, the browser-side `HttpClient` is used for all HTTP calls and the loopback client is not involved.
+
+---
+
 ## 2026-04-28 — Export/import improvements and bug fixes
+
 
 ### Commits: (see below) · 2026-04-28 · branch: develop
 
