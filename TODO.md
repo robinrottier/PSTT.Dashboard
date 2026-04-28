@@ -10,6 +10,7 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 	- [ ] the "GetSnapshot" is called on the cache
 	      -- but actually it sholu dbe implemented and called on the wildcard subscription(s) so it reflects them in terms of requests or wildcards etc
 		  -- but actually if you think about it isnt that was a Subscribe for a wildcard does anyway?--just nened a way to force it to be syncronous maybe so perhaps another method returning the collection makes sense
+		  -- the logic for wildcards/$ etc sholdnt be in widget
 
 ## 🟡 Minor Enhancements
 
@@ -17,7 +18,9 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 	- [ ] if a step is stuck on a command prompt for input can anything be done to detect that and abort or prompt user?
 	- [ ] shouwld accept "a" for "all" to run all steps without prompting for each one
 	- [ ] shoudl accept r and run aswell as just enter to start the run -- maybe enter is dangerous and should be accepted, you have to enter r[un]
-	- [ ] command line -a or --all to preload all steps without prompting (but still be interactive and allow changing)
+	- [ ] q or x for [Q]uit or e[X]itto preseelct 
+	- [ ] command line -a or --all to preload all steps without prompting (but still be interactive and allow changing)ac	cept any keyword e.g. like "build" 
+	- [ ] OR should command line accept any key like build (or b) to preselect that section
 
 - [ ] Node Property dialog - color transition
 	- [ ] Needs a means to drag reordering around the conditions to specify which is first match
