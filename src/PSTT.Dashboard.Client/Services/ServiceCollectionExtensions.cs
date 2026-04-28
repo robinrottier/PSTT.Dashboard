@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using MudBlazor.Services;
 using MudBlazor;
@@ -33,6 +34,11 @@ public static class ServiceCollectionExtensions
             new ApplicationState(
                 sp.GetService<Microsoft.Extensions.Configuration.IConfiguration>(),
                 sp.GetService<ICache<string, string>>()));
+
+        // Replace Blazor's default no-op IErrorBoundaryLogger with our diagnostic logger
+        // so all <ErrorBoundary>-caught exceptions appear in Serilog with full stack traces
+        // and trigger Debugger.Break() in DEBUG builds when a debugger is attached.
+        services.AddScoped<IErrorBoundaryLogger, DiagnosticErrorLogger>();
 
         services.AddScoped<LocalStorageService>();
         services.AddScoped<MqttInitializationService>();
