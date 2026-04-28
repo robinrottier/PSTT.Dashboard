@@ -1,0 +1,61 @@
+@using PSTT.Dashboard.Models
+@using PSTT.Dashboard.Services
+@inherits BaseNodeWithDataWidget<TextEntryNodeModel>
+
+<StandardNodeLayout Node="Node" ExtraCssClass="textentry-node">
+    <ExtraContent>
+        <div style="flex:1;min-height:0;min-width:0;display:flex;align-items:center;padding:4px 8px;">
+            <MudTextField T="string"
+                          Value="@_displayValue"
+                          ValueChanged="@OnValueChanged"
+                          Placeholder="@(Node.Placeholder ?? "Enter value…")"
+                          ReadOnly="@Node.IsReadOnly"
+                          Immediate="false"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          FullWidth="true"
+                          @onfocus="@(() => _isFocused = true)"
+                          @onblur="@(() => _isFocused = false)"
+                          Style="font-size:@(FontSizeStyle);" />
+        </div>
+    </ExtraContent>
+</StandardNodeLayout>
+
+@code {
+    private string _displayValue = string.Empty;
+    private bool _isFocused;
+
+    private string FontSizeStyle =>
+        Node.FontSize.HasValue ? $"{Node.FontSize}px" : "1em";
+
+    protected override void OnInitialized()
+    {
+        Node.MinimumDimensions = new(100, 50);
+        if (Node.Size == null || Node.Size.Width < 100 || Node.Size.Height < 50)
+            Node.Size = new(200, 70);
+        base.OnInitialized();
+    }
+
+    protected override void OnDataUpdated()
+    {
+        // Don't overwrite what the user is currently typing
+        if (!_isFocused)
+            _displayValue = Node.DataValue(0)?.ToString() ?? string.Empty;
+        StateHasChanged();
+    }
+
+    private async Task OnValueChanged(string value)
+    {
+        _displayValue = value;
+        if (!Node.IsReadOnly)
+            await Publish(value);
+    }
+
+    private async Task Publish(string payload)
+    {
+        var publishTopic = !string.IsNullOrEmpty(Node.PublishTopic) ? Node.PublishTopic : Node.DataTopic(0);
+        if (string.IsNullOrEmpty(publishTopic)) return;
+        var target = Node.PublishGlobally ? AppState.DataCache : AppState.LocalDataCache;
+        await target.PublishAsync(publishTopic, payload, null, Node.Retain);
+    }
+}

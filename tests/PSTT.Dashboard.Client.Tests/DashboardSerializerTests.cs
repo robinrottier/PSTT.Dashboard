@@ -505,7 +505,64 @@ public class DashboardSerializerTests
         Assert.Equal("https://example.com", ((IFrameNodeData)nodes[3]).SourceUrl);
     }
 
+    [Fact]
+    public void Serialize_TextEntryNodeData_RoundTrip()
+    {
+        var model = new DashboardModel
+        {
+            Name = "TextEntry test",
+            Pages =
+            [
+                new DashboardPageModel
+                {
+                    Id = "p1",
+                    Nodes = [new TextEntryNodeData { Id = "te1", Placeholder = "Enter value", PublishTopic = "home/text", IsReadOnly = false, Retain = true, PublishGlobally = true }],
+                    Links = []
+                }
+            ]
+        };
+
+        var json = DashboardSerializer.Serialize(model, WriteOptions);
+        var loaded = JsonSerializer.Deserialize<DashboardModel>(json)!;
+
+        var node = Assert.IsType<TextEntryNodeData>(loaded.Pages[0].Nodes[0]);
+        Assert.Equal("Enter value", node.Placeholder);
+        Assert.Equal("home/text", node.PublishTopic);
+        Assert.True(node.Retain);
+        Assert.True(node.PublishGlobally);
+        Assert.Equal("2", node.Id);
+    }
+
+    [Fact]
+    public void Serialize_DropDownNodeData_RoundTrip()
+    {
+        var model = new DashboardModel
+        {
+            Name = "DropDown test",
+            Pages =
+            [
+                new DashboardPageModel
+                {
+                    Id = "p1",
+                    Nodes = [new DropDownNodeData { Id = "dd1", Options = "On,Off,Auto", PublishTopic = "home/mode", IsReadOnly = false, Retain = false, PublishGlobally = false }],
+                    Links = []
+                }
+            ]
+        };
+
+        var json = DashboardSerializer.Serialize(model, WriteOptions);
+        var loaded = JsonSerializer.Deserialize<DashboardModel>(json)!;
+
+        var node = Assert.IsType<DropDownNodeData>(loaded.Pages[0].Nodes[0]);
+        Assert.Equal("On,Off,Auto", node.Options);
+        Assert.Equal("home/mode", node.PublishTopic);
+        Assert.False(node.Retain);
+        Assert.False(node.PublishGlobally);
+        Assert.Equal("2", node.Id);
+    }
+
     // ── SerializeDashboard helper ─────────────────────────────────────────────
+
 
     [Fact]
     public void SerializeDashboard_WrapsInEnvelope_WithRemappedIds()

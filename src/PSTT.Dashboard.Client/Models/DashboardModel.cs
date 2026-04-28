@@ -46,6 +46,8 @@ public class DashboardFileInfo
 [JsonDerivedType(typeof(ButtonNodeData),   "Button")]
 [JsonDerivedType(typeof(HtmlNodeData),     "Html")]
 [JsonDerivedType(typeof(IFrameNodeData),   "IFrame")]
+[JsonDerivedType(typeof(TextEntryNodeData), "TextEntry")]
+[JsonDerivedType(typeof(DropDownNodeData),  "DropDown")]
 public abstract class NodeData
 {
     [FileId] public string Id { get; set; } = string.Empty;
@@ -141,6 +143,24 @@ public class HtmlNodeData : NodeData { }
 public class IFrameNodeData : NodeData
 {
     public string? SourceUrl { get; set; }
+}
+
+public class TextEntryNodeData : NodeData
+{
+    public string? Placeholder { get; set; }
+    public string? PublishTopic { get; set; }
+    public bool IsReadOnly { get; set; } = false;
+    public bool Retain { get; set; } = false;
+    public bool PublishGlobally { get; set; } = true;
+}
+
+public class DropDownNodeData : NodeData
+{
+    public string? Options { get; set; }
+    public string? PublishTopic { get; set; }
+    public bool IsReadOnly { get; set; } = false;
+    public bool Retain { get; set; } = false;
+    public bool PublishGlobally { get; set; } = true;
 }
 
 // ── Shared nested value types ─────────────────────────────────────────────────

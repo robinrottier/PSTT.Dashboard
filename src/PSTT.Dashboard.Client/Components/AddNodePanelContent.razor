@@ -30,7 +30,9 @@
         ("Slider",   Icons.Material.Filled.LinearScale,    "Slider",    "Adjust + publish value"),
         ("Button",   Icons.Material.Filled.SmartButton,    "Button",    "Click to publish"),
         ("Html",     Icons.Material.Filled.Code,           "HTML",      "Static HTML content"),
-        ("IFrame",   Icons.Material.Filled.OpenInBrowser,  "IFrame",    "Embedded web page"),
+        ("IFrame",     Icons.Material.Filled.OpenInBrowser,  "IFrame",      "Embedded web page"),
+        ("TextEntry",  Icons.Material.Filled.TextFields,     "Text Entry",  "Input field, publishes on submit"),
+        ("DropDown",   Icons.Material.Filled.ArrowDropDown,  "Drop Down",   "Select from a list, publishes on change"),
     ];
 
     private async Task Select(string nodeType) => await OnNodeTypeSelected.InvokeAsync(nodeType);

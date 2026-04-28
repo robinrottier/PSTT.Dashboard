@@ -618,8 +618,10 @@ public partial class Display : IDisposable
             "Slider"   => new SliderNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400)))   { Title = $"Slider {_nodeCounter++}" },
             "Button"   => new ButtonNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400)))   { Title = $"Button {_nodeCounter++}" },
             "Html"     => new HtmlNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400)))     { Title = $"HTML {_nodeCounter++}" },
-            "IFrame"   => new IFrameNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400)))   { Title = $"IFrame {_nodeCounter++}" },
-            _          => new TextNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400)))     { Title = $"Node {_nodeCounter++}" },
+            "IFrame"     => new IFrameNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400)))     { Title = $"IFrame {_nodeCounter++}" },
+            "TextEntry"  => new TextEntryNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400)))  { Title = $"Text Entry {_nodeCounter++}" },
+            "DropDown"   => new DropDownNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400)))   { Title = $"Drop Down {_nodeCounter++}" },
+            _            => new TextNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400)))       { Title = $"Node {_nodeCounter++}" },
         };
 
         _diagram.Nodes.Add(node);

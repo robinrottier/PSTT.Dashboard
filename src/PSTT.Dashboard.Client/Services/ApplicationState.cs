@@ -414,6 +414,8 @@ public class ApplicationState
         diagram.RegisterComponent<ButtonNodeModel, ButtonNodeWidget>();
         diagram.RegisterComponent<HtmlNodeModel, HtmlNodeWidget>();
         diagram.RegisterComponent<IFrameNodeModel, IFrameNodeWidget>();
+        diagram.RegisterComponent<TextEntryNodeModel, TextEntryNodeWidget>();
+        diagram.RegisterComponent<DropDownNodeModel, DropDownNodeWidget>();
 
         if (page != null)
         {
@@ -430,8 +432,10 @@ public class ApplicationState
                     SliderNodeData d   => SliderNodeModel.FromData(d),
                     ButtonNodeData d   => ButtonNodeModel.FromData(d),
                     HtmlNodeData d     => HtmlNodeModel.FromData(d),
-                    IFrameNodeData d   => IFrameNodeModel.FromData(d),
-                    _                  => TextNodeModel.FromData(nodeData),
+                    IFrameNodeData d     => IFrameNodeModel.FromData(d),
+                    TextEntryNodeData d  => TextEntryNodeModel.FromData(d),
+                    DropDownNodeData d   => DropDownNodeModel.FromData(d),
+                    _                    => TextNodeModel.FromData(nodeData),
                 };
 
                 node.Locked = readOnly;
