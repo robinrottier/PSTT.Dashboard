@@ -84,6 +84,7 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] **Drop down list** — select from a list of options, with the selected value published to a topic
 - [ ] **Text entry** — single-line text input, with value published to a topic on change. Format options for input validation (e.g. numeric only, regex pattern, date, date time, ...)
 - [ ] **Markdown** - html widget shows html -- need a markdown also, is there a library to do that? OR is it an option on html widget?
+- [ ] They ought to support topic value substitution into encoded etxt so no fear of injection attack if we do it right
 
 - [ ] **Chart**
       — in-memory time-series sparkline graph. Difficult!! where does it get history from?

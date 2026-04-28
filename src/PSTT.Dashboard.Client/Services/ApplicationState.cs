@@ -84,6 +84,13 @@ public class ApplicationState
     /// </summary>
     public ICache<string,string> LocalDataCache => BridgedDataCache.Local;
 
+    /// <summary>
+    /// Raised whenever the bridge scope changes (i.e. <see cref="BridgedDataCache"/> has been
+    /// reconfigured with a new set of patterns). Components that hold subscriptions on
+    /// <see cref="BridgedDataCache"/> should re-subscribe when this event fires.
+    /// </summary>
+    public event Action? BridgeScopeChanged;
+
     // Theme & UI preferences
     public ThemeMode ThemeMode { get; private set; } = ThemeMode.Auto;
     public bool AutoSaveOnExitEditMode { get; private set; } = false;
@@ -365,7 +372,7 @@ public class ApplicationState
         ShowName = model.ShowName;
         if (model.MqttSubscriptions != null)
             SubscribedTopics = new HashSet<string>(model.MqttSubscriptions);
-        BridgedDataCache.SetBridges(SubscribedTopics.Append("$DASHBOARD/#"));
+        RebuildBridges();
         NotifyStateChangedAsync();
     }
 
@@ -551,10 +558,23 @@ public class ApplicationState
     }
 
     // MQTT Methods
+
+    /// <summary>
+    /// Rebuilds the bridge patterns from <see cref="SubscribedTopics"/> and fires
+    /// <see cref="BridgeScopeChanged"/> if the scope actually changed.
+    /// </summary>
+    private void RebuildBridges()
+    {
+        var prevGen = BridgedDataCache.BridgeGeneration;
+        BridgedDataCache.SetBridges(SubscribedTopics.Append("$DASHBOARD/#"));
+        if (BridgedDataCache.BridgeGeneration != prevGen)
+            BridgeScopeChanged?.Invoke();
+    }
+
     public void SetSubscribedTopics(IEnumerable<string> topics)
     {
         SubscribedTopics = new HashSet<string>(topics);
-        BridgedDataCache.SetBridges(SubscribedTopics.Append("$DASHBOARD/#"));
+        RebuildBridges();
         NotifyStateChangedAsync();
     }
 
