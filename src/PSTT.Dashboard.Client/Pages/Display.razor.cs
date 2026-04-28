@@ -350,7 +350,10 @@ public partial class Display : IDisposable
                 if (result == null || result.Canceled) return; // Cancel — stay in edit mode
                 var choice = result.Data as UnsavedChangesDialog.UnsavedChangesResult;
                 if (choice?.EnableAutoSave == true)
+                {
                     AppState.SetAutoSaveOnExitEditMode(true);
+                    _ = Http.PostAsJsonAsync("/api/settings/app", new { autoSaveOnExit = true });
+                }
                 if (choice?.Save == true)
                 {
                     var saved = await SaveDashboard();
@@ -438,6 +441,12 @@ public partial class Display : IDisposable
         }
 
         AppState.SetEditMode(enterEditMode);
+        if (!enterEditMode)
+        {
+            _isAddNodeOpen = false;
+            _isDataExplorerOpen = false;
+            _isPropertiesOpen = false;
+        }
         // Clear any dirty flag spuriously raised during mode-switch setup
         if (enterEditMode) AppState.MarkSaved();
         StateHasChanged();
@@ -999,12 +1008,14 @@ public partial class Display : IDisposable
         {
             TextNodeModel node = nodeData switch
             {
-                GaugeNodeData d    => GaugeNodeModel.FromData(d),
-                SwitchNodeData d   => SwitchNodeModel.FromData(d),
-                BatteryNodeData d  => BatteryNodeModel.FromData(d),
-                LogNodeData d      => LogNodeModel.FromData(d),
-                TreeViewNodeData d => TreeViewNodeModel.FromData(d),
-                _                  => TextNodeModel.FromData(nodeData),
+                GaugeNodeData d      => GaugeNodeModel.FromData(d),
+                SwitchNodeData d     => SwitchNodeModel.FromData(d),
+                BatteryNodeData d    => BatteryNodeModel.FromData(d),
+                LogNodeData d        => LogNodeModel.FromData(d),
+                TreeViewNodeData d   => TreeViewNodeModel.FromData(d),
+                TextEntryNodeData d  => TextEntryNodeModel.FromData(d),
+                DropDownNodeData d   => DropDownNodeModel.FromData(d),
+                _                    => TextNodeModel.FromData(nodeData),
             };
             // Offset paste position
             node.SetPosition(nodeData.X + offset, nodeData.Y + offset);
