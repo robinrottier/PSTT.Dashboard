@@ -8,9 +8,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **`GetSnapshot(pattern)` on cache**: PSTT.Data library now exposes a pattern-overload of `GetSnapshot` on `ICache`, `Cache`, `CacheWithWildcards`, and `BridgeCache`. MQTT wildcard resolution (`+` / `#`) is now handled in the data layer, not in individual widgets.
+- **`BridgeScopeChanged` event** on `ApplicationState`: fires whenever the bridge cache is reconfigured (dashboard loaded, subscription list edited). Components can subscribe to re-establish their data watchers.
 - **RemoteCache auto-reconnect**: `RemoteCacheBuilder.WithAutoReconnect()` (in PSTT library) — when the server drops, the client automatically retries and re-subscribes to all topics. `pstt-sub` uses this by default.
 
 ### Fixed
+- **TreeView incorrect match range**: `ess1/servers/+/+` was internally widened to `ess1/servers/+/#`, causing deeper topics like `ess1/servers/HUB-3/schedules/setpoint` to appear incorrectly. Widget now passes the user-configured topic pattern directly to the cache.
+- **TreeView / DataExplorer not updating on new topics**: when a new topic arrived after the widget's subscription was established but the bridge scope had changed, neither widget would update. Both now re-subscribe when `BridgeScopeChanged` fires.
+- **TreeView false "changed" highlights**: initial cache replay via Subscribe callbacks was marking all pre-existing topics as recently changed. Only genuine value changes now trigger the highlight.
 - Ctrl-S no longer opens the browser's native Save dialog while the dashboard is open.
 - Copy/paste of TextEntry and DropDown nodes now preserves all type-specific properties (placeholder, publish topic, options, etc.).
 - Floating panels (Add Node, Data Explorer, Properties) are now closed automatically when leaving edit mode.
@@ -21,8 +26,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - All ASP.NET Core packages updated to 10.0.7 (were split between 10.0.3 and 10.0.6).
 - MudBlazor updated from 9.1.0 to 9.4.0 (MudSelect, MudColorPicker, MudInput bug fixes).
 
-- **Slider node**: MudSlider widget with configurable Min/Max/Step/Unit. Displays the current MQTT value and allows the user to publish a new value by dragging. Publishes only on mouse release to avoid flooding the broker. Supports read-only mode. Min/Max labels shown below the slider.
-- **Button node**: Single MudButton that publishes a configured payload to a topic on click. Configurable label, publish value, topic, style (Filled/Outlined/Text), and colour (Primary/Secondary/Success/Error/Warning/Info/Default). Supports read-only mode.
+
 - **HTML node**: Renders the node's Text property as raw HTML markup (`MarkupString`). Content is static (no MQTT value substitution) to avoid injection from untrusted broker payloads. Intended for dashboard-author-controlled rich content.
 - **IFrame node**: Embeds an external URL in a sandboxed `<iframe>` (`sandbox="allow-scripts allow-same-origin allow-forms allow-popups"`). In edit mode the iframe is covered by a transparent overlay so node selection and movement work normally.
 - Dashboard JSON files now use compact sequential 1-based integers for node, port, page, and link IDs instead of raw GUIDs. IDs are remapped on save only; runtime model is unchanged. Makes saved files significantly more readable and diff-friendly.

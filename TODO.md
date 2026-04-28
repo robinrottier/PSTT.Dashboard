@@ -6,15 +6,7 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 ## BUGS
 
-- [ ] TReeview widget
-	- [ ] the "GetSnapshot" is called on the cache
-	      -- but actually it sholu dbe implemented and called on the wildcard subscription(s) so it reflects them in terms of requests or wildcards etc
-		  -- but actually if you think about it isnt that was a Subscribe for a wildcard does anyway?--just nened a way to force it to be syncronous maybe so perhaps another method returning the collection makes sense
-		  -- the logic for wildcards/$ etc sholdnt be in widget
-	- [ ] I selected data as ess1/servers/+/+ and expected to only get 2 levels of matching nodes. BUT also got (for example) ess/servers/HUB-3/schedules/setpoint which I dont beleiwve matches.
-	      -- may be consequence of above issue i.e. node filtering done in wrong place on the snapshot
 - [ ] MinVer:I am developing on develop branch, in sync with main which has tag 0.1.6 .. but I only see a version like 0.1.3-dev.89. Why cant I see full 0.1.6 version which is my develop is based on?
-- [ ] data explorer ...watching ess/# and temp/# ... nothin on temp to start with so not shonw BUT when it became available it was not shown either until a refresh. cli app watching just "#" showed the value when it was published so it was inthe cache.
 
 ## 🟡 Minor Enhancements
 

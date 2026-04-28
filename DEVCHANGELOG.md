@@ -1,4 +1,64 @@
-## 2026-04-29 — Bug fixes + package upgrades
+## 2026-05-05 — TreeView & DataExplorer wildcard + live-update fixes
+
+### Commit: 6079280 · 2026-05-05 · branch: develop
+### Submodule commit: 8b01099 (libs/PSTT)
+
+---
+
+### Item 1 — Add `GetSnapshot(pattern)` to PSTT.Data cache hierarchy
+
+**Files:** `libs/PSTT/src/PSTT.Data/Interfaces/ICache.cs`, `libs/PSTT/src/PSTT.Data/Cache.cs`, `libs/PSTT/src/PSTT.Data/CacheWithWildcards.cs`, `libs/PSTT/src/PSTT.Data/BridgeCache.cs`
+
+Added a pattern-overload `GetSnapshot(TKey pattern)` to `ICache<TKey,TValue>` and concrete implementations:
+- **`Cache<TKey,TValue>`**: virtual fallback — exact-key lookup only (no wildcard support in the base).
+- **`CacheWithWildcards<TKey,TValue>`**: override — if `_matcher.IsPattern(pattern)` is false, delegates to base (exact lookup); otherwise filters the full retained snapshot using `_matcher.Matches(pattern, key)`. Wildcard subscription nodes are excluded from the full snapshot (they have `Pending` status) so only real data items appear.
+- **`BridgeCache<TKey,TValue>`**: delegates to `_local.GetSnapshot(pattern)`.
+
+`RemoteCache<TValue>` inherits `CacheWithWildcards` so it gets the override automatically.
+
+**Why:** Widgets were performing their own MQTT wildcard matching against full snapshots, duplicating logic that belongs in the data layer. This is the foundational change that enables widgets to simply pass the user-configured topic pattern to the cache.
+
+---
+
+### Item 2 — `ApplicationState`: `BridgeScopeChanged` event + `RebuildBridges()` helper
+
+**File:** `src/PSTT.Dashboard.Client/Services/ApplicationState.cs`
+
+- Added `public event Action? BridgeScopeChanged` — fired whenever the bridge patterns actually change (i.e. `BridgeGeneration` incremented by `SetBridges`).
+- Added private `RebuildBridges()` helper: calls `BridgedDataCache.SetBridges(...)` and fires `BridgeScopeChanged` if the generation changed. Replaced the two direct `SetBridges` calls in `ApplyDashboardModel` and `SetSubscribedTopics` with this helper.
+
+**Why:** When the bridge scope changes (dashboard loaded, subscriptions edited), widgets holding stale subscriptions on `BridgedDataCache._local` could not observe new topics. The event lets widgets re-subscribe cleanly.
+
+---
+
+### Item 3 — `TreeViewNodeWidget`: remove wildcard computation; use data layer; react to bridge changes
+
+**File:** `src/PSTT.Dashboard.Client/Widgets/TreeViewNodeWidget.razor`
+
+- Removed `IsGlobalWildcard` static helper and all `prefix`/`wildcardTopic` computation. The widget previously transformed the user's topic (e.g. `ess1/servers/+/+` → `ess1/servers/+/#`) which broadened the match incorrectly and let topics like `ess1/servers/HUB-3/schedules/setpoint` appear under `ess1/servers/+/+`.
+- Subscription topic is now `RootTopicValue` exactly — MQTT semantics are handled by `CacheWithWildcards`.
+- Initial snapshot is seeded via `AppState.BridgedDataCache.GetSnapshot(topic)` — no local filtering.
+- Added `_lastBridgeGeneration` field; `SetupWatchers` guard now checks both topic equality and generation to detect stale subscriptions after a bridge rebuild.
+- Added `AppState.BridgeScopeChanged += OnBridgeScopeChanged` in `OnInitialized`; handler disposes the old subscription and calls `SetupWatchers()` via `InvokeAsync`.
+- Unsubscribes from `BridgeScopeChanged` in `Dispose`.
+- `OnTopicChangedAsync` now only updates `_changedAt[topic]` when the value actually differs from the stored value — prevents all initial cached items from flashing as "changed" when the Subscribe callback replays them.
+
+---
+
+### Item 4 — `DataExplorerPanel`: remove local matcher; react to bridge changes
+
+**File:** `src/PSTT.Dashboard.Client/Components/DataExplorerPanel.razor`
+
+- Removed static `MqttWildcardMatcher _matcher` field and `TopicMatchesPattern` method.
+- Snapshot seeding in `ApplySubscription` now uses per-pattern `GetSnapshot(pattern)` calls rather than one full `GetSnapshot()` + N local pattern-filter passes. Results are merged into `_topics`.
+- Added `AppState.BridgeScopeChanged += OnBridgeScopeChanged` in `OnInitialized`; handler calls `_ = InvokeAsync(ApplySubscription)` to re-subscribe when bridge patterns change.
+- Unsubscribes from `BridgeScopeChanged` in `Dispose`.
+
+⚠️ The `@using PSTT.Data` directive is left in the file (needed for subscription types used elsewhere in the component).
+
+---
+
+
 
 ### Commit: 567ea83 · 2026-04-29 · branch: develop
 
