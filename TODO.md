@@ -15,8 +15,7 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 	      -- may be consequence of above issue i.e. node filtering done in wrong place on the snapshot
 - [ ] "auto save" option ...I selected option in popup when exiting edit mode, and saved. BUT next time exiting edit mode got same popoup. OPtion selection should be persisted.
       -- it is persisted so 2nd time in a session it applied BUT never on first time...hit F5 to refresh page, enter edit, exit edit and prompted again rather than autosave.
-- [ ] I did "add node" and saw same dialog list as before -- none of the new controls??
-- [ ] MinVer: I am developing on develop branch, in sync with main which has tag 0.1.6 .. but I only see a version like 0.1.3-dev.89. Why cant I see full 0.1.6 version which is my develop is based on?
+- [ ] MinVer:I am developing on develop branch, in sync with main which has tag 0.1.6 .. but I only see a version like 0.1.3-dev.89. Why cant I see full 0.1.6 version which is my develop is based on?
 - [ ] 
 
 
