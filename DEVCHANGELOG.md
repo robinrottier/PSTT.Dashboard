@@ -1,3 +1,32 @@
+## 2026-04-28 — Fix Slider IndexOutOfRange + FEAT-C serializer tests
+
+### Commit: 4922c52 · 2026-04-28 · branch: develop
+
+---
+
+### Item 1 — Fix SliderNodeWidget crash on new node
+
+**Files:** `src/PSTT.Dashboard.Client/Widgets/SliderNodeWidget.razor`
+
+`FormatValue()` and `OnDataUpdated()` both called `Node.DataValues?[0]` directly. When a brand-new Slider is added with no DataTopics configured, `DataValues` is an empty array (`new object?[0]`). The null-conditional `?.` only guards against null, not empty-array index access, so `[0]` threw `IndexOutOfRangeException` which Blazor Server surfaces as a `NullReferenceException` in `RemoteJSRuntime`. Fix: switched both callsites to `Node.DataValue(0)` — the safe accessor defined on `BaseNodeWithDataWidget` that returns null when the array is shorter than the requested index.
+
+---
+
+### Item 2 — Serializer round-trip tests for all four FEAT-C node types
+
+**Files:** `tests/PSTT.Dashboard.Client.Tests/DashboardSerializerTests.cs`
+
+Added 5 new tests:
+- `Serialize_SliderNodeData_RoundTrip` — verifies Min/Max/Step/Unit/PublishTopic survive serialization and IDs are remapped.
+- `Serialize_ButtonNodeData_RoundTrip` — verifies ButtonLabel/PublishValue/Topic/Variant/Color.
+- `Serialize_HtmlNodeData_RoundTrip` — verifies type is preserved (no custom properties beyond NodeData base).
+- `Serialize_IFrameNodeData_RoundTrip` — verifies SourceUrl survives.
+- `Serialize_AllFeatCTypes_TypesPreserved` — four nodes in one page, confirms each deserializes to the correct concrete type and their key properties are intact.
+
+Total tests: 27 (was 22).
+
+---
+
 ## 2026-04-28 — FEAT-C: Slider, Button, HTML, IFrame node types
 
 ### Commits: f58b439, efe8009 · 2026-04-28 · branch: develop
