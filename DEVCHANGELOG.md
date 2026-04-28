@@ -1,4 +1,33 @@
-## 2026-04-28 — release.ps1 bug fixes and enhancements
+## 2026-05-xx — Sequential file IDs for dashboard JSON
+
+### Commits: (see below) · branch: develop
+
+---
+
+### Item 1 — `[FileId]` attribute + `DashboardSerializer`
+
+**Files:**
+- `src/PSTT.Dashboard.Client/Serialization/FileIdAttribute.cs` (new)
+- `src/PSTT.Dashboard.Client/Serialization/DashboardSerializer.cs` (new)
+- `src/PSTT.Dashboard.Client/Models/DashboardModel.cs` (7 properties annotated)
+- `src/PSTT.Dashboard.Server/Services/DashboardStorageService.cs` (2 save methods wired)
+
+Saved dashboard JSON files previously contained raw GUIDs for node, port, page, and link IDs, making them hard to read and diff. The new serialization layer replaces them with compact sequential 1-based integers on write.
+
+**How it works:**
+- `[FileId]` is a property attribute (`AttributeTargets.Property, Inherited = true`) that marks ID-bearing string properties on model classes.
+- Applied to: `DashboardPageModel.Id`, `NodeData.Id`, `NodePortData.Id`, and `LinkData.Source/SourcePort/Target/TargetPort` (7 properties total).
+- `DashboardIdMapper` is a simple counter+dictionary: first occurrence of a GUID gets `"1"`, second distinct GUID gets `"2"`, etc. Same GUID in multiple places returns the same mapped value (cross-references remain consistent).
+- `DashboardSerializer.Serialize`: deep-clones the model via JSON round-trip (preserves `[JsonPolymorphic]`/`[JsonDerivedType]` on `NodeData`), then walks the clone by reflection, remapping `[FileId]` properties. The in-memory model is never mutated.
+- Properties are visited in C# declaration order (sorted by `MetadataToken`). This guarantees `Nodes` (definitions) are processed before `Links` (cross-references) within a page.
+- `DashboardSerializer.Deserialize`: passes through to `JsonSerializer.Deserialize` — sequential IDs in files are treated as opaque strings, same as GUIDs were.
+- `DashboardStorageService`: both `SaveDiagramAsync` and `SaveDiagramByNameAsync` now call `DashboardSerializer.Serialize` instead of `JsonSerializer.Serialize`.
+
+**Tests:** 18 new tests in `DashboardSerializerTests.cs` covering: mapper first/second/same/empty, node ID sequence, original model not mutated, port IDs continue sequence, link cross-references internally consistent, null port IDs pass through, multi-page counter continuity, FileInfo strings not remapped, polymorphic node types preserved, round-trip deserialization.
+
+---
+
+
 
 ### Commits: (see below) · 2026-04-28 · branch: develop
 

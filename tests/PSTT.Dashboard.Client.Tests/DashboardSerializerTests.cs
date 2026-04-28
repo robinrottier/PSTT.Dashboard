@@ -1,0 +1,307 @@
+using System.Text.Json;
+using PSTT.Dashboard.Models;
+using PSTT.Dashboard.Serialization;
+
+namespace PSTT.Dashboard.Client.Tests;
+
+public class DashboardSerializerTests
+{
+    private static readonly JsonSerializerOptions WriteOptions = new()
+    {
+        WriteIndented = false,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+    };
+
+    // ── DashboardIdMapper ─────────────────────────────────────────────────────
+
+    [Fact]
+    public void Mapper_FirstOccurrence_AssignsOne()
+    {
+        var m = new DashboardIdMapper();
+        Assert.Equal("1", m.Map("abc-guid"));
+    }
+
+    [Fact]
+    public void Mapper_SecondDistinct_AssignsTwo()
+    {
+        var m = new DashboardIdMapper();
+        m.Map("first");
+        Assert.Equal("2", m.Map("second"));
+    }
+
+    [Fact]
+    public void Mapper_SameId_ReturnsSameMappedValue()
+    {
+        var m = new DashboardIdMapper();
+        var a = m.Map("shared");
+        var b = m.Map("shared");
+        Assert.Equal(a, b);
+    }
+
+    [Fact]
+    public void Mapper_EmptyId_PassesThrough()
+    {
+        var m = new DashboardIdMapper();
+        Assert.Equal(string.Empty, m.Map(string.Empty));
+    }
+
+    // ── DashboardSerializer.Serialize — node IDs ──────────────────────────────
+
+    private static DashboardModel SingleNodeModel(string nodeId, string? portId = null)
+    {
+        var node = new TextNodeData { Id = nodeId };
+        if (portId is not null)
+            node.Ports = [new NodePortData { Id = portId, Alignment = "Right" }];
+
+        return new DashboardModel
+        {
+            Name = "Test",
+            Pages =
+            [
+                new DashboardPageModel
+                {
+                    Id = "page-guid-1",
+                    Nodes = [node],
+                    Links = []
+                }
+            ]
+        };
+    }
+
+    [Fact]
+    public void Serialize_NodeId_ReplacedWithSequentialId()
+    {
+        var model = SingleNodeModel("node-guid-abc");
+        var json = DashboardSerializer.Serialize(model, WriteOptions);
+        var loaded = JsonSerializer.Deserialize<DashboardModel>(json)!;
+
+        // Page Id is visited first (declaration order); node Id second
+        Assert.Equal("1", loaded.Pages[0].Id);
+        Assert.Equal("2", loaded.Pages[0].Nodes[0].Id);
+    }
+
+    [Fact]
+    public void Serialize_OriginalModelNotMutated()
+    {
+        const string nodeId = "original-node-guid";
+        var model = SingleNodeModel(nodeId);
+        DashboardSerializer.Serialize(model, WriteOptions);
+
+        Assert.Equal(nodeId, model.Pages[0].Nodes[0].Id);
+    }
+
+    [Fact]
+    public void Serialize_PortId_IsSequentialAfterNodeId()
+    {
+        var model = SingleNodeModel("node-guid", "port-guid");
+        var json = DashboardSerializer.Serialize(model, WriteOptions);
+        var loaded = JsonSerializer.Deserialize<DashboardModel>(json)!;
+
+        // page=1, node=2, port=3
+        Assert.Equal("1", loaded.Pages[0].Id);
+        Assert.Equal("2", loaded.Pages[0].Nodes[0].Id);
+        Assert.Equal("3", loaded.Pages[0].Nodes[0].Ports![0].Id);
+    }
+
+    // ── Link cross-references ─────────────────────────────────────────────────
+
+    [Fact]
+    public void Serialize_LinkSourceTarget_MatchRemappedNodeIds()
+    {
+        var nodeA = new TextNodeData { Id = "guid-A", Ports = [new NodePortData { Id = "port-A", Alignment = "Right" }] };
+        var nodeB = new TextNodeData { Id = "guid-B", Ports = [new NodePortData { Id = "port-B", Alignment = "Left" }] };
+
+        var model = new DashboardModel
+        {
+            Name = "Link test",
+            Pages =
+            [
+                new DashboardPageModel
+                {
+                    Id = "page-1",
+                    Nodes = [nodeA, nodeB],
+                    Links =
+                    [
+                        new LinkData
+                        {
+                            Source = "guid-A", SourcePort = "port-A",
+                            Target = "guid-B", TargetPort = "port-B"
+                        }
+                    ]
+                }
+            ]
+        };
+
+        var json = DashboardSerializer.Serialize(model, WriteOptions);
+        var loaded = JsonSerializer.Deserialize<DashboardModel>(json)!;
+
+        var page = loaded.Pages[0];
+        var nodeALoaded = page.Nodes[0];
+        var nodeBLoaded = page.Nodes[1];
+        var link = page.Links[0];
+
+        // IDs must be internally consistent
+        Assert.Equal(link.Source, nodeALoaded.Id);
+        Assert.Equal(link.Target, nodeBLoaded.Id);
+        Assert.Equal(link.SourcePort, nodeALoaded.Ports![0].Id);
+        Assert.Equal(link.TargetPort, nodeBLoaded.Ports![0].Id);
+    }
+
+    [Fact]
+    public void Serialize_NullPortIds_PassThroughUnchanged()
+    {
+        var model = new DashboardModel
+        {
+            Name = "No ports",
+            Pages =
+            [
+                new DashboardPageModel
+                {
+                    Id = "p",
+                    Nodes =
+                    [
+                        new TextNodeData { Id = "n1" },
+                        new TextNodeData { Id = "n2" }
+                    ],
+                    Links =
+                    [
+                        new LinkData { Source = "n1", Target = "n2" }  // no SourcePort / TargetPort
+                    ]
+                }
+            ]
+        };
+
+        var json = DashboardSerializer.Serialize(model, WriteOptions);
+        var loaded = JsonSerializer.Deserialize<DashboardModel>(json)!;
+        var link = loaded.Pages[0].Links[0];
+
+        Assert.Null(link.SourcePort);
+        Assert.Null(link.TargetPort);
+    }
+
+    // ── Multi-page counter continuity ─────────────────────────────────────────
+
+    [Fact]
+    public void Serialize_MultiPage_CounterContinuesAcrossPages()
+    {
+        var model = new DashboardModel
+        {
+            Name = "Multi page",
+            Pages =
+            [
+                new DashboardPageModel
+                {
+                    Id = "pg1",
+                    Nodes = [new TextNodeData { Id = "n1" }],
+                    Links = []
+                },
+                new DashboardPageModel
+                {
+                    Id = "pg2",
+                    Nodes = [new TextNodeData { Id = "n2" }],
+                    Links = []
+                }
+            ]
+        };
+
+        var json = DashboardSerializer.Serialize(model, WriteOptions);
+        var loaded = JsonSerializer.Deserialize<DashboardModel>(json)!;
+
+        // pg1=1, n1=2, pg2=3, n2=4  (IDs are unique across pages)
+        var id1 = loaded.Pages[0].Id;
+        var id2 = loaded.Pages[0].Nodes[0].Id;
+        var id3 = loaded.Pages[1].Id;
+        var id4 = loaded.Pages[1].Nodes[0].Id;
+
+        Assert.Equal(["1","2","3","4"], new[] { id1, id2, id3, id4 });
+    }
+
+    // ── FileInfo not remapped ─────────────────────────────────────────────────
+
+    [Fact]
+    public void Serialize_FileInfoStrings_NotRemapped()
+    {
+        var model = new DashboardModel
+        {
+            Name = "Stamped",
+            Pages = [],
+            FileInfo = new DashboardFileInfo
+            {
+                WrittenAt = "2026-01-01T00:00:00Z",
+                Filename = "test.json",
+                AppVersion = "1.2.3",
+                WrittenByServer = "myhost"
+            }
+        };
+
+        var json = DashboardSerializer.Serialize(model, WriteOptions);
+        var loaded = JsonSerializer.Deserialize<DashboardModel>(json)!;
+
+        Assert.Equal("2026-01-01T00:00:00Z", loaded.FileInfo!.WrittenAt);
+        Assert.Equal("test.json", loaded.FileInfo.Filename);
+        Assert.Equal("1.2.3", loaded.FileInfo.AppVersion);
+        Assert.Equal("myhost", loaded.FileInfo.WrittenByServer);
+    }
+
+    // ── Polymorphic NodeData survives round-trip ──────────────────────────────
+
+    [Fact]
+    public void Serialize_PolymorphicNodes_TypesPreserved()
+    {
+        var model = new DashboardModel
+        {
+            Name = "Poly",
+            Pages =
+            [
+                new DashboardPageModel
+                {
+                    Id = "p",
+                    Nodes =
+                    [
+                        new GaugeNodeData { Id = "g1", Unit = "°C" },
+                        new SwitchNodeData { Id = "s1", Switch = new SwitchSettingsData { PublishTopic = "cmd/switch" } },
+                        new LogNodeData { Id = "l1", MaxEntries = 50 }
+                    ],
+                    Links = []
+                }
+            ]
+        };
+
+        var json = DashboardSerializer.Serialize(model, WriteOptions);
+        var loaded = JsonSerializer.Deserialize<DashboardModel>(json)!;
+
+        Assert.IsType<GaugeNodeData>(loaded.Pages[0].Nodes[0]);
+        Assert.IsType<SwitchNodeData>(loaded.Pages[0].Nodes[1]);
+        Assert.IsType<LogNodeData>(loaded.Pages[0].Nodes[2]);
+
+        Assert.Equal("°C", ((GaugeNodeData)loaded.Pages[0].Nodes[0]).Unit);
+        Assert.Equal(50, ((LogNodeData)loaded.Pages[0].Nodes[2]).MaxEntries);
+    }
+
+    // ── Round-trip: Deserialize ───────────────────────────────────────────────
+
+    [Fact]
+    public void Deserialize_SequentialIds_LoadedCorrectly()
+    {
+        // Simulates loading a file that was previously saved with sequential IDs.
+        // Uses PascalCase property names as written by the serializer (no camelCase policy).
+        const string json = """
+            {
+              "Name":"RT",
+              "Pages":[{
+                "Id":"1",
+                "Name":"Page 1",
+                "GridSize":20,
+                "GridSnapToCenter":false,
+                "Nodes":[{"nodeType":"Text","Id":"2","X":0,"Y":0,"Width":100,"Height":50}],
+                "Links":[]}]
+            }
+            """;
+
+        var model = DashboardSerializer.Deserialize(json);
+
+        Assert.NotNull(model);
+        Assert.Equal("1", model!.Pages[0].Id);
+        Assert.Equal("2", model.Pages[0].Nodes[0].Id);
+    }
+}

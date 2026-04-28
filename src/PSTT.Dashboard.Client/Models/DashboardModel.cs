@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using PSTT.Dashboard.Serialization;
 
 namespace PSTT.Dashboard.Models;
 
@@ -15,7 +16,7 @@ public class DashboardModel
 
 public class DashboardPageModel
 {
-    public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
+    [FileId] public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
     public string Name { get; set; } = "Page 1";
     public int GridSize { get; set; } = 20;
     public bool GridSnapToCenter { get; set; } = false;
@@ -43,7 +44,7 @@ public class DashboardFileInfo
 [JsonDerivedType(typeof(TreeViewNodeData), "TreeView")]
 public abstract class NodeData
 {
-    public string Id { get; set; } = string.Empty;
+    [FileId] public string Id { get; set; } = string.Empty;
     public string? Title { get; set; }
 
     // Position and size rounded to 2 decimal places on write
@@ -157,14 +158,14 @@ public class LogColumnsData
 
 public class NodePortData
 {
-    public string Id { get; set; } = string.Empty;
+    [FileId] public string Id { get; set; } = string.Empty;
     public string Alignment { get; set; } = string.Empty;
 }
 
 public class LinkData
 {
-    public string Source { get; set; } = string.Empty;
-    public string? SourcePort { get; set; }
-    public string Target { get; set; } = string.Empty;
-    public string? TargetPort { get; set; }
+    [FileId] public string Source { get; set; } = string.Empty;
+    [FileId] public string? SourcePort { get; set; }
+    [FileId] public string Target { get; set; } = string.Empty;
+    [FileId] public string? TargetPort { get; set; }
 }

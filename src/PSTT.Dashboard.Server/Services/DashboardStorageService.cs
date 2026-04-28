@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text.Json;
 using PSTT.Dashboard.Models;
+using PSTT.Dashboard.Serialization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Hosting;
@@ -173,7 +174,7 @@ public class DashboardStorageService
                     WriteIndented = true,
                     DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
                 };
-                var json = JsonSerializer.Serialize(dashboard, options);
+                var json = DashboardSerializer.Serialize(dashboard, options);
                 await File.WriteAllTextAsync(filePath, json);
                 _logger.LogInformation("Saved diagram to {Path}", filePath);
                 return true;
@@ -234,11 +235,12 @@ public class DashboardStorageService
         try
         {
             Stamp(dashboard, $"{safeName}.json");
-            var json = JsonSerializer.Serialize(dashboard, new JsonSerializerOptions
+            var saveOptions = new JsonSerializerOptions
             {
                 WriteIndented = true,
                 DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
-            });
+            };
+            var json = DashboardSerializer.Serialize(dashboard, saveOptions);
             await File.WriteAllTextAsync(filePath, json);
             _logger.LogInformation("Saved diagram '{Name}' to {Path}", safeName, filePath);
             return true;
