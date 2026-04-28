@@ -1,4 +1,40 @@
-## 2026-05-xx — Sequential file IDs for dashboard JSON
+## 2026-04-28 — Export/import improvements and bug fixes
+
+### Commits: (see below) · 2026-04-28 · branch: develop
+
+---
+
+### Item 1 — Export uses sequential IDs + full-dashboard export option
+
+**Files:**
+- `src/PSTT.Dashboard.Client/Serialization/DashboardSerializer.cs` — added `SerializePage`, `SerializeNodes`, `SerializeDashboard` helpers; refactored `Serialize` to use private `CloneAndRemap`
+- `src/PSTT.Dashboard.Client/Components/ExportNodesDialog.razor` — use `DashboardSerializer` methods, add "Full Dashboard" radio option
+- `src/PSTT.Dashboard.Client/Models/ImportResult.cs` — added `AdditionalPages` property
+- `src/PSTT.Dashboard.Client/Components/ImportNodesDialog.razor` — handle `psttdashboard = "dashboard"` tag; hide page/current radio when dashboard detected; show page count info
+- `src/PSTT.Dashboard.Client/Pages/Display.razor.cs` — pass `DashboardData = BuildFullState()` to export dialog; handle `AdditionalPages` in `ImportNodesAsync`
+- `tests/PSTT.Dashboard.Client.Tests/DashboardSerializerTests.cs` — 4 new tests for `SerializePage`, `SerializeNodes`, `SerializeDashboard` helpers
+
+Export now wraps output in `{"psttdashboard":"…","data":…}` with sequential IDs applied. Import auto-detects the `"dashboard"` tag and appends all pages from the imported dashboard to the current one. The `Serialize` method is unchanged in behavior; it just delegates to `CloneAndRemap` internally.
+
+---
+
+### Item 2 — Remote open → Save redirects to Save As
+
+**Files:**
+- `src/PSTT.Dashboard.Client/Pages/Display.razor.cs` — `_openedFromRemote` field; set in `OpenDiagramCore` when `source != "local"`; checked in `SaveDashboard` (redirects to `SaveAsDiagram`); cleared in `SaveAsDiagram` on success
+
+When a dashboard is opened from a remote source, the first "Save" now redirects to "Save As" so the user can choose the destination (local or remote) explicitly. After a successful Save As, subsequent Saves go direct.
+
+---
+
+### Item 3 — Double file-open dialog guard
+
+**Files:**
+- `src/PSTT.Dashboard.Client/Pages/Display.razor.cs` — `_openDialogActive` flag; `OpenDiagram` is now a thin wrapper that sets the flag and delegates to `OpenDiagramCore`; second call returns immediately while dialog is open
+
+---
+
+
 
 ### Commits: (see below) · branch: develop
 

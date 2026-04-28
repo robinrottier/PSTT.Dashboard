@@ -56,6 +56,13 @@ public partial class Display : IDisposable
     private bool _isPropertiesOpen;
     private TextNodeModel? _propertiesNode;
 
+    // Guards against duplicate concurrent dialog invocations
+    private bool _openDialogActive;
+
+    // Tracks whether current dashboard was opened from a remote source.
+    // When true, "Save" redirects to "Save As" to avoid silently overwriting a local file.
+    private bool _openedFromRemote;
+
     // Stored handler references for clean unsubscription
     private Action? _onMenuSaveDiagram;
     private Action? _onMenuReloadDiagram;
@@ -1040,6 +1047,7 @@ public partial class Display : IDisposable
         {
             { d => d.SelectedNodes, selectedNodes },
             { d => d.PageData, currentPage },
+            { d => d.DashboardData, BuildFullState() },
         };
         var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
         await DialogService.ShowAsync<ExportNodesDialog>("Export", parameters, options);
@@ -1055,7 +1063,22 @@ public partial class Display : IDisposable
 
         PushUndoSnapshot();
 
-        if (importResult.AddAsNewPage)
+        if (importResult.AdditionalPages.Count > 0)
+        {
+            // Full-dashboard import: add all pages from the imported dashboard
+            foreach (var pageData in importResult.AdditionalPages)
+            {
+                _pageStates.Add(pageData);
+                _diagrams.Add(null);
+            }
+            var newNames = new List<string>(AppState.PageNames);
+            newNames.AddRange(importResult.AdditionalPages.Select(p => p.Name));
+            AppState.SetPageNames(newNames, _activePageIndex);
+            await SwitchToPageAsync(_pageStates.Count - 1);
+            AppState.MarkEdited();
+            Snackbar.Add($"Imported {importResult.AdditionalPages.Count} page(s)", Severity.Success);
+        }
+        else if (importResult.AddAsNewPage)
         {
             var newPageData = new DashboardPageModel
             {
@@ -1070,6 +1093,8 @@ public partial class Display : IDisposable
             var newNames = new List<string>(AppState.PageNames) { newPageData.Name };
             AppState.SetPageNames(newNames, _activePageIndex);
             await SwitchToPageAsync(_pageStates.Count - 1);
+            AppState.MarkEdited();
+            Snackbar.Add($"Imported {importResult.Nodes.Count} node(s)", Severity.Success);
         }
         else
         {
@@ -1095,10 +1120,10 @@ public partial class Display : IDisposable
                 _diagram.SelectModel(node, false);
             }
             UpdateSelectionState();
+            AppState.MarkEdited();
+            Snackbar.Add($"Imported {importResult.Nodes.Count} node(s)", Severity.Success);
         }
 
-        AppState.MarkEdited();
-        Snackbar.Add($"Imported {importResult.Nodes.Count} node(s)", Severity.Success);
         StateHasChanged();
     }
 
@@ -1232,6 +1257,7 @@ public partial class Display : IDisposable
         var success = await service.SaveDashboardByNameAsync(name, state);
         if (success)
         {
+            _openedFromRemote = false;
             AppState.SetDiagramName(name);
             AppState.MarkSaved();
             await SaveLastDiagramName(name);
@@ -1244,6 +1270,20 @@ public partial class Display : IDisposable
     }
 
     private async Task OpenDiagram()
+    {
+        if (_openDialogActive) return;
+        _openDialogActive = true;
+        try
+        {
+            await OpenDiagramCore();
+        }
+        finally
+        {
+            _openDialogActive = false;
+        }
+    }
+
+    private async Task OpenDiagramCore()
     {
         if (AppState.IsEdited)
         {
@@ -1294,6 +1334,7 @@ public partial class Display : IDisposable
                 UpdateSelectionState();
             }
             AppState.SetDiagramName(name);
+            _openedFromRemote = source != "local";
             AppState.MarkSaved();
             await SaveLastDiagramName(name);
             var nodeCount = state.Pages.Sum(p => p.Nodes.Count);
@@ -1311,6 +1352,12 @@ public partial class Display : IDisposable
 
     private async Task<bool> SaveDashboard()
     {
+        if (_openedFromRemote)
+        {
+            // Opened from a remote source — redirect to Save As so the user confirms the destination
+            await SaveAsDiagram();
+            return false;
+        }
         if (string.IsNullOrEmpty(AppState.DashboardName))
         {
             Snackbar.Add("No filename — use Save As to save this dashboard", Severity.Warning);

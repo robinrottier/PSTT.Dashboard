@@ -60,13 +60,17 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 		  option is, how much of a circle is drawn and properties to control orientation
 	- [ ] options to draw "needle" also from some center point to the guage ...	  
 - [ ] **Markdown / HTML** — formatted static content, optionally with data substitution
-- [ ] **IFrame** — embed another web page
+- [ ] **IFrame** — embed another web page ...the url could be "data driven" i.e with substitution from topic values. NO working examples of usefulness of that however!
+
 - [ ] **Chart** — in-memory time-series sparkline graph
+
+- [ ] Widget libraries- What libraries or packages are availble (FOSS) that would enhance the package?? Are there any emerging standards or widely used packages?
 
 ### FEAT-D: Multiple dashboard pages _(basic multi-page done — see CHANGELOG)_
 - [ ] Page tab overflow handling (scrolling/dropdown when many pages)
 - [ ] Swipe left/right gesture on mobile
 - [ ] Page reordering (drag tabs)
+- [ ] Page inmemory persistence? - should pages be held in memory live for rapdi and no-change switching, or should they be reloaded from razor code each time? Maybe an option for this at page level or dashboard level. Default owuld be keep in memory
 
 ### FEAT-E: Editing improvements
 - [ ] View zoom/unzoom option and scroll bars for panning view.

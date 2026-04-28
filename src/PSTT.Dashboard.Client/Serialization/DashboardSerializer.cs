@@ -41,15 +41,40 @@ public static class DashboardSerializer
     /// properties replaced by sequential 1-based integers.
     /// </summary>
     public static string Serialize(DashboardModel model, JsonSerializerOptions? options = null)
+        => JsonSerializer.Serialize(CloneAndRemap(model, options), options);
+
+    /// <summary>
+    /// Serializes <paramref name="model"/> wrapped in <c>{"psttdashboard":"dashboard","data":{...}}</c>
+    /// with sequential IDs applied to all <see cref="FileIdAttribute"/>-marked properties.
+    /// </summary>
+    public static string SerializeDashboard(DashboardModel model, JsonSerializerOptions? options = null)
+        => JsonSerializer.Serialize(new { psttdashboard = "dashboard", data = CloneAndRemap(model, options) }, options);
+
+    /// <summary>
+    /// Serializes <paramref name="page"/> wrapped in <c>{"psttdashboard":"page","data":{...}}</c>
+    /// with sequential IDs applied to all <see cref="FileIdAttribute"/>-marked properties.
+    /// </summary>
+    public static string SerializePage(DashboardPageModel page, JsonSerializerOptions? options = null)
     {
-        // Deep-clone via JSON round-trip (preserves polymorphic NodeData types)
-        var json = JsonSerializer.Serialize(model, options);
-        var clone = JsonSerializer.Deserialize<DashboardModel>(json, options)
-                    ?? throw new InvalidOperationException("DashboardModel clone deserialization returned null.");
-
+        var json = JsonSerializer.Serialize(page, options);
+        var clone = JsonSerializer.Deserialize<DashboardPageModel>(json, options)
+                    ?? throw new InvalidOperationException("DashboardPageModel clone deserialization returned null.");
         RemapIds(clone, new DashboardIdMapper());
+        return JsonSerializer.Serialize(new { psttdashboard = "page", data = clone }, options);
+    }
 
-        return JsonSerializer.Serialize(clone, options);
+    /// <summary>
+    /// Serializes <paramref name="nodes"/> wrapped in <c>{"psttdashboard":"nodes","data":[...]}</c>
+    /// with sequential IDs applied to all <see cref="FileIdAttribute"/>-marked properties.
+    /// </summary>
+    public static string SerializeNodes(List<NodeData> nodes, JsonSerializerOptions? options = null)
+    {
+        var json = JsonSerializer.Serialize(nodes, options);
+        var clone = JsonSerializer.Deserialize<List<NodeData>>(json, options) ?? [];
+        var mapper = new DashboardIdMapper();
+        foreach (var node in clone)
+            RemapIds(node, mapper);
+        return JsonSerializer.Serialize(new { psttdashboard = "nodes", data = clone }, options);
     }
 
     /// <summary>
@@ -60,7 +85,17 @@ public static class DashboardSerializer
     public static DashboardModel? Deserialize(string json, JsonSerializerOptions? options = null)
         => JsonSerializer.Deserialize<DashboardModel>(json, options);
 
-    // ── Reflection-based ID remapping ────────────────────────────────────────
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    /// <summary>Deep-clones <paramref name="model"/> via JSON round-trip and remaps all IDs.</summary>
+    private static DashboardModel CloneAndRemap(DashboardModel model, JsonSerializerOptions? options)
+    {
+        var json = JsonSerializer.Serialize(model, options);
+        var clone = JsonSerializer.Deserialize<DashboardModel>(json, options)
+                    ?? throw new InvalidOperationException("DashboardModel clone deserialization returned null.");
+        RemapIds(clone, new DashboardIdMapper());
+        return clone;
+    }
 
     private static void RemapIds(object? obj, DashboardIdMapper mapper)
     {

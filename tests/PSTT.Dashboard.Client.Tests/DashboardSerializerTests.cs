@@ -304,4 +304,86 @@ public class DashboardSerializerTests
         Assert.Equal("1", model!.Pages[0].Id);
         Assert.Equal("2", model.Pages[0].Nodes[0].Id);
     }
+
+    // ── SerializePage helper ──────────────────────────────────────────────────
+
+    [Fact]
+    public void SerializePage_WrapsInEnvelope_WithRemappedIds()
+    {
+        var page = new DashboardPageModel
+        {
+            Id = "page-guid",
+            Nodes = [new TextNodeData { Id = "node-guid" }],
+            Links = []
+        };
+
+        var json = DashboardSerializer.SerializePage(page, WriteOptions);
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        Assert.Equal("page", root.GetProperty("psttdashboard").GetString());
+        var data = root.GetProperty("data");
+        Assert.Equal("1", data.GetProperty("Id").GetString());
+        Assert.Equal("2", data.GetProperty("Nodes")[0].GetProperty("Id").GetString());
+    }
+
+    [Fact]
+    public void SerializePage_OriginalNotMutated()
+    {
+        const string pageId = "original-page-guid";
+        var page = new DashboardPageModel { Id = pageId, Nodes = [], Links = [] };
+        DashboardSerializer.SerializePage(page, WriteOptions);
+        Assert.Equal(pageId, page.Id);
+    }
+
+    // ── SerializeNodes helper ─────────────────────────────────────────────────
+
+    [Fact]
+    public void SerializeNodes_WrapsInEnvelope_WithRemappedIds()
+    {
+        var nodes = new List<NodeData>
+        {
+            new TextNodeData { Id = "guid-1", Ports = [new NodePortData { Id = "port-1", Alignment = "Right" }] },
+            new TextNodeData { Id = "guid-2" }
+        };
+
+        var json = DashboardSerializer.SerializeNodes(nodes, WriteOptions);
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        Assert.Equal("nodes", root.GetProperty("psttdashboard").GetString());
+        var data = root.GetProperty("data");
+        Assert.Equal("1", data[0].GetProperty("Id").GetString());
+        Assert.Equal("2", data[0].GetProperty("Ports")[0].GetProperty("Id").GetString());
+        Assert.Equal("3", data[1].GetProperty("Id").GetString());
+    }
+
+    // ── SerializeDashboard helper ─────────────────────────────────────────────
+
+    [Fact]
+    public void SerializeDashboard_WrapsInEnvelope_WithRemappedIds()
+    {
+        var model = new DashboardModel
+        {
+            Name = "MyDash",
+            Pages =
+            [
+                new DashboardPageModel
+                {
+                    Id = "pg-guid",
+                    Nodes = [new TextNodeData { Id = "nd-guid" }],
+                    Links = []
+                }
+            ]
+        };
+
+        var json = DashboardSerializer.SerializeDashboard(model, WriteOptions);
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        Assert.Equal("dashboard", root.GetProperty("psttdashboard").GetString());
+        var page = root.GetProperty("data").GetProperty("Pages")[0];
+        Assert.Equal("1", page.GetProperty("Id").GetString());
+        Assert.Equal("2", page.GetProperty("Nodes")[0].GetProperty("Id").GetString());
+    }
 }

@@ -15,10 +15,13 @@
                 </MudTooltip>
             </MudStack>
 
-            <MudRadioGroup @bind-Value="_destination" T="string">
-                <MudRadio Value="@("current")">Add to current page</MudRadio>
-                <MudRadio Value="@("new")">Add as new page</MudRadio>
-            </MudRadioGroup>
+            @if (_detectedFormat != "dashboard")
+            {
+                <MudRadioGroup @bind-Value="_destination" T="string">
+                    <MudRadio Value="@("current")">Add to current page</MudRadio>
+                    <MudRadio Value="@("new")">Add as new page</MudRadio>
+                </MudRadioGroup>
+            }
 
                 @if (_parseError != null)
                 {
@@ -27,8 +30,15 @@
                 else if (_parsed != null)
                 {
                     <MudAlert Severity="Severity.Info" Dense="true">
-                        Detected: @_detectedFormat —
-                        @_parsed.Nodes.Count node(s)@(_parsed.Links.Count > 0 ? $", {_parsed.Links.Count} link(s)" : "")
+                        @if (_detectedFormat == "dashboard")
+                        {
+                            <text>Detected: full dashboard — @_parsed.AdditionalPages.Count page(s), @(_parsed.AdditionalPages.Sum(p => p.Nodes.Count)) node(s). Pages will be added to the current dashboard.</text>
+                        }
+                        else
+                        {
+                            <text>Detected: @_detectedFormat —
+                            @_parsed.Nodes.Count node(s)@(_parsed.Links.Count > 0 ? $", {_parsed.Links.Count} link(s)" : "")</text>
+                        }
                     </MudAlert>
                 }
                 else
@@ -75,6 +85,7 @@
     {
         public List<NodeData> Nodes { get; init; } = [];
         public List<LinkData> Links { get; init; } = [];
+        public List<DashboardPageModel> AdditionalPages { get; init; } = [];
     }
 
     private void OnValueChanged(string value)
@@ -124,9 +135,19 @@
                 _detectedFormat = "page";
                 _parsed = new ParsedImport { Nodes = page.Nodes, Links = page.Links };
             }
+            else if (tag == "dashboard")
+            {
+                if (!root.TryGetProperty("data", out var dataEl))
+                { _parseError = "Missing 'data' field."; return; }
+
+                var dashboard = System.Text.Json.JsonSerializer.Deserialize<DashboardModel>(dataEl.GetRawText(), _jsonOpts);
+                if (dashboard == null) { _parseError = "Could not deserialize dashboard."; return; }
+                _detectedFormat = "dashboard";
+                _parsed = new ParsedImport { AdditionalPages = dashboard.Pages };
+            }
             else
             {
-                _parseError = $"Unknown format tag '{tag}'. Expected 'nodes' or 'page'.";
+                _parseError = $"Unknown format tag '{tag}'. Expected 'nodes', 'page', or 'dashboard'.";
             }
         }
         catch (Exception ex)
@@ -156,6 +177,7 @@
         {
             Nodes = _parsed.Nodes,
             Links = _parsed.Links,
+            AdditionalPages = _parsed.AdditionalPages,
             AddAsNewPage = _destination == "new",
         };
         MudDialog.Close(DialogResult.Ok(result));

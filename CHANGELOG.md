@@ -9,6 +9,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - Dashboard JSON files now use compact sequential 1-based integers for node, port, page, and link IDs instead of raw GUIDs. IDs are remapped on save only; runtime model is unchanged. Makes saved files significantly more readable and diff-friendly.
+- Export dialog now has a **Full Dashboard** option (in addition to Selected Nodes and Current Page). Exports all pages as a portable JSON envelope that can be imported into another dashboard installation.
+- Import dialog now accepts full-dashboard exports; imported pages are appended to the current dashboard (not replacing it).
+- Export/Import now use sequential IDs (same remapping as file save) — exported JSON is compact and readable.
+
+### Fixed
+- Opening a dashboard from a remote source and then pressing **Save** now redirects to **Save As**, preventing silent overwrite of a local file with the same name.
+- A second **Open Dashboard** dialog can no longer be triggered while the first is still open (previously two concurrent dialogs could stack up if the open was slow).
 
 ## [v0.1.6] - 2026-04-28
 
