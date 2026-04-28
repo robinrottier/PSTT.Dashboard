@@ -243,13 +243,32 @@
         AppState.OnStateChanged -= OnAppStateChanged;
     }
 
-    private Task ShowAbout() => DialogService.ShowAsync<AboutDialog>("About PSTT Dashboard",
-        new DialogParameters(),
-        new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true });
-    private Task ShowStartupSettings() => DialogService.ShowAsync<StartupSettingsDialog>("Startup Settings");
-    private Task ShowRemoteRepositories() => DialogService.ShowAsync<RemoteRepoSettingsDialog>("Remote Repositories",
-        new DialogParameters(),
-        new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true });
+    // Guards against double-opening the same menu dialog
+    private bool _dialogActive;
+
+    private async Task ShowAbout()
+    {
+        if (_dialogActive) return;
+        _dialogActive = true;
+        try { await DialogService.ShowAsync<AboutDialog>("About PSTT Dashboard", new DialogParameters(), new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true }); }
+        finally { _dialogActive = false; }
+    }
+
+    private async Task ShowStartupSettings()
+    {
+        if (_dialogActive) return;
+        _dialogActive = true;
+        try { await DialogService.ShowAsync<StartupSettingsDialog>("Startup Settings"); }
+        finally { _dialogActive = false; }
+    }
+
+    private async Task ShowRemoteRepositories()
+    {
+        if (_dialogActive) return;
+        _dialogActive = true;
+        try { await DialogService.ShowAsync<RemoteRepoSettingsDialog>("Remote Repositories", new DialogParameters(), new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true }); }
+        finally { _dialogActive = false; }
+    }
 
     private void NewDiagram()         => AppState.TriggerNewDiagram();
     private void OpenDiagram()        => AppState.TriggerOpen();

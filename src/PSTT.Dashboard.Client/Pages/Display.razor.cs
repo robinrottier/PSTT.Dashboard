@@ -1515,8 +1515,14 @@ public partial class Display : IDisposable
 
     private async Task ShowDiagramPropertiesAsync()
     {
+        if (_dialogActive) return;
+        _dialogActive = true;
+        try
+        {
         var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
         await DialogService.ShowAsync<DashboardPropertiesDialog>("Dashboard Properties", options);
+        }
+        finally { _dialogActive = false; }
     }
 
     // Called from the "no topics" overlay on Display.razor
