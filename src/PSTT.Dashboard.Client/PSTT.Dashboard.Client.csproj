@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
+<Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <PropertyGroup>
 	<TargetFramework>net10.0</TargetFramework>
@@ -23,8 +23,8 @@
   </ItemGroup>
 
   <ItemGroup>
-	<PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.3" />
-	<PackageReference Include="MudBlazor" Version="9.1.0" />
+	<PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.7" />
+	<PackageReference Include="MudBlazor" Version="9.4.0" />
 	<ProjectReference Include="..\..\libs\Blazor.Diagrams\src\Blazor.Diagrams\Blazor.Diagrams.csproj" />
   </ItemGroup>
 

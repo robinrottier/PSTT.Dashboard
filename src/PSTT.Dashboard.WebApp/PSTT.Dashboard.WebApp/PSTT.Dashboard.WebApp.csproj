@@ -17,7 +17,7 @@
   <ItemGroup>
     <ProjectReference Include="..\PSTT.Dashboard.WebApp.Client\PSTT.Dashboard.WebApp.Client.csproj" />
     <ProjectReference Include="..\..\PSTT.Dashboard.Server\PSTT.Dashboard.Server.csproj" />
-    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.3" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.7" />
     <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
   </ItemGroup>
 
