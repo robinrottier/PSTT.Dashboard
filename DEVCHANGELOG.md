@@ -1,6 +1,6 @@
 ## 2026-04-28 — FEAT-C: Slider, Button, HTML, IFrame node types
 
-### Commits: f58b439 · 2026-04-28 · branch: develop
+### Commits: f58b439, efe8009 · 2026-04-28 · branch: develop
 
 ---
 
@@ -49,8 +49,16 @@ Dedicated `SourceUrl` string property (not `Text`) decorated with `[NpText("URL"
 **Files:**
 - `src/PSTT.Dashboard.Client/Models/DashboardModel.cs` — added 4 JsonDerivedType attributes on `NodeData`; added `SliderNodeData`, `ButtonNodeData`, `HtmlNodeData`, `IFrameNodeData` classes
 - `src/PSTT.Dashboard.Client/Services/ApplicationState.cs` — added 4 `RegisterComponent` calls + 4 cases in the `nodeData switch`
-- `src/PSTT.Dashboard.Client/Components/NodeTypePickerDialog.razor` — added 4 `MudItem`/`MudPaper` entries (Slider, Button, HTML, IFrame)
+- `src/PSTT.Dashboard.Client/Components/NodeTypePickerDialog.razor` — added 4 `MudItem`/`MudPaper` entries (**⚠️ wrong component — see Item 6**)
 - `src/PSTT.Dashboard.Client/Pages/Display.razor.cs` — added 4 cases in `OnAddNodeTypeSelected` switch
+
+---
+
+### Item 6 — Bug fix: new node types not appearing in Add Node panel (efe8009)
+
+**File:** `src/PSTT.Dashboard.Client/Components/AddNodePanelContent.razor`
+
+The node type list is in `AddNodePanelContent.razor` (a floating panel shown inline in `Display.razor`), NOT `NodeTypePickerDialog.razor` (which exists but is not used in the current add-node flow). All 4 new types were added to the wrong component. Fixed by adding all 4 to `AddNodePanelContent._nodeTypes`.
 
 ---
 
