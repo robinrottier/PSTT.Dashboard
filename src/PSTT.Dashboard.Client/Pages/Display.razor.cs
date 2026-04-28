@@ -715,28 +715,11 @@ public partial class Display : IDisposable
         });
     }
 
-    private async Task<List<RemoteRepoInfo>> FetchRemoteRepos()
-    {
-        try
-        {
-            return await Http.GetFromJsonAsync<List<RemoteRepoInfo>>("/api/settings/remote-repos") ?? [];
-        }
-        catch
-        {
-            return [];
-        }
-    }
-
-    private IDashboardService GetServiceForDestination(string destination, List<RemoteRepoInfo> remoteRepos)
+    private IDashboardService GetServiceForDestination(string destination)
     {
         if (destination == "local")
             return DashboardService;
-
-        var repo = remoteRepos.FirstOrDefault(r => r.Name == destination);
-        if (repo != null)
-            return new RemoteProxyDashboardService(Http, repo.Name);
-
-        return DashboardService; // fallback
+        return new RemoteProxyDashboardService(Http, destination);
     }
 
     private async Task ReloadDiagram()
@@ -1239,13 +1222,9 @@ public partial class Display : IDisposable
         _dialogActive = true;
         try
         {
-        var remoteRepos = await FetchRemoteRepos();
-        var initialName = AppState.DashboardName;
-        
         var parameters = new DialogParameters<SaveAsDialog>
         {
-            { d => d.InitialName, initialName },
-            { d => d.RemoteRepos, remoteRepos }
+            { d => d.InitialName, AppState.DashboardName },
         };
         var options = new DialogOptions { Position = DialogPosition.Center, CloseButton = true, CloseOnEscapeKey = true };
         var dialog = await DialogService.ShowAsync<SaveAsDialog>("Save Dashboard As", parameters, options);
@@ -1255,7 +1234,7 @@ public partial class Display : IDisposable
             return;
 
         // Check for existing file and confirm overwrite
-        var service = GetServiceForDestination(destination, remoteRepos);
+        var service = GetServiceForDestination(destination);
         var existing = await service.ListDashboardsAsync();
         if (existing.Any(n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase)))
         {
@@ -1306,28 +1285,14 @@ public partial class Display : IDisposable
             if (!confirmed) return;
         }
 
-        var remoteRepos = await FetchRemoteRepos();
-        var names = await DashboardService.ListDashboardsAsync();
-        
-        if (names.Count == 0 && remoteRepos.Count == 0)
-        {
-            Snackbar.Add("No saved dashboards found", Severity.Warning);
-            return;
-        }
-
-        var parameters = new DialogParameters<DashboardPickerDialog>
-        {
-            { d => d.DashboardNames, names },
-            { d => d.RemoteRepos, remoteRepos }
-        };
         var options = new DialogOptions { Position = DialogPosition.Center, CloseButton = true, CloseOnEscapeKey = true };
-        var dialog = await DialogService.ShowAsync<DashboardPickerDialog>("Open Dashboard", parameters, options);
+        var dialog = await DialogService.ShowAsync<DashboardPickerDialog>("Open Dashboard", options);
         var result = await dialog.Result;
         
         if (result is not { Canceled: false, Data: (string source, string name) } || string.IsNullOrWhiteSpace(name))
             return;
 
-        var service = GetServiceForDestination(source, remoteRepos);
+        var service = GetServiceForDestination(source);
         var state = await service.LoadDashboardByNameAsync(name);
         if (state != null)
         {

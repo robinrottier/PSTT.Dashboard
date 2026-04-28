@@ -53,7 +53,6 @@
 @code {
     [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
     [Parameter] public string InitialName { get; set; } = string.Empty;
-    [Parameter] public List<RemoteRepoInfo> RemoteRepos { get; set; } = [];
 
     private string _name = string.Empty;
     private string _destination = "local";
@@ -64,8 +63,9 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _remoteRepos = RemoteRepos;
         _name = InitialName;
+        try { _remoteRepos = await Http.GetFromJsonAsync<List<RemoteRepoInfo>>("/api/settings/remote-repos") ?? []; }
+        catch { _remoteRepos = []; }
         await RefreshExistingNames();
     }
 

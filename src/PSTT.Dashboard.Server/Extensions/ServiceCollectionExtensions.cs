@@ -111,10 +111,15 @@ public static class ServiceCollectionExtensions
 
     private static HttpClient CreateLoopbackHttpClient(IServiceProvider sp)
     {
-        var ctx = sp.GetService<IHttpContextAccessor>()?.HttpContext;
-        var port = ctx?.Connection.LocalPort ?? 0;
+        // Prefer the startup-cached HTTP port (set from Kestrel's http:// listener).
+        // Blazor Server circuits run on the SignalR/WebSocket connection which may be HTTPS —
+        // using that connection's port would result in HTTP→HTTPS mismatch and silent failures.
+        var port = sp.GetService<PSTT.Dashboard.Services.RenderModeOptions>()?.LoopbackPort ?? 0;
         if (port == 0)
-            port = sp.GetService<PSTT.Dashboard.Services.RenderModeOptions>()?.LoopbackPort ?? 0;
+        {
+            var ctx = sp.GetService<IHttpContextAccessor>()?.HttpContext;
+            port = ctx?.Connection.LocalPort ?? 0;
+        }
         return new HttpClient
         {
             BaseAddress = port > 0 ? new Uri($"http://localhost:{port}/") : null

@@ -47,8 +47,6 @@
 
 @code {
     [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
-    [Parameter] public List<string> DashboardNames { get; set; } = [];
-    [Parameter] public List<RemoteRepoInfo> RemoteRepos { get; set; } = [];
 
     private string? _selected;
     private string _selectedSource = "local";
@@ -59,7 +57,8 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _remoteRepos = [..RemoteRepos];
+        try { _remoteRepos = await Http.GetFromJsonAsync<List<RemoteRepoInfo>>("/api/settings/remote-repos") ?? []; }
+        catch { _remoteRepos = []; }
         await RefreshList();
     }
 
@@ -81,7 +80,7 @@
         {
             if (_selectedSource == "local")
             {
-                _names = [..DashboardNames];
+                _names = await DashboardService.ListDashboardsAsync();
             }
             else
             {
