@@ -56,8 +56,8 @@ public partial class Display : IDisposable
     private bool _isPropertiesOpen;
     private TextNodeModel? _propertiesNode;
 
-    // Guards against duplicate concurrent dialog invocations
-    private bool _openDialogActive;
+    // Guards against concurrent dialog invocations (open, save-as, export, import)
+    private bool _dialogActive;
 
     // Tracks whether current dashboard was opened from a remote source.
     // When true, "Save" redirects to "Save As" to avoid silently overwriting a local file.
@@ -1038,7 +1038,10 @@ public partial class Display : IDisposable
 
     private async Task ExportNodesAsync()
     {
-        if (_diagram == null) return;
+        if (_diagram == null || _dialogActive) return;
+        _dialogActive = true;
+        try
+        {
         var selected = _diagram.GetSelectedModels().OfType<TextNodeModel>().ToList();
         var selectedNodes = BuildSnapshots(selected);
         var currentPage = AppState.GetPageData();
@@ -1051,11 +1054,16 @@ public partial class Display : IDisposable
         };
         var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
         await DialogService.ShowAsync<ExportNodesDialog>("Export", parameters, options);
+        }
+        finally { _dialogActive = false; }
     }
 
     private async Task ImportNodesAsync()
     {
-        if (_diagram == null) return;
+        if (_diagram == null || _dialogActive) return;
+        _dialogActive = true;
+        try
+        {
         var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
         var dialog = await DialogService.ShowAsync<ImportNodesDialog>("Import", new DialogParameters(), options);
         var result = await dialog.Result;
@@ -1125,8 +1133,9 @@ public partial class Display : IDisposable
         }
 
         StateHasChanged();
+        }
+        finally { _dialogActive = false; }
     }
-
 
     private void PushUndoSnapshot()
     {
@@ -1226,6 +1235,10 @@ public partial class Display : IDisposable
 
     private async Task SaveAsDiagram()
     {
+        if (_dialogActive) return;
+        _dialogActive = true;
+        try
+        {
         var remoteRepos = await FetchRemoteRepos();
         var initialName = AppState.DashboardName;
         
@@ -1267,19 +1280,21 @@ public partial class Display : IDisposable
         {
             Snackbar.Add("Failed to save dashboard", Severity.Error);
         }
+        }
+        finally { _dialogActive = false; }
     }
 
     private async Task OpenDiagram()
     {
-        if (_openDialogActive) return;
-        _openDialogActive = true;
+        if (_dialogActive) return;
+        _dialogActive = true;
         try
         {
             await OpenDiagramCore();
         }
         finally
         {
-            _openDialogActive = false;
+            _dialogActive = false;
         }
     }
 
