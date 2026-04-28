@@ -52,6 +52,38 @@
                     <MudText Typo="Typo.caption" Color="Color.Secondary">Hierarchical topic view</MudText>
                 </MudPaper>
             </MudItem>
+            <MudItem xs="4">
+                <MudPaper Class="pa-3 d-flex flex-column align-center" Style="cursor:pointer;"
+                          Outlined="true" @onclick='() => Select("Slider")'>
+                    <MudIcon Icon="@Icons.Material.Filled.LinearScale" Size="Size.Large" Color="Color.Primary" />
+                    <MudText Typo="Typo.body2" Class="mt-1">Slider</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Adjust and publish value</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="4">
+                <MudPaper Class="pa-3 d-flex flex-column align-center" Style="cursor:pointer;"
+                          Outlined="true" @onclick='() => Select("Button")'>
+                    <MudIcon Icon="@Icons.Material.Filled.SmartButton" Size="Size.Large" Color="Color.Primary" />
+                    <MudText Typo="Typo.body2" Class="mt-1">Button</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Click to publish value</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="4">
+                <MudPaper Class="pa-3 d-flex flex-column align-center" Style="cursor:pointer;"
+                          Outlined="true" @onclick='() => Select("Html")'>
+                    <MudIcon Icon="@Icons.Material.Filled.Code" Size="Size.Large" Color="Color.Secondary" />
+                    <MudText Typo="Typo.body2" Class="mt-1">HTML</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Static HTML content</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="4">
+                <MudPaper Class="pa-3 d-flex flex-column align-center" Style="cursor:pointer;"
+                          Outlined="true" @onclick='() => Select("IFrame")'>
+                    <MudIcon Icon="@Icons.Material.Filled.OpenInBrowser" Size="Size.Large" Color="Color.Secondary" />
+                    <MudText Typo="Typo.body2" Class="mt-1">IFrame</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Embedded web page</MudText>
+                </MudPaper>
+            </MudItem>
         </MudGrid>
     </DialogContent>
     <DialogActions>

@@ -1,0 +1,79 @@
+@using PSTT.Dashboard.Models
+@using PSTT.Dashboard.Services
+@inherits BaseNodeWithDataWidget<SliderNodeModel>
+
+<StandardNodeLayout Node="Node" ExtraCssClass="slider-node">
+    <ExtraContent>
+        <div style="flex:1;min-height:0;min-width:0;display:flex;flex-direction:column;align-items:stretch;justify-content:center;padding:4px 8px;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;">
+                <span style="font-size:@(FontSizeStyle);font-weight:600;">@FormatValue()</span>
+                @if (!string.IsNullOrEmpty(Node.Unit))
+                {
+                    <span style="font-size:0.75em;color:var(--mud-palette-text-secondary);">@Node.Unit</span>
+                }
+            </div>
+            <MudSlider T="double"
+                       Value="@_sliderValue"
+                       ValueChanged="@OnSliderChanged"
+                       Min="@Node.Min" Max="@Node.Max" Step="@Node.Step"
+                       Immediate="false"
+                       Disabled="@(Node.IsReadOnly)"
+                       Color="Color.Primary"
+                       Style="margin:0;" />
+            <div style="display:flex;justify-content:space-between;">
+                <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">@Node.Min</MudText>
+                <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">@Node.Max</MudText>
+            </div>
+        </div>
+    </ExtraContent>
+</StandardNodeLayout>
+
+@code {
+    private double _sliderValue;
+
+    private string FontSizeStyle =>
+        Node.FontSize.HasValue ? $"{Node.FontSize}px" : "1.1em";
+
+    protected override void OnInitialized()
+    {
+        Node.MinimumDimensions = new(120, 80);
+        if (Node.Size == null || Node.Size.Width < 120 || Node.Size.Height < 80)
+            Node.Size = new(200, 100);
+        base.OnInitialized();
+    }
+
+    protected override void OnDataUpdated()
+    {
+        if (double.TryParse(Node.DataValues?[0]?.ToString(), System.Globalization.NumberStyles.Any,
+            System.Globalization.CultureInfo.InvariantCulture, out var d))
+        {
+            // Update display position from MQTT without triggering a publish
+            _sliderValue = Math.Clamp(d, Node.Min, Node.Max);
+        }
+        StateHasChanged();
+    }
+
+    private string FormatValue()
+    {
+        var raw = Node.DataValues?[0]?.ToString();
+        if (string.IsNullOrEmpty(raw))
+            return _sliderValue.ToString("G6");
+        return raw;
+    }
+
+    private async Task OnSliderChanged(double val)
+    {
+        _sliderValue = val;
+        if (!Node.IsReadOnly)
+            await Publish(val.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        StateHasChanged();
+    }
+
+    private async Task Publish(string payload)
+    {
+        var publishTopic = !string.IsNullOrEmpty(Node.PublishTopic) ? Node.PublishTopic : Node.DataTopic(0);
+        if (string.IsNullOrEmpty(publishTopic)) return;
+        var target = Node.PublishGlobally ? AppState.DataCache : AppState.LocalDataCache;
+        await target.PublishAsync(publishTopic, payload, null, Node.Retain);
+    }
+}

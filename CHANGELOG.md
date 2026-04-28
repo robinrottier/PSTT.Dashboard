@@ -8,6 +8,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Slider node**: MudSlider widget with configurable Min/Max/Step/Unit. Displays the current MQTT value and allows the user to publish a new value by dragging. Publishes only on mouse release to avoid flooding the broker. Supports read-only mode. Min/Max labels shown below the slider.
+- **Button node**: Single MudButton that publishes a configured payload to a topic on click. Configurable label, publish value, topic, style (Filled/Outlined/Text), and colour (Primary/Secondary/Success/Error/Warning/Info/Default). Supports read-only mode.
+- **HTML node**: Renders the node's Text property as raw HTML markup (`MarkupString`). Content is static (no MQTT value substitution) to avoid injection from untrusted broker payloads. Intended for dashboard-author-controlled rich content.
+- **IFrame node**: Embeds an external URL in a sandboxed `<iframe>` (`sandbox="allow-scripts allow-same-origin allow-forms allow-popups"`). In edit mode the iframe is covered by a transparent overlay so node selection and movement work normally.
 - Dashboard JSON files now use compact sequential 1-based integers for node, port, page, and link IDs instead of raw GUIDs. IDs are remapped on save only; runtime model is unchanged. Makes saved files significantly more readable and diff-friendly.
 - Export dialog now has a **Full Dashboard** option (in addition to Selected Nodes and Current Page). Exports all pages as a portable JSON envelope that can be imported into another dashboard installation.
 - Import dialog now accepts full-dashboard exports; imported pages are appended to the current dashboard (not replacing it).

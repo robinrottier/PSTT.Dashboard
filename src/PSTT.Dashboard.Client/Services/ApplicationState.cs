@@ -410,6 +410,10 @@ public class ApplicationState
         diagram.RegisterComponent<BatteryNodeModel, BatteryNodeWidget>();
         diagram.RegisterComponent<LogNodeModel, LogNodeWidget>();
         diagram.RegisterComponent<TreeViewNodeModel, TreeViewNodeWidget>();
+        diagram.RegisterComponent<SliderNodeModel, SliderNodeWidget>();
+        diagram.RegisterComponent<ButtonNodeModel, ButtonNodeWidget>();
+        diagram.RegisterComponent<HtmlNodeModel, HtmlNodeWidget>();
+        diagram.RegisterComponent<IFrameNodeModel, IFrameNodeWidget>();
 
         if (page != null)
         {
@@ -423,6 +427,10 @@ public class ApplicationState
                     BatteryNodeData d  => BatteryNodeModel.FromData(d),
                     LogNodeData d      => LogNodeModel.FromData(d),
                     TreeViewNodeData d => TreeViewNodeModel.FromData(d),
+                    SliderNodeData d   => SliderNodeModel.FromData(d),
+                    ButtonNodeData d   => ButtonNodeModel.FromData(d),
+                    HtmlNodeData d     => HtmlNodeModel.FromData(d),
+                    IFrameNodeData d   => IFrameNodeModel.FromData(d),
                     _                  => TextNodeModel.FromData(nodeData),
                 };
 

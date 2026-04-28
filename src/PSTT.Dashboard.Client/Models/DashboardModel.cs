@@ -42,6 +42,10 @@ public class DashboardFileInfo
 [JsonDerivedType(typeof(BatteryNodeData),  "Battery")]
 [JsonDerivedType(typeof(LogNodeData),      "Log")]
 [JsonDerivedType(typeof(TreeViewNodeData), "TreeView")]
+[JsonDerivedType(typeof(SliderNodeData),   "Slider")]
+[JsonDerivedType(typeof(ButtonNodeData),   "Button")]
+[JsonDerivedType(typeof(HtmlNodeData),     "Html")]
+[JsonDerivedType(typeof(IFrameNodeData),   "IFrame")]
 public abstract class NodeData
 {
     [FileId] public string Id { get; set; } = string.Empty;
@@ -106,6 +110,37 @@ public class TreeViewNodeData : NodeData
     public string? RootTopic { get; set; }
     public bool? ShowValues { get; set; }
     public List<string>? CollapsedPaths { get; set; }
+}
+
+public class SliderNodeData : NodeData
+{
+    public double Min { get; set; } = 0;
+    public double Max { get; set; } = 100;
+    public double Step { get; set; } = 1;
+    public string? Unit { get; set; }
+    public string? PublishTopic { get; set; }
+    public bool IsReadOnly { get; set; } = false;
+    public bool Retain { get; set; } = false;
+    public bool PublishGlobally { get; set; } = true;
+}
+
+public class ButtonNodeData : NodeData
+{
+    public string? ButtonLabel { get; set; }
+    public string? PublishValue { get; set; }
+    public string? PublishTopic { get; set; }
+    public string? ButtonVariant { get; set; }
+    public string? ButtonColor { get; set; }
+    public bool IsReadOnly { get; set; } = false;
+    public bool Retain { get; set; } = false;
+    public bool PublishGlobally { get; set; } = true;
+}
+
+public class HtmlNodeData : NodeData { }
+
+public class IFrameNodeData : NodeData
+{
+    public string? SourceUrl { get; set; }
 }
 
 // ── Shared nested value types ─────────────────────────────────────────────────

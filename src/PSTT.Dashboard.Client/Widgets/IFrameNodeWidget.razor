@@ -1,0 +1,31 @@
+@using PSTT.Dashboard.Models
+@using PSTT.Dashboard.Services
+@inherits BaseNodeWithDataWidget<IFrameNodeModel>
+
+<StandardNodeLayout Node="Node" ExtraCssClass="iframe-node">
+    <ExtraContent>
+        <div style="flex:1;min-height:0;min-width:0;position:relative;overflow:hidden;">
+            <iframe src="@(Node.SourceUrl ?? "")"
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                    style="width:100%;height:100%;border:none;display:block;@(AppState.IsEditMode ? "pointer-events:none;" : "")"
+                    title="@(Node.Title ?? "IFrame")" />
+            @if (AppState.IsEditMode)
+            {
+                @* Overlay in edit mode so clicks reach the diagram for node selection/move *@
+                <div style="position:absolute;inset:0;z-index:10;" />
+            }
+        </div>
+    </ExtraContent>
+</StandardNodeLayout>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Node.MinimumDimensions = new(160, 120);
+        if (Node.Size == null || Node.Size.Width < 160 || Node.Size.Height < 120)
+            Node.Size = new(320, 240);
+        base.OnInitialized();
+    }
+
+    protected override void OnDataUpdated() { }
+}

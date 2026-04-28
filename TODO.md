@@ -59,11 +59,8 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 	- [ ] needs alternatives such as full circle, 90 or 270 .... maybe thats all the 
 		  option is, how much of a circle is drawn and properties to control orientation
 	- [ ] options to draw "needle" also from some center point to the guage ...	  
-- [ ] **Markdown / HTML** — formatted static content, optionally with data substitution
-- [ ] **IFrame** — embed another web page ...the url could be "data driven" i.e with substitution from topic values. NO working examples of usefulness of that however!
 - [ ] **Grid** — tabular display of multiple topic values (e.g. all sensors in a room), or same sensor from alternate locations
-- [ ] **Slider** — for controlling a topic value (e.g. dimmer or setpoint)
-- [ ] **Button** and **Button groups** — for controlling topic values (e.g. on/off, mode selection)
+- [ ] **Button groups** — mode selection, preset value buttons sharing same topic
 
 - [ ] **Chart**
       — in-memory time-series sparkline graph. Difficult!! where does it get history from?

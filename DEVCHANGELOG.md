@@ -1,3 +1,59 @@
+## 2026-04-28 — FEAT-C: Slider, Button, HTML, IFrame node types
+
+### Commits: (pending) · 2026-04-28 · branch: develop
+
+---
+
+### Item 1 — SliderNodeModel + SliderNodeWidget
+
+**Files:**
+- `src/PSTT.Dashboard.Client/Models/SliderNodeModel.cs` — NEW
+- `src/PSTT.Dashboard.Client/Widgets/SliderNodeWidget.razor` — NEW
+
+Properties: Min, Max, Step, Unit, PublishTopic, IsReadOnly, Retain, PublishGlobally (no QoS — publish API doesn't support it). `OnDataUpdated()` clamps the incoming MQTT value to [Min, Max] and updates `_sliderValue` without publishing. The MudSlider uses `Immediate="false"` so `OnSliderChanged` fires only on mouse release, preventing broker flooding. Local `_sliderValue` breaks the echo loop (MQTT update → display; user drag → publish but no re-publish on the returning MQTT echo because `OnDataUpdated` only updates `_sliderValue`). Min/Max labels shown below the slider.
+
+---
+
+### Item 2 — ButtonNodeModel + ButtonNodeWidget
+
+**Files:**
+- `src/PSTT.Dashboard.Client/Models/ButtonNodeModel.cs` — NEW
+- `src/PSTT.Dashboard.Client/Widgets/ButtonNodeWidget.razor` — NEW
+
+Properties: ButtonLabel, PublishValue, PublishTopic, ButtonVariant (Filled/Outlined/Text), ButtonColor (Default/Primary/Secondary/Success/Error/Warning/Info), IsReadOnly, Retain, PublishGlobally. Single click publishes the configured payload. No QoS. Publish topic falls back to the first DataTopic if PublishTopic is empty (same pattern as Switch).
+
+---
+
+### Item 3 — HtmlNodeModel + HtmlNodeWidget
+
+**Files:**
+- `src/PSTT.Dashboard.Client/Models/HtmlNodeModel.cs` — NEW
+- `src/PSTT.Dashboard.Client/Widgets/HtmlNodeWidget.razor` — NEW
+
+No extra model properties — uses the base `TextNodeModel.Text` field for HTML content. Widget renders `@((MarkupString)(Node.Text ?? ""))`. MQTT substitution (`{0}`, `{1}`) is intentionally NOT applied — content is static HTML from the dashboard author. This avoids injection of untrusted MQTT values into a raw HTML context. If dynamic substitution is needed, the regular Text node supports it safely (values are HTML-encoded by Blazor's default rendering).
+
+---
+
+### Item 4 — IFrameNodeModel + IFrameNodeWidget
+
+**Files:**
+- `src/PSTT.Dashboard.Client/Models/IFrameNodeModel.cs` — NEW
+- `src/PSTT.Dashboard.Client/Widgets/IFrameNodeWidget.razor` — NEW
+
+Dedicated `SourceUrl` string property (not `Text`) decorated with `[NpText("URL")]`. Widget renders `<iframe src="@Node.SourceUrl" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" />`. In edit mode: `pointer-events:none` on the iframe + an absolute-positioned overlay `div` so the diagram receives all mouse events for selection and movement.
+
+---
+
+### Item 5 — Wiring (all 4 types)
+
+**Files:**
+- `src/PSTT.Dashboard.Client/Models/DashboardModel.cs` — added 4 JsonDerivedType attributes on `NodeData`; added `SliderNodeData`, `ButtonNodeData`, `HtmlNodeData`, `IFrameNodeData` classes
+- `src/PSTT.Dashboard.Client/Services/ApplicationState.cs` — added 4 `RegisterComponent` calls + 4 cases in the `nodeData switch`
+- `src/PSTT.Dashboard.Client/Components/NodeTypePickerDialog.razor` — added 4 `MudItem`/`MudPaper` entries (Slider, Button, HTML, IFrame)
+- `src/PSTT.Dashboard.Client/Pages/Display.razor.cs` — added 4 cases in `OnAddNodeTypeSelected` switch
+
+---
+
 ## 2026-04-28 — Dialog delay fix + loopback port bug fix
 
 ### Commits: d5e59fb · 2026-04-28 · branch: develop

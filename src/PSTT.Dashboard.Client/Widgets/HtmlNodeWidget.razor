@@ -1,0 +1,25 @@
+@using PSTT.Dashboard.Models
+@using PSTT.Dashboard.Services
+@inherits BaseNodeWithDataWidget<HtmlNodeModel>
+
+<StandardNodeLayout Node="Node" ExtraCssClass="html-node">
+    <ExtraContent>
+        <div style="flex:1;min-height:0;min-width:0;overflow:auto;padding:4px;">
+            @((MarkupString)(Node.Text ?? string.Empty))
+        </div>
+    </ExtraContent>
+</StandardNodeLayout>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Node.MinimumDimensions = new(80, 60);
+        if (Node.Size == null || Node.Size.Width < 80 || Node.Size.Height < 60)
+            Node.Size = new(200, 120);
+        base.OnInitialized();
+    }
+
+    // No MQTT data subscription needed — content is static HTML authored in the property editor.
+    // Using BaseNodeWithDataWidget so the node participates in the standard link animation system.
+    protected override void OnDataUpdated() { }
+}
