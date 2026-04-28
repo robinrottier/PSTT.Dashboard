@@ -1,3 +1,37 @@
+## 2026-04-28 — Global error boundary + diagnostic logger
+
+### Commit: 91e1c8d · 2026-04-28 · branch: develop
+
+---
+
+### Item 1 — DiagnosticErrorLogger
+
+**File:** `src/PSTT.Dashboard.Client/Services/DiagnosticErrorLogger.cs` (NEW)
+
+Implements `IErrorBoundaryLogger` (Blazor's interface called whenever an `<ErrorBoundary>` catches an exception). Logs the full exception with stack trace via `ILogger<DiagnosticErrorLogger>` (routes to Serilog on the server → appears in the server console with the full trace). In `#if DEBUG` builds, calls `Debugger.Break()` when a debugger is attached — setting a VS breakpoint on `LogErrorAsync` will now catch every future component exception at the C# level rather than waiting for it to surface as a cryptic JS error.
+
+Registered as `IErrorBoundaryLogger` (scoped) in `ServiceCollectionExtensions.AddDashboardServices()`, replacing Blazor's built-in no-op default.
+
+---
+
+### Item 2 — AppErrorBoundary.razor
+
+**File:** `src/PSTT.Dashboard.Client/Components/AppErrorBoundary.razor` (NEW)
+
+Inherits `ErrorBoundary`. Shows a red panel with the exception type and message when a component crashes (instead of the blank/crashed circuit), plus a **Dismiss** button that calls `Recover()` to reset the boundary without a page reload. `MaximumErrorCount` is overridden to 3 (vs Blazor default of 100) — if a component keeps throwing on every render, the boundary stops recovering after 3 attempts to prevent an infinite loop.
+
+---
+
+### Item 3 — Routes.razor wraps Router
+
+**File:** `src/PSTT.Dashboard.Client/Routes.razor`
+
+`<Router>` is now wrapped inside `<AppErrorBoundary>`. Previously, any unhandled exception during component rendering crashed the Blazor Server circuit, surfacing only as a vague JS error in the browser with no useful C# callstack. Now the boundary catches the exception in C#, logs it with Serilog, triggers `Debugger.Break()` in dev, and shows a recoverable error UI.
+
+⚠ Verify in VS (dotnet 10 SDK not available in terminal at time of commit).
+
+---
+
 ## 2026-04-28 — Fix Slider IndexOutOfRange + FEAT-C serializer tests
 
 ### Commit: 4922c52 · 2026-04-28 · branch: develop
