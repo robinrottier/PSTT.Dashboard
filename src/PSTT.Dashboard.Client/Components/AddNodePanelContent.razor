@@ -21,12 +21,16 @@
 
     private static readonly (string NodeType, string Icon, string Label, string Caption)[] _nodeTypes =
     [
-        ("Text",     Icons.Material.Filled.TextFields,  "Text",      "Display MQTT values"),
-        ("Gauge",    Icons.Material.Filled.Speed,        "Gauge",     "Gauge with min/max"),
-        ("Switch",   Icons.Material.Filled.ToggleOn,     "Switch",    "Toggle + publish"),
-        ("Battery",  Icons.Material.Filled.Battery5Bar,  "Battery",   "Battery level"),
-        ("Log",      Icons.Material.Filled.ListAlt,      "Log",       "MQTT message log"),
-        ("TreeView", Icons.Material.Filled.AccountTree,  "Tree View", "Hierarchical topics"),
+        ("Text",     Icons.Material.Filled.TextFields,    "Text",      "Display MQTT values"),
+        ("Gauge",    Icons.Material.Filled.Speed,          "Gauge",     "Gauge with min/max"),
+        ("Switch",   Icons.Material.Filled.ToggleOn,       "Switch",    "Toggle + publish"),
+        ("Battery",  Icons.Material.Filled.Battery5Bar,    "Battery",   "Battery level"),
+        ("Log",      Icons.Material.Filled.ListAlt,        "Log",       "MQTT message log"),
+        ("TreeView", Icons.Material.Filled.AccountTree,    "Tree View", "Hierarchical topics"),
+        ("Slider",   Icons.Material.Filled.LinearScale,    "Slider",    "Adjust + publish value"),
+        ("Button",   Icons.Material.Filled.SmartButton,    "Button",    "Click to publish"),
+        ("Html",     Icons.Material.Filled.Code,           "HTML",      "Static HTML content"),
+        ("IFrame",   Icons.Material.Filled.OpenInBrowser,  "IFrame",    "Embedded web page"),
     ];
 
     private async Task Select(string nodeType) => await OnNodeTypeSelected.InvokeAsync(nodeType);
