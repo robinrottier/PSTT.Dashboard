@@ -11,8 +11,23 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 	      -- but actually it sholu dbe implemented and called on the wildcard subscription(s) so it reflects them in terms of requests or wildcards etc
 		  -- but actually if you think about it isnt that was a Subscribe for a wildcard does anyway?--just nened a way to force it to be syncronous maybe so perhaps another method returning the collection makes sense
 		  -- the logic for wildcards/$ etc sholdnt be in widget
+	- [ ] I selected data as ess1/servers/+/+ and expected to only get 2 levels of matching nodes. BUT also got (for example) ess/servers/HUB-3/schedules/setpoint which I dont beleiwve matches.
+	      -- may be consequence of above issue i.e. node filtering done in wring place on the snapshot
+- [ ] "auto save" option ...I selected option in popup when exiting edit mode, and saved. BUT next time exiting edit mode got same popoup. OPtion selection should be persisted.
+      -- it is persisted so 2nd time in a session it applied BUT never on first time...hit F5 to refresh page, enter edit, exit edit and prompted again rather than autosave.
+- [ ] I did "add node" and saw same dialog list as before -- none of the new controls??
+- [ ] MinVer: I am developing on develop branch, in sync with main which has tag 0.1.6 .. but I only see a version like 0.1.3-dev.89. Why cant I see full 0.1.6 version which is my develop is based on?
+- [ ] 
+
 
 ## 🟡 Minor Enhancements
+
+- [ ] about box
+	- [ ] model diaglog should go above edoit panels like add node or node properties
+	- [ ] about box at end, should have configurable button to jump to other implementations
+	      e.g if we';re on first port whichi is read only port then link to rw url and vice versa
+		  can only come from config ... cant work out sensibel value bec=asue we're behind firewalls, proxies etc
+
 
 - [ ] release.ps1
 	- [ ] if a step is stuck on a command prompt for input can anything be done to detect that and abort or prompt user?
@@ -60,7 +75,18 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 		  option is, how much of a circle is drawn and properties to control orientation
 	- [ ] options to draw "needle" also from some center point to the guage ...	  
 - [ ] **Grid** — tabular display of multiple topic values (e.g. all sensors in a room), or same sensor from alternate locations
+      options to do with how grid data is populated:
+	  - fixed rows & columns and fixed text or formatted topic data in each one.
+	  OR single topic (wildcarded) for whole table and data looked up based on rows/column meta data e.g. row has key "HUB-3" and a column has key "grid" and cell then gets ess1/servers/HUB-3/grid withouth having to spcify that in each indiv cell (perhaps indiv cell could override?)
+	  OR dynamic...
+	  - fixed columns, with header row of fixed text but with property which is used in data lookup 
+	  - rows vary dependign on what data is available....so topic search is ess1/servers/+/+ and first "+" matches a row, second "+" matches on fixed column entry
+	  OR same as above but invert rows/columns
 - [ ] **Button groups** — mode selection, preset value buttons sharing same topic
+- [ ] **Radio group** — similar to button group but with exclusive selection
+- [ ] **Checkbox group** — similar to button group but with independent selection
+- [ ] **Drop down list** — select from a list of options, with the selected value published to a topic
+- [ ] **Text entry** — single-line text input, with value published to a topic on change. Format options for input validation (e.g. numeric only, regex pattern, date, date time, ...)
 
 - [ ] **Chart**
       — in-memory time-series sparkline graph. Difficult!! where does it get history from?
@@ -71,8 +97,8 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 ### FEAT-D: Multiple dashboard pages _(basic multi-page done — see CHANGELOG)_
 - [ ] Page tab overflow handling (scrolling/dropdown when many pages)
 - [ ] Swipe left/right gesture on mobile
-- [ ] Page reordering (drag tabs)
-- [ ] Page inmemory persistence? - should pages be held in memory live for rapdi and no-change switching, or should they be reloaded from razor code each time? Maybe an option for this at page level or dashboard level. Default owuld be keep in memory
+- [ ] Page reordering (drag tabs) somewhereor at least a "move left, move right" option 
+- [ ] Page in memory persistence? - should pages be held in memory live for rapdi and no-change switching, or should they be reloaded from razor code each time? Maybe an option for this at page level or dashboard level. Default owuld be keep in memory
 
 ### FEAT-E: Editing improvements
 - [ ] View zoom/unzoom option and scroll bars for panning view.
