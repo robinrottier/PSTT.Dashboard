@@ -12,7 +12,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **`BridgeScopeChanged` event** on `ApplicationState`: fires whenever the bridge cache is reconfigured (dashboard loaded, subscription list edited). Components can subscribe to re-establish their data watchers.
 - **RemoteCache auto-reconnect**: `RemoteCacheBuilder.WithAutoReconnect()` (in PSTT library) — when the server drops, the client automatically retries and re-subscribes to all topics. `pstt-sub` uses this by default.
 
+### Added
+- **Markdown widget**: new node type that renders static Markdown content (via `Markdig`). Author content in the Text property; supports GFM tables, task lists, code blocks.
+- **Button Group widget**: new node type for mode-selection — multiple buttons sharing a publish topic, each with its own label and value. Highlights the button matching the current data value.
+
 ### Fixed
+- **Log viewer column widths**: new properties on the Log node for Time, Topic, and Value column widths (in pixels; 0 = auto). Fixes variable-width columns when cell content varies in length.
 - **App settings applied on first launch**: `AutoSaveOnExit` is now read from `IConfiguration` in the `ApplicationState` constructor (server startup), eliminating the "setting not visible until F5" bug when running from VS debugger.
 - **TreeView incorrect match range**: `ess1/servers/+/+` was internally widened to `ess1/servers/+/#`, causing deeper topics like `ess1/servers/HUB-3/schedules/setpoint` to appear incorrectly. Widget now passes the user-configured topic pattern directly to the cache.
 - **TreeView / DataExplorer not updating on new topics**: when a new topic arrived after the widget's subscription was established but the bridge scope had changed, neither widget would update. Both now re-subscribe when `BridgeScopeChanged` fires.

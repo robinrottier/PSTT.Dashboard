@@ -11,7 +11,7 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 ## 🟡 Minor Enhancements
 
 - [ ] about box
-	- [ ] model diaglog should go above edoit panels like add node or node properties
+	- [ ] model diaglog should go above edit panels like add node or node properties
 	- [ ] about box at end, should have configurable button to jump to other implementations
 	      e.g if we';re on first port whichi is read only port then link to rw url and vice versa
 		  can only come from config ... cant work out sensibel value bec=asue we're behind firewalls, proxies etc
@@ -37,8 +37,7 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 	- [ ] Drag to reorder pages when in edit mode. MudTabs would support this but need setting noticed and saved.
 
 - [ ] Log viewer columns: choices for date (and format), time (and format), topic path, topic name, topic full path&name, value — **Full 6-column boolean options done**; date/time format options still open
-- [ ] log viewer colum width seems to change depending on value string length...shoul dbe fixed and full width
-      plus if possible column width shul dbe changeable via mouse and saved in properies
+- [ ] log viewer colum width: column width changeable via mouse drag and saved in properties _(configurable pixel widths per column added; mouse resize still TODO)_
 
 - [ ] IMport and Export dont seem to be able to see Windows clipboard ... is there some permissions to enable it? This was on firefox
 
@@ -70,13 +69,12 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 	  - fixed columns, with header row of fixed text but with property which is used in data lookup 
 	  - rows vary dependign on what data is available....so topic search is ess1/servers/+/+ and first "+" matches a row, second "+" matches on fixed column entry
 	  OR same as above but invert rows/columns
-- [ ] **Button groups** — mode selection, preset value buttons sharing same topic
-- [ ] **Radio group** — similar to button group but with exclusive selection
+	  Configuration could come from an xml or json input for now rather than properties page designer. Likely to include properties like ColTemplate, RowTemplte, Rows, Columns, ColumnHeaders and some means of simple text entry, single value entry or repeated multivalues for rows. 
+- [ ] **Button groups** _(done: Button Group widget added)_ — **Radio group** — similar to button group but with exclusive selection
 - [ ] **Checkbox group** — similar to button group but with independent selection
-- [ ] **Drop down list** — select from a list of options, with the selected value published to a topic
-- [ ] **Text entry** — single-line text input, with value published to a topic on change. Format options for input validation (e.g. numeric only, regex pattern, date, date time, ...)
-- [ ] **Markdown** - html widget shows html -- need a markdown also, is there a library to do that? OR is it an option on html widget?
-- [ ] They ought to support topic value substitution into encoded etxt so no fear of injection attack if we do it right
+- [ ] **Drop down list** _(done: see DropDown widget)_
+- [ ] **Text entry** _(done: see TextEntry widget)_
+- [ ] **Markdown** _(done: Markdown widget added)_
 
 - [ ] **Chart**
       — in-memory time-series sparkline graph. Difficult!! where does it get history from?

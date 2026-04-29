@@ -27,6 +27,15 @@ public class LogNodeModel : TextNodeModel
     [NpCheckbox("Value", Category = "Columns", Order = 7)]
     public bool ShowValue { get; set; } = true;
 
+    [NpNumeric("Time Column Width (px, 0=auto)", Category = "Column Widths", Order = 8, Min = 0, Max = 400)]
+    public int TimeWidth { get; set; } = 0;
+
+    [NpNumeric("Topic Column Width (px, 0=auto)", Category = "Column Widths", Order = 9, Min = 0, Max = 400)]
+    public int TopicWidth { get; set; } = 0;
+
+    [NpNumeric("Value Column Width (px, 0=auto)", Category = "Column Widths", Order = 10, Min = 0, Max = 400)]
+    public int ValueWidth { get; set; } = 0;
+
     public override NodeData ToData(double panX = 0, double panY = 0)
     {
         var data = new LogNodeData
@@ -40,6 +49,9 @@ public class LogNodeModel : TextNodeModel
                 TopicPath = ShowTopicPath ? true : null,
                 TopicName = ShowTopicName ? true : null,
                 Value = ShowValue ? null : false,     // default is true; only store when false
+                TimeWidth = TimeWidth > 0 ? TimeWidth : null,
+                TopicWidth = TopicWidth > 0 ? TopicWidth : null,
+                ValueWidth = ValueWidth > 0 ? ValueWidth : null,
             },
         };
         FillBaseData(data, panX, panY);
@@ -57,6 +69,9 @@ public class LogNodeModel : TextNodeModel
             ShowTopicPath = data.Columns?.TopicPath ?? false,
             ShowTopicName = data.Columns?.TopicName ?? false,
             ShowValue = data.Columns?.Value ?? true,
+            TimeWidth = data.Columns?.TimeWidth ?? 0,
+            TopicWidth = data.Columns?.TopicWidth ?? 0,
+            ValueWidth = data.Columns?.ValueWidth ?? 0,
         };
         return ApplyBaseData(node, data);
     }

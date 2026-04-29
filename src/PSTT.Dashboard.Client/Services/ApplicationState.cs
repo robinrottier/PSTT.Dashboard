@@ -424,6 +424,8 @@ public class ApplicationState
         diagram.RegisterComponent<IFrameNodeModel, IFrameNodeWidget>();
         diagram.RegisterComponent<TextEntryNodeModel, TextEntryNodeWidget>();
         diagram.RegisterComponent<DropDownNodeModel, DropDownNodeWidget>();
+        diagram.RegisterComponent<MarkdownNodeModel, MarkdownNodeWidget>();
+        diagram.RegisterComponent<ButtonGroupNodeModel, ButtonGroupNodeWidget>();
 
         if (page != null)
         {
@@ -443,6 +445,8 @@ public class ApplicationState
                     IFrameNodeData d     => IFrameNodeModel.FromData(d),
                     TextEntryNodeData d  => TextEntryNodeModel.FromData(d),
                     DropDownNodeData d   => DropDownNodeModel.FromData(d),
+                    MarkdownNodeData d   => MarkdownNodeModel.FromData(d),
+                    ButtonGroupNodeData d => ButtonGroupNodeModel.FromData(d),
                     _                    => TextNodeModel.FromData(nodeData),
                 };
 

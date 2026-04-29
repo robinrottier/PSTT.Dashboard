@@ -46,8 +46,10 @@ public class DashboardFileInfo
 [JsonDerivedType(typeof(ButtonNodeData),   "Button")]
 [JsonDerivedType(typeof(HtmlNodeData),     "Html")]
 [JsonDerivedType(typeof(IFrameNodeData),   "IFrame")]
-[JsonDerivedType(typeof(TextEntryNodeData), "TextEntry")]
-[JsonDerivedType(typeof(DropDownNodeData),  "DropDown")]
+[JsonDerivedType(typeof(TextEntryNodeData),   "TextEntry")]
+[JsonDerivedType(typeof(DropDownNodeData),    "DropDown")]
+[JsonDerivedType(typeof(MarkdownNodeData),    "Markdown")]
+[JsonDerivedType(typeof(ButtonGroupNodeData), "ButtonGroup")]
 public abstract class NodeData
 {
     [FileId] public string Id { get; set; } = string.Empty;
@@ -163,6 +165,21 @@ public class DropDownNodeData : NodeData
     public bool PublishGlobally { get; set; } = true;
 }
 
+public class MarkdownNodeData : NodeData { }
+
+public class ButtonGroupNodeData : NodeData
+{
+    public string? Items { get; set; }
+    public string? Orientation { get; set; }
+    public string? ButtonVariant { get; set; }
+    public string? ButtonColor { get; set; }
+    public string? ActiveButtonColor { get; set; }
+    public string? PublishTopic { get; set; }
+    public bool IsReadOnly { get; set; } = false;
+    public bool Retain { get; set; } = false;
+    public bool PublishGlobally { get; set; } = true;
+}
+
 // ── Shared nested value types ─────────────────────────────────────────────────
 
 public class NumericRangeData
@@ -209,6 +226,9 @@ public class LogColumnsData
     public bool? TopicPath { get; set; }
     public bool? TopicName { get; set; }
     public bool? Value { get; set; }
+    public int? TimeWidth { get; set; }
+    public int? TopicWidth { get; set; }
+    public int? ValueWidth { get; set; }
 }
 
 public class NodePortData

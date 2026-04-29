@@ -1,3 +1,49 @@
+## 2026-04-29 — FEAT-C: Markdown widget, Button Group widget, Log column widths
+
+### Commit: TBD · 2026-04-29 · branch: develop
+
+---
+
+### Item 1 — Markdown widget
+
+**Files:** `Models/MarkdownNodeModel.cs` (new), `Models/DashboardModel.cs`, `Widgets/MarkdownNodeWidget.razor` (new), `Widgets/MarkdownNodeWidget.razor.css` (new), `Services/ApplicationState.cs`, `Pages/Display.razor.cs`, `Components/AddNodePanelContent.razor`, `PSTT.Dashboard.Client.csproj`
+
+Adds a new **Markdown** node type that renders static Markdown content authored in the property editor's **Text** field. Uses the `Markdig` NuGet package (v1.1.3) with `UseAdvancedExtensions()` pipeline (tables, footnotes, task lists, etc.). Rendered HTML is injected as a `MarkupString`. Scoped `.razor.css` uses `::deep` selectors to style the dynamically-injected children. Pipeline instance is `static readonly` to avoid per-render allocation.
+
+**Caveats:** Content is fully static — no MQTT topic substitution (same as HTML widget). Cross-site scripting is the author's responsibility (same as the existing HTML widget).
+
+---
+
+### Item 2 — Button Group widget
+
+**Files:** `Models/ButtonGroupNodeModel.cs` (new), `Models/DashboardModel.cs`, `Widgets/ButtonGroupNodeWidget.razor` (new), `Services/ApplicationState.cs`, `Pages/Display.razor.cs`, `Components/AddNodePanelContent.razor`
+
+Adds a new **Button Group** node type for mode-selection scenarios (e.g., Manual/Auto/Off buttons all publishing to the same topic). Configuration:
+
+- **Items** — multi-line text property, one button per line in `Label=Value` format. Lines starting with `#` are ignored (comments).
+- **Orientation** — Horizontal (default) or Vertical.
+- **Button Style** and **Button Color** — same options as the single Button widget.
+- **Active Button Color** — color applied to the button whose value matches the current MQTT data value (default: Success/green).
+- **Publish Topic** — optional override; defaults to the node's Data Topic.
+- **Read Only**, **Retain**, **Publish Globally** — same semantics as other publish widgets.
+
+The widget subscribes to its Data Topic so it can highlight the currently-active button (matching value = active color). Clicking a button publishes its value.
+
+---
+
+### Item 3 — Log viewer configurable column widths
+
+**Files:** `Models/LogNodeModel.cs`, `Models/DashboardModel.cs` (`LogColumnsData`), `Widgets/LogNodeWidget.razor`
+
+Adds three new numeric properties to the Log node:
+- **Time Column Width** (px, 0 = auto, default 0) — was previously hardcoded to `6rem`
+- **Topic Column Width** (px, 0 = auto) — applies to Full/Path/Name topic columns
+- **Value Column Width** (px, 0 = auto)
+
+Setting 0 preserves the old auto-sizing behaviour. Non-zero values apply an explicit `width:Npx` inline style to the `<th>` element with `table-layout:fixed` on the table, giving stable column widths regardless of cell content.
+
+---
+
 ## 2026-05-05 — App settings loaded synchronously at startup
 
 ### Commit: TBD · 2026-05-05 · branch: develop
