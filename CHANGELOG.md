@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [v0.1.8] - 2026-04-29
+
 ### Fixed
 - **Server-side HTTP loopback failures**: Fixed `HttpRequestException: Connection refused` on first load when the app binds to a non-localhost IP address (e.g., `192.168.86.52:7191`). The loopback HTTP client now uses the actual server address instead of hardcoding `localhost`.
 - **SSL certificate validation for self-referencing remotes**: Fixed `AuthenticationException: RemoteCertificateNameMismatch` when a remote repository points back to the same server via HTTPS with an IP address. The `RemoteController` now bypasses SSL validation for self-references.
