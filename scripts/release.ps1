@@ -904,13 +904,13 @@ function Step-CreateMergePR {
     if ($IsDryRun) { Write-Warn "DRYRUN: skipping PR create/merge"; return }
 
     # Reuse an existing open PR for this branch rather than failing
-    $prNum = Get-CmdOutput gh @('pr', 'view', '--head', $branch, '--json', 'number', '--jq', '.number')
+    $prNum = Get-CmdOutput gh @('pr', 'list', '--head', $branch, '--base', 'main', '--state', 'open', '--json', 'number', '--jq', '.[0].number')
     if ($prNum) {
         Write-Warn "PR #$prNum already exists for '$branch' — reusing it"
     } else {
         Assert-Cmd gh @('pr', 'create', '--title', "Release $($script:NextVersion)", '--body', "Prepare release $($script:NextVersion)", '--base', 'main', '--head', $branch) "Failed to create PR"
-        $prNum = Get-CmdOutput gh @('pr', 'view', '--json', 'number', '--jq', '.number')
-        if (-not $prNum) { throw "Could not determine PR number" }
+        $prNum = Get-CmdOutput gh @('pr', 'list', '--head', $branch, '--base', 'main', '--state', 'open', '--json', 'number', '--jq', '.[0].number')
+        if (-not $prNum) { throw "Could not determine PR number after create" }
         Write-Ok "PR #$prNum created"
     }
 
