@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [v0.1.7] - 2026-04-29
+
 ### Added
 - **`GetSnapshot(pattern)` on cache**: PSTT.Data library now exposes a pattern-overload of `GetSnapshot` on `ICache`, `Cache`, `CacheWithWildcards`, and `BridgeCache`. MQTT wildcard resolution (`+` / `#`) is now handled in the data layer, not in individual widgets.
 - **`BridgeScopeChanged` event** on `ApplicationState`: fires whenever the bridge cache is reconfigured (dashboard loaded, subscription list edited). Components can subscribe to re-establish their data watchers.
