@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using PSTT.Dashboard.Serialization;
 
 namespace PSTT.Dashboard.Models;
 
@@ -15,7 +16,7 @@ public class DashboardModel
 
 public class DashboardPageModel
 {
-    public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
+    [FileId] public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
     public string Name { get; set; } = "Page 1";
     public int GridSize { get; set; } = 20;
     public bool GridSnapToCenter { get; set; } = false;
@@ -41,9 +42,18 @@ public class DashboardFileInfo
 [JsonDerivedType(typeof(BatteryNodeData),  "Battery")]
 [JsonDerivedType(typeof(LogNodeData),      "Log")]
 [JsonDerivedType(typeof(TreeViewNodeData), "TreeView")]
+[JsonDerivedType(typeof(SliderNodeData),   "Slider")]
+[JsonDerivedType(typeof(ButtonNodeData),   "Button")]
+[JsonDerivedType(typeof(HtmlNodeData),     "Html")]
+[JsonDerivedType(typeof(IFrameNodeData),   "IFrame")]
+[JsonDerivedType(typeof(TextEntryNodeData),   "TextEntry")]
+[JsonDerivedType(typeof(DropDownNodeData),    "DropDown")]
+[JsonDerivedType(typeof(MarkdownNodeData),    "Markdown")]
+[JsonDerivedType(typeof(ButtonGroupNodeData), "ButtonGroup")]
+[JsonDerivedType(typeof(RadioGroupNodeData),  "RadioGroup")]
 public abstract class NodeData
 {
-    public string Id { get; set; } = string.Empty;
+    [FileId] public string Id { get; set; } = string.Empty;
     public string? Title { get; set; }
 
     // Position and size rounded to 2 decimal places on write
@@ -104,6 +114,82 @@ public class TreeViewNodeData : NodeData
 {
     public string? RootTopic { get; set; }
     public bool? ShowValues { get; set; }
+    public List<string>? CollapsedPaths { get; set; }
+}
+
+public class SliderNodeData : NodeData
+{
+    public double Min { get; set; } = 0;
+    public double Max { get; set; } = 100;
+    public double Step { get; set; } = 1;
+    public string? Unit { get; set; }
+    public string? PublishTopic { get; set; }
+    public bool IsReadOnly { get; set; } = false;
+    public bool Retain { get; set; } = false;
+    public bool PublishGlobally { get; set; } = true;
+}
+
+public class ButtonNodeData : NodeData
+{
+    public string? ButtonLabel { get; set; }
+    public string? PublishValue { get; set; }
+    public string? PublishTopic { get; set; }
+    public string? ButtonVariant { get; set; }
+    public string? ButtonColor { get; set; }
+    public bool IsReadOnly { get; set; } = false;
+    public bool Retain { get; set; } = false;
+    public bool PublishGlobally { get; set; } = true;
+}
+
+public class HtmlNodeData : NodeData { }
+
+public class IFrameNodeData : NodeData
+{
+    public string? SourceUrl { get; set; }
+}
+
+public class TextEntryNodeData : NodeData
+{
+    public string? Placeholder { get; set; }
+    public string? PublishTopic { get; set; }
+    public bool IsReadOnly { get; set; } = false;
+    public bool Retain { get; set; } = false;
+    public bool PublishGlobally { get; set; } = true;
+}
+
+public class DropDownNodeData : NodeData
+{
+    public string? Options { get; set; }
+    public string? PublishTopic { get; set; }
+    public bool IsReadOnly { get; set; } = false;
+    public bool Retain { get; set; } = false;
+    public bool PublishGlobally { get; set; } = true;
+}
+
+public class MarkdownNodeData : NodeData { }
+
+public class ButtonGroupNodeData : NodeData
+{
+    public string? Items { get; set; }
+    public string? Orientation { get; set; }
+    public string? ButtonVariant { get; set; }
+    public string? ButtonColor { get; set; }
+    public string? ActiveButtonColor { get; set; }
+    public string? PublishTopic { get; set; }
+    public bool IsReadOnly { get; set; } = false;
+    public bool Retain { get; set; } = false;
+    public bool PublishGlobally { get; set; } = true;
+}
+
+public class RadioGroupNodeData : NodeData
+{
+    public string? Items { get; set; }
+    public string? Orientation { get; set; }
+    public string? RadioColor { get; set; }
+    public string? PublishTopic { get; set; }
+    public bool IsReadOnly { get; set; } = false;
+    public bool Retain { get; set; } = false;
+    public bool PublishGlobally { get; set; } = true;
 }
 
 // ── Shared nested value types ─────────────────────────────────────────────────
@@ -152,18 +238,21 @@ public class LogColumnsData
     public bool? TopicPath { get; set; }
     public bool? TopicName { get; set; }
     public bool? Value { get; set; }
+    public int? TimeWidth { get; set; }
+    public int? TopicWidth { get; set; }
+    public int? ValueWidth { get; set; }
 }
 
 public class NodePortData
 {
-    public string Id { get; set; } = string.Empty;
+    [FileId] public string Id { get; set; } = string.Empty;
     public string Alignment { get; set; } = string.Empty;
 }
 
 public class LinkData
 {
-    public string Source { get; set; } = string.Empty;
-    public string? SourcePort { get; set; }
-    public string Target { get; set; } = string.Empty;
-    public string? TargetPort { get; set; }
+    [FileId] public string Source { get; set; } = string.Empty;
+    [FileId] public string? SourcePort { get; set; }
+    [FileId] public string Target { get; set; } = string.Empty;
+    [FileId] public string? TargetPort { get; set; }
 }

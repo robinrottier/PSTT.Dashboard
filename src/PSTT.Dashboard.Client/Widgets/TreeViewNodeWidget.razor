@@ -44,16 +44,15 @@
 
     private List<TopicNode> _topicTree = [];
     private readonly HashSet<string> _expandedPaths = new();
+    private readonly HashSet<string> _userCollapsedPaths = new();
     private readonly HashSet<string> _highlightedTopics = new();
     private readonly ConcurrentDictionary<string, DateTime> _changedAt = new();
     private readonly ConcurrentDictionary<string, string?> _values = new();
     private bool _disposed;
     private IDisposable? _watchSubscription;
-    //private IDisposable? _rootWatchSubscription;
+    private int _lastBridgeGeneration = -1;
     private System.Threading.Timer? _debounceTimer;
     private System.Threading.Timer? _highlightClearTimer;
-
-    private static bool IsGlobalWildcard(string topic) => topic is "#";
 
     protected override void OnInitialized()
     {
@@ -65,6 +64,7 @@
             System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
         _highlightClearTimer = new System.Threading.Timer(OnHighlightClearElapsed, null,
             System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
+        AppState.BridgeScopeChanged += OnBridgeScopeChanged;
         SetupWatchers();
     }
 
@@ -76,52 +76,64 @@
 
     private void SetupWatchers()
     {
-        // "#" global wildcard easier to manage as a special case
-        var isGlobal = IsGlobalWildcard(RootTopicValue);
-        // get prefix to match with -- either empty for global, or root topic with trailing slash removed
-        var prefix = isGlobal ? "" : RootTopicValue.TrimEnd('#').Trim('+').TrimEnd('/') + "/";
-        var wildcardTopic = isGlobal ? "#" : prefix + "#";
+        var topic = RootTopicValue;
+        var currentGen = AppState.BridgedDataCache.BridgeGeneration;
 
-        // if we already have a sub and it matches...nothign to do
+        // Skip re-subscription if topic and bridge generation are unchanged.
         if (_watchSubscription != null
-         && _watchSubscription is ISubscription<string, string> sub
-         && sub.Key == wildcardTopic)
+            && _watchSubscription is ISubscription<string, string> sub
+            && sub.Key == topic
+            && currentGen == _lastBridgeGeneration)
             return;
 
         _watchSubscription?.Dispose(); _watchSubscription = null;
         _values.Clear();
         _changedAt.Clear();
         _expandedPaths.Clear();
+        _userCollapsedPaths.Clear();
+        // Restore user-collapsed paths from model so expansion survives tab switches.
+        foreach (var path in Node.SavedCollapsedPaths)
+            _userCollapsedPaths.Add(path);
 
-        if (string.IsNullOrEmpty(RootTopicValue)) { _topicTree = []; return; }
+        if (string.IsNullOrEmpty(topic)) { _topicTree = []; return; }
 
-        // Always use BridgedDataCache (dashboard-scoped view), same as Data Explorer.
-        var cache = (ICache<string, string>)AppState.BridgedDataCache;
+        _lastBridgeGeneration = currentGen;
 
-        // get a snapshot of cache and populate _values
-        // -- were doing our own mqtt pattern matching
-        // -- TODO: build this into data
-        foreach (var kv in cache.GetSnapshot())
-        {
-            if ((isGlobal && !kv.Key.StartsWith("$") ) || kv.Key == RootTopicValue || (prefix != null && kv.Key.StartsWith(prefix)))
-                _values[kv.Key] = kv.Value;
-        }
+        // Seed initial values from cache snapshot. The data layer handles wildcard resolution,
+        // so we use the topic exactly as the user configured it (no transformation here).
+        foreach (var kv in AppState.BridgedDataCache.GetSnapshot(topic))
+            _values[kv.Key] = kv.Value;
 
         RebuildTree();
-        AutoExpandRoots();
+        AutoExpandNewNodes(_topicTree);
 
-        _watchSubscription = cache.Subscribe(wildcardTopic, async sub =>
+        _watchSubscription = AppState.BridgedDataCache.Subscribe(topic, async s =>
         {
-            if (sub.Status.IsPending) return;
-            await OnTopicChangedAsync(sub.Key, sub.Value);
+            if (s.Status.IsPending) return;
+            await OnTopicChangedAsync(s.Key, s.Value);
+        });
+    }
+
+    private void OnBridgeScopeChanged()
+    {
+        // Bridge patterns were rebuilt — re-subscribe so we pick up any new data.
+        _ = InvokeAsync(() =>
+        {
+            _watchSubscription?.Dispose(); _watchSubscription = null;
+            SetupWatchers();
+            StateHasChanged();
         });
     }
 
     private Task OnTopicChangedAsync(string topic, string? value)
     {
         if (_disposed) return Task.CompletedTask;
+        // Only mark as changed when the value actually differs, to avoid false highlights
+        // on the initial replay of cached items that arrive via Subscribe callbacks.
+        var changed = !_values.TryGetValue(topic, out var existing) || existing != value;
         _values[topic] = value;
-        _changedAt[topic] = DateTime.Now;
+        if (changed)
+            _changedAt[topic] = DateTime.Now;
         _debounceTimer?.Change(80, System.Threading.Timeout.Infinite);
         return Task.CompletedTask;
     }
@@ -130,6 +142,7 @@
     {
         if (_disposed) return;
         RebuildTree();
+        AutoExpandNewNodes(_topicTree);
         UpdateHighlights();
         try { InvokeAsync(StateHasChanged); } catch { }
         _highlightClearTimer?.Change(2200, System.Threading.Timeout.Infinite);
@@ -193,29 +206,44 @@
         }
     }
 
-    private void AutoExpandRoots()
+    // Auto-expands all non-leaf nodes that the user has not explicitly collapsed.
+    // Safe to call on every rebuild — already-expanded paths are idempotent, and
+    // user-collapsed paths are skipped so the user's choice is preserved.
+    private void AutoExpandNewNodes(IList<TopicNode> nodes)
     {
-        foreach (var node in _topicTree)
+        foreach (var node in nodes)
         {
-            if (!node.IsLeaf)
+            if (!node.IsLeaf && !_userCollapsedPaths.Contains(node.FullTopic))
+            {
                 _expandedPaths.Add(node.FullTopic);
+                AutoExpandNewNodes(node.Children);
+            }
         }
     }
 
     private void ToggleExpand(string fullTopic)
     {
-        if (!_expandedPaths.Remove(fullTopic))
+        if (_expandedPaths.Remove(fullTopic))
+        {
+            _userCollapsedPaths.Add(fullTopic);
+            Node.SavedCollapsedPaths.Add(fullTopic);
+        }
+        else
+        {
             _expandedPaths.Add(fullTopic);
+            _userCollapsedPaths.Remove(fullTopic);
+            Node.SavedCollapsedPaths.Remove(fullTopic);
+        }
         StateHasChanged();
     }
 
     public override void Dispose()
     {
         _disposed = true;
+        AppState.BridgeScopeChanged -= OnBridgeScopeChanged;
         _debounceTimer?.Dispose();
         _highlightClearTimer?.Dispose();
         _watchSubscription?.Dispose();
-        //_rootWatchSubscription?.Dispose();
         base.Dispose();
     }
 }

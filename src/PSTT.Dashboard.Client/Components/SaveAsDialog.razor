@@ -6,18 +6,19 @@
 @inject MudBlazor.IDialogService DialogService
 @inject HttpClient Http
 @inject ILogger<SaveAsDialog> Logger
+@inject ILoggerFactory LoggerFactory
 
-<MudDialog>
+<MudDialog Style="min-width:420px;">
     <TitleContent>
         <MudText Typo="Typo.h6">Save Dashboard As</MudText>
     </TitleContent>
     <DialogContent>
-        <MudStack Spacing="2">
+        <MudStack Spacing="1">
             <!-- Destination source -->
             @if (_remoteRepos.Count > 0)
             {
                 <MudSelect T="string" Value="_destination" Label="Destination" Variant="Variant.Outlined" Dense="true"
-                           ValueChanged="OnDestinationChanged" Margin="Margin.Dense">
+                           ValueChanged="OnDestinationChanged" Margin="Margin.Dense" Disabled="_isLoading">
                     <MudSelectItem T="string" Value="@("local")">Local</MudSelectItem>
                     @foreach (var repo in _remoteRepos)
                     {
@@ -30,54 +31,41 @@
             <MudTextField T="string" @bind-Value="_name" Label="Save As Dashboard Name" Variant="Variant.Outlined" Dense="true"
                           FullWidth="true" AutoFocus="true" Margin="Margin.Dense" />
 
-            <!-- Existing names in destination as listbox -->
-            @if (_existingNames.Count > 0)
-            {
-                <div style="display: flex; flex-direction: column; min-height: 0;">
-                    <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="margin-bottom: 4px;">Existing dashboards:</MudText>
-                    <div style="flex: 1; overflow-y: auto; border: 1px solid var(--mud-palette-lines-default); border-radius: 4px; background: var(--mud-palette-background);">
-                        <div style="min-height: calc(1.5em * 5 + 8px);">
-                            @foreach (var name in _existingNames)
-                            {
-                                <div style="padding: 6px 8px; cursor: pointer; border-bottom: 1px solid var(--mud-palette-lines-default); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.875rem;"
-                                     @onclick="@(() => _name = name)">
-                                    @name
-                                </div>
-                            }
-                        </div>
-                    </div>
-                </div>
-            }
+            <!-- Existing names — click to populate name field -->
+            <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="margin-bottom:2px;">Existing dashboards (click to overwrite):</MudText>
+            <DashboardFileListPanel Names="_existingNames" IsLoading="_isLoading" SelectedName="_name"
+                                    OnNameSelected="n => _name = n" />
 
             <!-- Error message if loading failed -->
             @if (!string.IsNullOrEmpty(_errorMessage))
             {
-                <MudAlert Severity="Severity.Error">@_errorMessage</MudAlert>
+                <MudAlert Severity="Severity.Error" Dense="true">@_errorMessage</MudAlert>
             }
         </MudStack>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Cancel">Cancel</MudButton>
-        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Submit"
-                   Disabled="@(string.IsNullOrWhiteSpace(_name))">Save</MudButton>
+        <MudButton OnClick="Cancel" Size="Size.Small">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" Size="Size.Small" OnClick="Submit"
+                   Disabled="@(string.IsNullOrWhiteSpace(_name) || _isLoading)">Save</MudButton>
     </DialogActions>
 </MudDialog>
 
 @code {
     [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
     [Parameter] public string InitialName { get; set; } = string.Empty;
-    [Parameter] public List<RemoteRepoInfo> RemoteRepos { get; set; } = [];
 
     private string _name = string.Empty;
     private string _destination = "local";
     private List<RemoteRepoInfo> _remoteRepos = [];
     private List<string> _existingNames = [];
     private string _errorMessage = string.Empty;
+    private bool _isLoading = false;
 
     protected override async Task OnInitializedAsync()
     {
-        _remoteRepos = RemoteRepos;
         _name = InitialName;
+        try { _remoteRepos = await Http.GetFromJsonAsync<List<RemoteRepoInfo>>("/api/settings/remote-repos") ?? []; }
+        catch { _remoteRepos = []; }
         await RefreshExistingNames();
     }
 
@@ -91,6 +79,10 @@
     private async Task RefreshExistingNames()
     {
         _existingNames = [];
+        _errorMessage = string.Empty;
+        _isLoading = true;
+        StateHasChanged(); // Show loading spinner immediately
+
         try
         {
             if (_destination == "local")
@@ -102,16 +94,29 @@
                 var repo = _remoteRepos.FirstOrDefault(r => r.Name == _destination);
                 if (repo != null)
                 {
-                    var service = new RemoteProxyDashboardService(Http, repo.Name);
+                    Logger.LogInformation("Loading dashboards from remote '{RepoName}'", repo.Name);
+                    var remoteLogger = LoggerFactory.CreateLogger<RemoteProxyDashboardService>();
+                    var service = new RemoteProxyDashboardService(Http, repo.Name, remoteLogger);
                     _existingNames = await service.ListDashboardsAsync();
+                    Logger.LogInformation("Loaded {Count} dashboards from remote '{RepoName}'", _existingNames.Count, repo.Name);
+                }
+                else
+                {
+                    _errorMessage = $"Remote repository '{_destination}' not found in configuration.";
+                    Logger.LogWarning("Remote repo not found: {Destination}", _destination);
                 }
             }
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to load dashboard list for destination {Destination}", _destination);
-            _errorMessage = $"Failed to load dashboards: {ex.Message}";
+            _errorMessage = $"Failed to load dashboards from {_destination}: {ex.Message}";
         }
+        finally
+        {
+            _isLoading = false;
+        }
+
         StateHasChanged();
     }
 
@@ -120,3 +125,4 @@
 
     private void Cancel() => MudDialog.Cancel();
 }
+

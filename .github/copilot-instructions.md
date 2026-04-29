@@ -141,7 +141,7 @@ In **`GetDiagramState()`** — add an `else if (node is MyNodeModel m)` block to
 
 - **`NodePropertyEditor.razor`** — add an `@if (Node is MyNodeModel)` section for type-specific properties.
 - **`NodePropertyEditor.razor.cs`** — add any helper methods.
-- **`NodeTypePickerDialog.razor`** — add an entry to the type picker.
+- **`AddNodePanelContent.razor`** — add an entry to the `_nodeTypes` array (the floating Add Node panel; uses a foreach loop over the list, so no other code changes needed).
 - **`AppMenu.razor`** — add an "Add → My Node" menu item calling `AddNode("My")`.
 - **`Display.razor.cs` `AddNode()`** — add a `case "My"` that calls `AppState.AddNodeToActivePage(new MyNodeModel(...))`.
 

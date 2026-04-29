@@ -1,0 +1,33 @@
+@using PSTT.Dashboard.Models
+@using PSTT.Dashboard.Services
+@using Markdig
+@inherits BaseNodeWithDataWidget<MarkdownNodeModel>
+
+<StandardNodeLayout Node="Node" ExtraCssClass="markdown-node">
+    <ExtraContent>
+        <div style="flex:1;min-height:0;min-width:0;overflow:auto;padding:4px;" class="markdown-body">
+            @((MarkupString)ToHtml(Node.Text))
+        </div>
+    </ExtraContent>
+</StandardNodeLayout>
+
+@code {
+    private static readonly MarkdownPipeline _pipeline =
+        new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
+
+    protected override void OnInitialized()
+    {
+        Node.MinimumDimensions = new(80, 60);
+        if (Node.Size == null || Node.Size.Width < 80 || Node.Size.Height < 60)
+            Node.Size = new(240, 150);
+        base.OnInitialized();
+    }
+
+    // No MQTT data subscription needed — content is static Markdown authored in the property editor.
+    protected override void OnDataUpdated() { }
+
+    private static string ToHtml(string? markdown) =>
+        string.IsNullOrEmpty(markdown)
+            ? string.Empty
+            : Markdown.ToHtml(markdown, _pipeline);
+}

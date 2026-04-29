@@ -10,4 +10,10 @@ public sealed class ImportResult
 
     /// <summary>When true the caller should add the nodes on a new page; otherwise add to the current page.</summary>
     public bool AddAsNewPage { get; init; }
+
+    /// <summary>
+    /// When non-empty, the caller should add these pages to the dashboard (full-dashboard import).
+    /// <see cref="Nodes"/> and <see cref="Links"/> will be empty in this case.
+    /// </summary>
+    public List<DashboardPageModel> AdditionalPages { get; init; } = [];
 }

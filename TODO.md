@@ -6,46 +6,15 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 ## BUGS
 
-- [ ] TReeview widget
-	- [ ] expandion state default seems top node only ...it has a snap shot of data so shoudl be all nodes with grandchildren get initial expansion (same as explorer)
-
 ## 🟡 Minor Enhancements
 
-- [ ] when exiting edit mode with changes the "discard or save" alert should have checkbox
-      option to auto =save in the future and not show this prompt again -- thats saved as an option and turned off
-	  in menu for users who want to turn it back on
-	  OPTION already exists in menu ..just need it seelctable on that discard prompt dialog also
-
-- [ ] floating properties dialog needs to respond to currently selected item and show its properties
-	  -- if no item or multi-item then I guess its blank or greyed somehow
-
-- [ ] TReeview widget
-	- [ ] expansion state is lost even when changing from one tab to next. Is there data persistence between tabs? maybe there shoul dbe. would it be expensive?
-	      Maybe its just some collection of persistent data in nodemodel and a widget decides whether to 
-		  include some member in that or not
-- [ ] OR generalizing that problem, maybe all pages are persistent in memory and just made visible / hidden as user navigates?
-
 - [ ] release.ps1
-	- [ ] Can the captured output be scrolled to UI on a single line so user sees something happening during the build process? Currently it just looks like nothing is happening for a long time until the build finishes and then the tail of the output is shown.
-    - [ ] if a step is stuck on a command prompt for input can anything be done to detect that and abort or prompt user?
-	- [ ] detailed output review on failure — "Show detailed" option at failure prompt to re-display full captured output (beyond the 50-line tail shown automatically)
-	- [ ] dep check at menu could also transitively resolve (e.g. selecting `tag` + `changelog` without `version` — currently only direct deps are added)
-
-- [x] Need a way to share dashboards between installations (and dev)
-	- [x] Server API opens with read/write interface to other installations via https
-	- [x] "Remote" repositories list configured in settings
-		- [x] Each has a display name and a url  
-		- [x] Token-based authentication for remote access
-		- [x] API token generation and regeneration
-	- [x] Remote repositories accessible in Open/Save As dialogs
-	- [x] Integration tests for circular remote setup
-	- [ ] Full proxy forwarding requires actual network connectivity testing
-
-- [x] Serialization:
-	- [x] Server hostname written to `FileInfo`
-	- [x] App version written to `FileInfo`
-	- [x] `WrittenAt` and `Filename` populated on save
-	- [ ] should include version of this app doing the write, and server written from
+	- [ ] if a step is stuck on a command prompt for input can anything be done to detect that and abort or prompt user?
+	- [ ] shouwld accept "a" for "all" to run all steps without prompting for each one
+	- [ ] shoudl accept r and run aswell as just enter to start the run -- maybe enter is dangerous and should be accepted, you have to enter r[un]
+	- [ ] q or x for [Q]uit or e[X]itto preseelct 
+	- [ ] command line -a or --all to preload all steps without prompting (but still be interactive and allow changing)ac	cept any keyword e.g. like "build" 
+	- [ ] OR should command line accept any key like build (or b) to preselect that section
 
 - [ ] Node Property dialog - color transition
 	- [ ] Needs a means to drag reordering around the conditions to specify which is first match
@@ -59,12 +28,10 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 	- [ ] Drag to reorder pages when in edit mode. MudTabs would support this but need setting noticed and saved.
 
 - [ ] Log viewer columns: choices for date (and format), time (and format), topic path, topic name, topic full path&name, value — **Full 6-column boolean options done**; date/time format options still open
-- [ ] log viewer colum width seems to change depending on value string length...shoul dbe fixed and full width
-      plus if possible column width shul dbe changeable via mouse and saved in properies
+- [ ] log viewer colum width: column width changeable via mouse drag and saved in properties _(configurable pixel widths per column added; mouse resize still TODO)_
 
 - [ ] IMport and Export dont seem to be able to see Windows clipboard ... is there some permissions to enable it? This was on firefox
 
-- [ ] Serialization: node ID GUIDs in file — map to sequential 1-based IDs for file (need port+link ID remapping too). Needs a json serilaizer class for Dashboard to manage the mapping.
 
 
 ## 🟡 Features
@@ -78,21 +45,37 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] Option: "virtual topics" defined at dashboard level, computed from raw MQTT values, reusable across nodes
 - [ ] Option to write calculated values back to the MQTT broker
 
-### FEAT-C: Additional node types _(Gauge, Switch, Battery, Log, TreeView done — see CHANGELOG)_
+### FEAT-C: Additional node types and display improvements
 - [ ] **Text node** - different node shapes (circle, diamond, etc.) Perhaps the "shapre" applies to all derived
       nodes too e.g. a guage inside a triangle or circle. Or maybe shape is just a property of the base node.
 - [ ] **Guage**
 	- [ ] needs alternatives such as full circle, 90 or 270 .... maybe thats all the 
 		  option is, how much of a circle is drawn and properties to control orientation
 	- [ ] options to draw "needle" also from some center point to the guage ...	  
-- [ ] **Markdown / HTML** — formatted static content, optionally with data substitution
-- [ ] **IFrame** — embed another web page
-- [ ] **Chart** — in-memory time-series sparkline graph
+- [ ] **Grid** — tabular display of multiple topic values (e.g. all sensors in a room), or same sensor from alternate locations
+      options to do with how grid data is populated:
+	  - fixed rows & columns and fixed text or formatted topic data in each one.
+	  OR single topic (wildcarded) for whole table and data looked up based on rows/column meta data e.g. row has key "HUB-3" and a column has key "grid" and cell then gets ess1/servers/HUB-3/grid withouth having to spcify that in each indiv cell (perhaps indiv cell could override?)
+	  OR dynamic...
+	  - fixed columns, with header row of fixed text but with property which is used in data lookup 
+	  - rows vary dependign on what data is available....so topic search is ess1/servers/+/+ and first "+" matches a row, second "+" matches on fixed column entry
+	  OR same as above but invert rows/columns
+	  Configuration could come from an xml or json input for now rather than properties page designer. Likely to include properties like ColTemplate, RowTemplte, Rows, Columns, ColumnHeaders and some means of simple text entry, single value entry or repeated multivalues for rows. 
+- [ ] **Radio group** — similar to button group but with exclusive selection -- **DONE** ✓
+- [ ] **Checkbox group** — similar to button group but with independent selection -- just a "visualization display" option as logic the same for all these
+- [ ] Anything mudblazor offers for input should be easy to do
+
+- [ ] **Chart**
+      — in-memory time-series sparkline graph. Difficult!! where does it get history from?
+      - Self collected easy to do but little application if looses it every refresh.
+
+- [ ] Widget libraries- What libraries or packages are availble (FOSS) that would enhance the package?? Are there any emerging standards or widely used packages?
 
 ### FEAT-D: Multiple dashboard pages _(basic multi-page done — see CHANGELOG)_
 - [ ] Page tab overflow handling (scrolling/dropdown when many pages)
 - [ ] Swipe left/right gesture on mobile
-- [ ] Page reordering (drag tabs)
+- [ ] Page reordering (drag tabs) somewhereor at least a "move left, move right" option 
+- [ ] Page in memory persistence? - should pages be held in memory live for rapdi and no-change switching, or should they be reloaded from razor code each time? Maybe an option for this at page level or dashboard level. Default owuld be keep in memory
 
 ### FEAT-E: Editing improvements
 - [ ] View zoom/unzoom option and scroll bars for panning view.
@@ -123,12 +106,11 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] Nodes can have width/height of 100% (or "dock" options as in previous vb and win forms)
 
 ### FEAT-H: Data layer refactor
-- [ ] PSTT.Dashboard could expose a remote server listener (configurable port) with our proprietary tcp protocol.
-- [ ] Then create a simple (windows) app using tree view control to make a request and show content
-	  -- in fact this would be data exporer in an app (without buttons and edit mode features)
-- [ ] Also create command line apps, similar to mosquitto_pub and sub that could be used to
-      publish data into the remote server cache off a Dashboard instance, or query the cache
-	  - these would be in PSTT (data) not in dashboard as no dependency on that repo, jst useful debug tools
+- [ ] `PSTT.Remote.Sub` (`pstt-sub`) CLI tool
+	- [ ] are there cli app libraries that would allow easy display f a tre structure on a terminal? rather than streaming update?
+	      ...or maybe thats another console app variation "pstt-monitor" which shows tree view and aloows navigation (like dbus-monitor program)
+- [ ] Create a simple (Windows) app using tree view control to make a request and show content
+	  -- in fact this would be a data explorer app (without buttons and edit mode features)
 
 ### FEAT-I: Responsive / mobile layout
 - [ ] Responsive layout adapts to screen size

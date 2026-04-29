@@ -56,6 +56,13 @@ public partial class Display : IDisposable
     private bool _isPropertiesOpen;
     private TextNodeModel? _propertiesNode;
 
+    // Guards against concurrent dialog invocations (open, save-as, export, import)
+    private bool _dialogActive;
+
+    // Tracks whether current dashboard was opened from a remote source.
+    // When true, "Save" redirects to "Save As" to avoid silently overwriting a local file.
+    private bool _openedFromRemote;
+
     // Stored handler references for clean unsubscription
     private Action? _onMenuSaveDiagram;
     private Action? _onMenuReloadDiagram;
@@ -337,14 +344,17 @@ public partial class Display : IDisposable
             }
             else
             {
-                var confirm = await DialogService.ShowMessageBoxAsync(
-                    "Unsaved Changes",
-                    "You have unsaved changes. Save before leaving edit mode?",
-                    yesText: "Save",
-                    noText: "Discard",
-                    cancelText: "Cancel");
-                if (confirm == null) return; // Cancel — stay in edit mode
-                if (confirm == true)
+                var dlg = await DialogService.ShowAsync<UnsavedChangesDialog>("Unsaved Changes",
+                    new DialogOptions { Position = DialogPosition.Center, CloseButton = false, BackdropClick = false });
+                var result = await dlg.Result;
+                if (result == null || result.Canceled) return; // Cancel — stay in edit mode
+                var choice = result.Data as UnsavedChangesDialog.UnsavedChangesResult;
+                if (choice?.EnableAutoSave == true)
+                {
+                    AppState.SetAutoSaveOnExitEditMode(true);
+                    _ = Http.PostAsJsonAsync("/api/settings/app", new { autoSaveOnExit = true });
+                }
+                if (choice?.Save == true)
                 {
                     var saved = await SaveDashboard();
                     if (!saved) return; // Stay in edit mode if save failed
@@ -431,6 +441,12 @@ public partial class Display : IDisposable
         }
 
         AppState.SetEditMode(enterEditMode);
+        if (!enterEditMode)
+        {
+            _isAddNodeOpen = false;
+            _isDataExplorerOpen = false;
+            _isPropertiesOpen = false;
+        }
         // Clear any dirty flag spuriously raised during mode-switch setup
         if (enterEditMode) AppState.MarkSaved();
         StateHasChanged();
@@ -550,8 +566,7 @@ public partial class Display : IDisposable
         if (_diagram != null)
         {
             var selectedNodes = _diagram.GetSelectedModels().OfType<TextNodeModel>().ToList();
-            if (selectedNodes.Count == 1)
-                _propertiesNode = selectedNodes[0];
+            _propertiesNode = selectedNodes.Count == 1 ? selectedNodes[0] : null;
         }
 
         InvokeAsync(StateHasChanged);
@@ -609,7 +624,16 @@ public partial class Display : IDisposable
             "Battery"  => new BatteryNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400)))  { Title = $"Battery {_nodeCounter++}" },
             "Log"      => new LogNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400)))      { Title = $"Log {_nodeCounter++}" },
             "TreeView" => new TreeViewNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400))) { Title = $"Tree {_nodeCounter++}" },
-            _          => new TextNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400)))     { Title = $"Node {_nodeCounter++}" },
+            "Slider"   => new SliderNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400)))   { Title = $"Slider {_nodeCounter++}" },
+            "Button"   => new ButtonNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400)))   { Title = $"Button {_nodeCounter++}" },
+            "Html"     => new HtmlNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400)))     { Title = $"HTML {_nodeCounter++}" },
+            "IFrame"     => new IFrameNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400)))     { Title = $"IFrame {_nodeCounter++}" },
+            "TextEntry"  => new TextEntryNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400)))  { Title = $"Text Entry {_nodeCounter++}" },
+            "DropDown"    => new DropDownNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400)))    { Title = $"Drop Down {_nodeCounter++}" },
+            "Markdown"    => new MarkdownNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400)))    { Title = $"Markdown {_nodeCounter++}" },
+            "ButtonGroup" => new ButtonGroupNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400))) { Title = $"Button Group {_nodeCounter++}" },
+            "RadioGroup"  => new RadioGroupNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400)))  { Title = $"Radio Group {_nodeCounter++}" },
+            _            => new TextNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400)))       { Title = $"Node {_nodeCounter++}" },
         };
 
         _diagram.Nodes.Add(node);
@@ -709,28 +733,11 @@ public partial class Display : IDisposable
         });
     }
 
-    private async Task<List<RemoteRepoInfo>> FetchRemoteRepos()
-    {
-        try
-        {
-            return await Http.GetFromJsonAsync<List<RemoteRepoInfo>>("/api/settings/remote-repos") ?? [];
-        }
-        catch
-        {
-            return [];
-        }
-    }
-
-    private IDashboardService GetServiceForDestination(string destination, List<RemoteRepoInfo> remoteRepos)
+    private IDashboardService GetServiceForDestination(string destination)
     {
         if (destination == "local")
             return DashboardService;
-
-        var repo = remoteRepos.FirstOrDefault(r => r.Name == destination);
-        if (repo != null)
-            return new RemoteProxyDashboardService(Http, repo.Name);
-
-        return DashboardService; // fallback
+        return new RemoteProxyDashboardService(Http, destination);
     }
 
     private async Task ReloadDiagram()
@@ -1004,12 +1011,14 @@ public partial class Display : IDisposable
         {
             TextNodeModel node = nodeData switch
             {
-                GaugeNodeData d    => GaugeNodeModel.FromData(d),
-                SwitchNodeData d   => SwitchNodeModel.FromData(d),
-                BatteryNodeData d  => BatteryNodeModel.FromData(d),
-                LogNodeData d      => LogNodeModel.FromData(d),
-                TreeViewNodeData d => TreeViewNodeModel.FromData(d),
-                _                  => TextNodeModel.FromData(nodeData),
+                GaugeNodeData d      => GaugeNodeModel.FromData(d),
+                SwitchNodeData d     => SwitchNodeModel.FromData(d),
+                BatteryNodeData d    => BatteryNodeModel.FromData(d),
+                LogNodeData d        => LogNodeModel.FromData(d),
+                TreeViewNodeData d   => TreeViewNodeModel.FromData(d),
+                TextEntryNodeData d  => TextEntryNodeModel.FromData(d),
+                DropDownNodeData d   => DropDownNodeModel.FromData(d),
+                _                    => TextNodeModel.FromData(nodeData),
             };
             // Offset paste position
             node.SetPosition(nodeData.X + offset, nodeData.Y + offset);
@@ -1032,7 +1041,10 @@ public partial class Display : IDisposable
 
     private async Task ExportNodesAsync()
     {
-        if (_diagram == null) return;
+        if (_diagram == null || _dialogActive) return;
+        _dialogActive = true;
+        try
+        {
         var selected = _diagram.GetSelectedModels().OfType<TextNodeModel>().ToList();
         var selectedNodes = BuildSnapshots(selected);
         var currentPage = AppState.GetPageData();
@@ -1041,14 +1053,20 @@ public partial class Display : IDisposable
         {
             { d => d.SelectedNodes, selectedNodes },
             { d => d.PageData, currentPage },
+            { d => d.DashboardData, BuildFullState() },
         };
         var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
         await DialogService.ShowAsync<ExportNodesDialog>("Export", parameters, options);
+        }
+        finally { _dialogActive = false; }
     }
 
     private async Task ImportNodesAsync()
     {
-        if (_diagram == null) return;
+        if (_diagram == null || _dialogActive) return;
+        _dialogActive = true;
+        try
+        {
         var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
         var dialog = await DialogService.ShowAsync<ImportNodesDialog>("Import", new DialogParameters(), options);
         var result = await dialog.Result;
@@ -1056,7 +1074,22 @@ public partial class Display : IDisposable
 
         PushUndoSnapshot();
 
-        if (importResult.AddAsNewPage)
+        if (importResult.AdditionalPages.Count > 0)
+        {
+            // Full-dashboard import: add all pages from the imported dashboard
+            foreach (var pageData in importResult.AdditionalPages)
+            {
+                _pageStates.Add(pageData);
+                _diagrams.Add(null);
+            }
+            var newNames = new List<string>(AppState.PageNames);
+            newNames.AddRange(importResult.AdditionalPages.Select(p => p.Name));
+            AppState.SetPageNames(newNames, _activePageIndex);
+            await SwitchToPageAsync(_pageStates.Count - 1);
+            AppState.MarkEdited();
+            Snackbar.Add($"Imported {importResult.AdditionalPages.Count} page(s)", Severity.Success);
+        }
+        else if (importResult.AddAsNewPage)
         {
             var newPageData = new DashboardPageModel
             {
@@ -1071,6 +1104,8 @@ public partial class Display : IDisposable
             var newNames = new List<string>(AppState.PageNames) { newPageData.Name };
             AppState.SetPageNames(newNames, _activePageIndex);
             await SwitchToPageAsync(_pageStates.Count - 1);
+            AppState.MarkEdited();
+            Snackbar.Add($"Imported {importResult.Nodes.Count} node(s)", Severity.Success);
         }
         else
         {
@@ -1096,13 +1131,14 @@ public partial class Display : IDisposable
                 _diagram.SelectModel(node, false);
             }
             UpdateSelectionState();
+            AppState.MarkEdited();
+            Snackbar.Add($"Imported {importResult.Nodes.Count} node(s)", Severity.Success);
         }
 
-        AppState.MarkEdited();
-        Snackbar.Add($"Imported {importResult.Nodes.Count} node(s)", Severity.Success);
         StateHasChanged();
+        }
+        finally { _dialogActive = false; }
     }
-
 
     private void PushUndoSnapshot()
     {
@@ -1202,15 +1238,15 @@ public partial class Display : IDisposable
 
     private async Task SaveAsDiagram()
     {
-        var remoteRepos = await FetchRemoteRepos();
-        var initialName = AppState.DashboardName;
-        
+        if (_dialogActive) return;
+        _dialogActive = true;
+        try
+        {
         var parameters = new DialogParameters<SaveAsDialog>
         {
-            { d => d.InitialName, initialName },
-            { d => d.RemoteRepos, remoteRepos }
+            { d => d.InitialName, AppState.DashboardName },
         };
-        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = false, CloseButton = true };
+        var options = new DialogOptions { Position = DialogPosition.Center, CloseButton = true, CloseOnEscapeKey = true };
         var dialog = await DialogService.ShowAsync<SaveAsDialog>("Save Dashboard As", parameters, options);
         var result = await dialog.Result;
         
@@ -1218,7 +1254,7 @@ public partial class Display : IDisposable
             return;
 
         // Check for existing file and confirm overwrite
-        var service = GetServiceForDestination(destination, remoteRepos);
+        var service = GetServiceForDestination(destination);
         var existing = await service.ListDashboardsAsync();
         if (existing.Any(n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase)))
         {
@@ -1233,6 +1269,7 @@ public partial class Display : IDisposable
         var success = await service.SaveDashboardByNameAsync(name, state);
         if (success)
         {
+            _openedFromRemote = false;
             AppState.SetDiagramName(name);
             AppState.MarkSaved();
             await SaveLastDiagramName(name);
@@ -1242,9 +1279,25 @@ public partial class Display : IDisposable
         {
             Snackbar.Add("Failed to save dashboard", Severity.Error);
         }
+        }
+        finally { _dialogActive = false; }
     }
 
     private async Task OpenDiagram()
+    {
+        if (_dialogActive) return;
+        _dialogActive = true;
+        try
+        {
+            await OpenDiagramCore();
+        }
+        finally
+        {
+            _dialogActive = false;
+        }
+    }
+
+    private async Task OpenDiagramCore()
     {
         if (AppState.IsEdited)
         {
@@ -1252,28 +1305,14 @@ public partial class Display : IDisposable
             if (!confirmed) return;
         }
 
-        var remoteRepos = await FetchRemoteRepos();
-        var names = await DashboardService.ListDashboardsAsync();
-        
-        if (names.Count == 0 && remoteRepos.Count == 0)
-        {
-            Snackbar.Add("No saved dashboards found", Severity.Warning);
-            return;
-        }
-
-        var parameters = new DialogParameters<DashboardPickerDialog>
-        {
-            { d => d.DashboardNames, names },
-            { d => d.RemoteRepos, remoteRepos }
-        };
-        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = false, CloseButton = true };
-        var dialog = await DialogService.ShowAsync<DashboardPickerDialog>("Open Dashboard", parameters, options);
+        var options = new DialogOptions { Position = DialogPosition.Center, CloseButton = true, CloseOnEscapeKey = true };
+        var dialog = await DialogService.ShowAsync<DashboardPickerDialog>("Open Dashboard", options);
         var result = await dialog.Result;
         
         if (result is not { Canceled: false, Data: (string source, string name) } || string.IsNullOrWhiteSpace(name))
             return;
 
-        var service = GetServiceForDestination(source, remoteRepos);
+        var service = GetServiceForDestination(source);
         var state = await service.LoadDashboardByNameAsync(name);
         if (state != null)
         {
@@ -1295,6 +1334,7 @@ public partial class Display : IDisposable
                 UpdateSelectionState();
             }
             AppState.SetDiagramName(name);
+            _openedFromRemote = source != "local";
             AppState.MarkSaved();
             await SaveLastDiagramName(name);
             var nodeCount = state.Pages.Sum(p => p.Nodes.Count);
@@ -1312,6 +1352,12 @@ public partial class Display : IDisposable
 
     private async Task<bool> SaveDashboard()
     {
+        if (_openedFromRemote)
+        {
+            // Opened from a remote source — redirect to Save As so the user confirms the destination
+            await SaveAsDiagram();
+            return false;
+        }
         if (string.IsNullOrEmpty(AppState.DashboardName))
         {
             Snackbar.Add("No filename — use Save As to save this dashboard", Severity.Warning);
@@ -1454,8 +1500,14 @@ public partial class Display : IDisposable
 
     private async Task ShowDiagramPropertiesAsync()
     {
+        if (_dialogActive) return;
+        _dialogActive = true;
+        try
+        {
         var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
         await DialogService.ShowAsync<DashboardPropertiesDialog>("Dashboard Properties", options);
+        }
+        finally { _dialogActive = false; }
     }
 
     // Called from the "no topics" overlay on Display.razor

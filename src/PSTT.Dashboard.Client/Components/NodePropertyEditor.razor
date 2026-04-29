@@ -149,7 +149,7 @@
                           Margin="Margin.Dense"
                           Lines="4"
                           Placeholder="e.g. Temp: {0:F2}°C&#10;Humidity: {1:F1}%"
-                          HelperText="Use {0} for topic 1 value, {1} for topic 2. Supports C# format specs, e.g. {0:F2}." />
+                          HelperText="HTML tags in the template are rendered (e.g. &lt;b&gt;{0}&lt;/b&gt;); data values are HTML-encoded automatically. Supports C# format specs, e.g. {0:F2}." />
 
             <!-- Node-type-specific settings (driven by [NpXxx] attributes on the model) -->
             @foreach (var category in GetNodeSpecificCategories())
@@ -206,4 +206,5 @@
     <MudButton OnClick="Cancel" Size="MudBlazor.Size.Small">Cancel</MudButton>
     <MudButton Color="Color.Primary" OnClick="Save" Variant="Variant.Filled" Size="MudBlazor.Size.Small">Save</MudButton>
 </div>
+
 

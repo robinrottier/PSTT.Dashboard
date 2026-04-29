@@ -80,8 +80,6 @@
     [Parameter] public EventCallback<string> OnTopicAssigned { get; set; }
     [Parameter] public EventCallback<string> OnCreateNodeWithTopic { get; set; }
 
-    private static readonly MqttWildcardMatcher _matcher = new();
-
     private string _wildcardInput = "#";
     private string _activePattern = "#";
     // Prepopulate with the two most useful defaults — '#' for real MQTT topics,
@@ -97,7 +95,14 @@
 
     protected override void OnInitialized()
     {
+        AppState.BridgeScopeChanged += OnBridgeScopeChanged;
         ApplySubscription();
+    }
+
+    private void OnBridgeScopeChanged()
+    {
+        // Bridge patterns were rebuilt — re-subscribe so that new topics become visible.
+        _ = InvokeAsync(ApplySubscription);
     }
 
     private void ApplySubscription()
@@ -116,10 +121,11 @@
         lock (_topics)
         {
             _topics.Clear();
-            var snapshot = AppState.BridgedDataCache.GetSnapshot();
-            foreach (var kv in snapshot)
+            // Use GetSnapshot(pattern) per pattern — the data layer resolves wildcards,
+            // so no local pattern matching is needed here.
+            foreach (var pattern in patterns)
             {
-                if (patterns.Any(p => TopicMatchesPattern(p, kv.Key)))
+                foreach (var kv in AppState.BridgedDataCache.GetSnapshot(pattern))
                     _topics[kv.Key] = kv.Value;
             }
         }
@@ -174,12 +180,6 @@
     private void OnWildcardKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter") ApplySubscription();
-    }
-
-    private bool TopicMatchesPattern(string pattern, string topic)
-    {
-        if (!_matcher.IsPattern(pattern)) return string.Equals(pattern, topic, StringComparison.Ordinal);
-        return _matcher.Matches(pattern, topic);
     }
 
     private void RebuildTree()
@@ -259,6 +259,7 @@
     {
         _disposed = true;
         _subscriptionGeneration++;
+        AppState.BridgeScopeChanged -= OnBridgeScopeChanged;
         DisposeSubscriptions();
     }
 }

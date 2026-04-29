@@ -1,4 +1,859 @@
-## 2026-04-25 — SaveAs dialog UI initialization fixes
+## 2026-04-29 — HTML template support in Text node
+
+### Commit: 778a15c · 2026-04-29 · branch: develop
+
+---
+
+### Item 1 — FormatHtml() for safe HTML template rendering
+
+**Problem:** Static HTML tags in the Text node's format template (e.g. `<b>{0}</b>`) were displayed as literal encoded text because Blazor auto-encodes plain strings. The user wanted template authors to be able to use HTML markup in the template while keeping MQTT-sourced data values safely encoded against injection.
+
+**Files changed:**
+- `src/PSTT.Dashboard.Client/Widgets/BaseNodeWithDataWidget.cs` — Added `FormatHtml()` method + `_formatTokenRegex` compiled `Regex`.
+- `src/PSTT.Dashboard.Client/Widgets/MudNodeWidget.razor` — Changed `@FormatText()` to `@FormatHtml()` (returns `MarkupString`).
+- `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor` — Updated helper text to document HTML support.
+
+**How it works:**
+1. `_formatTokenRegex` (`\{(\d+)(?::([^}]*))?\}`) finds all `{N}` and `{N:spec}` tokens in the template.
+2. For each token, the corresponding `DataValues[N]` is formatted (using `FormattableValue` for numeric specs) then `HtmlEncode`d.
+3. The surrounding HTML template text is left as-is and rendered as `MarkupString` — angle-brackets in the template come from the dashboard author and are trusted.
+4. Fallback: any exception returns the raw template safely encoded.
+
+**Scope:**
+- Only `MudNodeWidget` (the Text node) was changed. `BatteryNodeWidget` and `GaugeNodeWidget` still use `FormatText()` — their labels are compact numeric displays; HTML authoring is not the intent.
+
+**Caveats:**
+- The template text itself is trusted (it comes from the dashboard JSON authored by the dashboard editor). Any user who can edit the dashboard can inject arbitrary HTML/JS via the template. This is consistent with the `HtmlNodeWidget` which also renders raw HTML — both nodes require the user to have edit access.
+
+---
+
+## 2026-04-29 — App settings documentation
+
+### Commit: TBD · 2026-04-29 · branch: develop
+
+---
+
+### Item 1 — `documents/CONFIGURATION.md`
+
+**Files changed:**
+- `documents/CONFIGURATION.md` *(new)*
+- `README.md` — added link to CONFIGURATION.md under Configuration reference section
+
+**What changed and why:**
+A comprehensive configuration reference was missing. The README had only the most common settings; lesser-known keys (`App:AlternateInstances`, `App:MaxMessageHistory`, `Startup`, `CacheSettings`, `UpdateAgent`, `AllowedPathBase`, `RemoteAccess`, etc.) were undocumented or only discoverable by reading source code.
+
+**`CONFIGURATION.md` covers:**
+- Config layering order (appsettings.json → user override → env vars)
+- A complete sample JSON block with inline comments for every supported key
+- Section-by-section reference table for every setting (default, description, notes)
+- Environment variable naming rules (`__` separator)
+- Table of which settings are writable at runtime via the UI (written to `appsettings.user.json`)
+
+**Caveats/notes:**
+- The sample JSON uses `//` comments which are not valid JSON — this is intentional (it is documentation, not a file to be loaded directly). The comments follow the same convention as `appsettings.Development.UpdateAgent.example.json`.
+- The `appsettings.Development.json` comment at the top of that file says `edit this file and save — at runtime it appears to be simply reloaded immediately`. This is true for that file when running in development, but `appsettings.user.json` requires a server restart to pick up manual file changes. This distinction is called out in CONFIGURATION.md.
+
+---
+
+
+
+### Commit: TBD · 2026-04-29 · branch: develop
+
+---
+
+### Item 1 — About box: modal z-index already fixed
+
+**Status:** Already resolved in a prior session via CSS custom property override in `src/PSTT.Dashboard.Client/wwwroot/app.css`:
+```css
+:root { --mud-zindex-dialog: 2100; }
+```
+`FloatingPanel` uses a base z-index of 2000 and increments on focus. MudDialog now renders at 2100 so it always appears above floating panels. No code change needed this session.
+
+---
+
+### Item 2 — About box: configurable alternate-instance links
+
+**Problem:** No way to link from one dashboard instance to another (e.g. read-only → admin port), which must come from server config as the URL cannot be inferred from behind proxies/firewalls.
+
+**Files changed:**
+- `Services/ApplicationState.cs` — Added `AlternateInstance` record; `AlternateInstances` property (populated from `IConfiguration` at construction via manual index-loop since binder extension isn't referenced in Client); `SetAlternateInstances()` setter.
+- `Server/Controllers/SettingsController.cs` — `GET /api/settings/app` now returns `alternateInstances` array; added `AlternateInstanceConfig` POCO.
+- `Layout/MainLayout.razor` — Updated `AppSettingsResponse` record; calls `AppState.SetAlternateInstances()` after loading app settings.
+- `Components/AboutDialog.razor` — New "Alternate Instances" card at the bottom of the dialog, visible only when `AppState.AlternateInstances.Count > 0`. Renders as outlined `MudButton` per entry, each opening in a new tab.
+
+**Config schema** (in `appsettings.user.json` or `appsettings.json`):
+```json
+"App": {
+  "AlternateInstances": [
+    { "Label": "Read-Only Instance", "Url": "http://host:5002" },
+    { "Label": "Admin Instance",     "Url": "http://host:5001" }
+  ]
+}
+```
+
+**Notes:**
+- Server-side `ApplicationState` reads instances from `IConfiguration` directly in constructor (uses indexed keys like `App:AlternateInstances:0:Label`).
+- WASM clients get the list from `GET /api/settings/app` via `MainLayout.razor` after page load.
+- The TODO item listed this as pending; it's now done.
+
+---
+
+### Item 3 — Radio Group widget (FEAT-C)
+
+**Problem:** FEAT-C listed "Radio group — similar to button group but with exclusive selection".
+
+**Files created:**
+- `Models/RadioGroupNodeModel.cs` — Node model with `Items` (Label=Value per line), `Orientation` (Horizontal/Vertical), `RadioColor`, `PublishTopic`, `IsReadOnly`, `Retain`, `PublishGlobally`. Same `ItemList` computed property as `ButtonGroupNodeModel`.
+- `Widgets/RadioGroupNodeWidget.razor` — `BaseNodeWithDataWidget<RadioGroupNodeModel>`; renders `MudRadioGroup<string>` with `Value`/`ValueChanged` (MudBlazor 9 API); inner `MudRadio<string>` elements with `Value` parameter wrapped in a flex div for orientation control. `OnSelectionChanged` updates `_currentValue` immediately and publishes to MQTT (or local cache).
+
+**Files modified:**
+- `Models/DashboardModel.cs` — Added `[JsonDerivedType(typeof(RadioGroupNodeData), "RadioGroup")]`; added `RadioGroupNodeData` class.
+- `Services/ApplicationState.cs` — Registered `RadioGroupNodeModel/RadioGroupNodeWidget`; added `RadioGroupNodeData d => RadioGroupNodeModel.FromData(d)` case in deserialization switch.
+- `Pages/Display.razor.cs` — Added `"RadioGroup" => new RadioGroupNodeModel(...)` case in `OnAddNodeTypeSelected`.
+- `Components/AddNodePanelContent.razor` — Added `("RadioGroup", Icons.Material.Filled.RadioButtonChecked, "Radio Group", "Exclusive selection, publishes on change")` entry.
+
+**Notes:**
+- In MudBlazor 9, `MudRadioGroup<T>` parameter was renamed from `SelectedOption`/`SelectedOptionChanged` to `Value`/`ValueChanged`; `MudRadio<T>` `Option` → `Value`. The widget uses the new API; fixed MUD0002 analyzer warnings.
+- Wrapping `MudRadio` elements in a `<div style="display:flex;...">` inside `MudRadioGroup` doesn't break the `[CascadingParameter]` registration since cascading values propagate through the full component tree, not just direct children.
+- All 127 tests pass after changes.
+
+---
+
+## 2026-04-29 — FEAT-C: Markdown widget, Button Group widget, Log column widths
+
+### Commit: TBD · 2026-04-29 · branch: develop
+
+---
+
+### Item 1 — Markdown widget
+
+**Files:** `Models/MarkdownNodeModel.cs` (new), `Models/DashboardModel.cs`, `Widgets/MarkdownNodeWidget.razor` (new), `Widgets/MarkdownNodeWidget.razor.css` (new), `Services/ApplicationState.cs`, `Pages/Display.razor.cs`, `Components/AddNodePanelContent.razor`, `PSTT.Dashboard.Client.csproj`
+
+Adds a new **Markdown** node type that renders static Markdown content authored in the property editor's **Text** field. Uses the `Markdig` NuGet package (v1.1.3) with `UseAdvancedExtensions()` pipeline (tables, footnotes, task lists, etc.). Rendered HTML is injected as a `MarkupString`. Scoped `.razor.css` uses `::deep` selectors to style the dynamically-injected children. Pipeline instance is `static readonly` to avoid per-render allocation.
+
+**Caveats:** Content is fully static — no MQTT topic substitution (same as HTML widget). Cross-site scripting is the author's responsibility (same as the existing HTML widget).
+
+---
+
+### Item 2 — Button Group widget
+
+**Files:** `Models/ButtonGroupNodeModel.cs` (new), `Models/DashboardModel.cs`, `Widgets/ButtonGroupNodeWidget.razor` (new), `Services/ApplicationState.cs`, `Pages/Display.razor.cs`, `Components/AddNodePanelContent.razor`
+
+Adds a new **Button Group** node type for mode-selection scenarios (e.g., Manual/Auto/Off buttons all publishing to the same topic). Configuration:
+
+- **Items** — multi-line text property, one button per line in `Label=Value` format. Lines starting with `#` are ignored (comments).
+- **Orientation** — Horizontal (default) or Vertical.
+- **Button Style** and **Button Color** — same options as the single Button widget.
+- **Active Button Color** — color applied to the button whose value matches the current MQTT data value (default: Success/green).
+- **Publish Topic** — optional override; defaults to the node's Data Topic.
+- **Read Only**, **Retain**, **Publish Globally** — same semantics as other publish widgets.
+
+The widget subscribes to its Data Topic so it can highlight the currently-active button (matching value = active color). Clicking a button publishes its value.
+
+---
+
+### Item 3 — Log viewer configurable column widths
+
+**Files:** `Models/LogNodeModel.cs`, `Models/DashboardModel.cs` (`LogColumnsData`), `Widgets/LogNodeWidget.razor`
+
+Adds three new numeric properties to the Log node:
+- **Time Column Width** (px, 0 = auto, default 0) — was previously hardcoded to `6rem`
+- **Topic Column Width** (px, 0 = auto) — applies to Full/Path/Name topic columns
+- **Value Column Width** (px, 0 = auto)
+
+Setting 0 preserves the old auto-sizing behaviour. Non-zero values apply an explicit `width:Npx` inline style to the `<th>` element with `table-layout:fixed` on the table, giving stable column widths regardless of cell content.
+
+---
+
+## 2026-05-05 — App settings loaded synchronously at startup
+
+### Commit: TBD · 2026-05-05 · branch: develop
+
+---
+
+### Item 1 — `AutoSaveOnExit` (and future app settings) read from `IConfiguration` in `ApplicationState` constructor
+
+**File:** `src/PSTT.Dashboard.Client/Services/ApplicationState.cs`
+
+**Problem:** `App:AutoSaveOnExit` (and other App-section settings) were not applied until a browser client connected and `MainLayout.OnAfterRenderAsync` made an HTTP round-trip to `GET /api/settings/app`. On the very first VS debugger launch this race meant the WASM client's HTTP call could fail (loopback address not ready) or the Blazor Server circuit's HTTP call silently threw, leaving the checkbox unset.
+
+**Root cause:** `appsettings.user.json` is added to `IConfiguration` at server startup (in `AddDashboardDataDirectory`), and `ApplicationState` already receives `IConfiguration` in its constructor — but only read `App:MaxMessageHistory` from it. `App:AutoSaveOnExit` was ignored.
+
+**Fix:** Added `configuration?.GetValue<bool>("App:AutoSaveOnExit") ?? false` to the constructor alongside the existing `MaxMessageHistory` read. `ApplicationState` is scoped and constructed when the first circuit or WASM request arrives, at which point `IConfiguration` already has all values from the startup JSON files. No HTTP call needed.
+
+**WASM note:** In the WASM host `IConfiguration` reflects only the WASM-bundled `appsettings.json` (not the server's `appsettings.user.json`), so the HTTP fetch in `MainLayout` is still needed for WASM and remains unchanged. The constructor default of `false` is immediately overridden by that fetch. No regression.
+
+---
+
+## 2026-05-05 — TreeView & DataExplorer wildcard + live-update fixes
+
+### Commit: 6079280 · 2026-05-05 · branch: develop
+### Submodule commit: 8b01099 (libs/PSTT)
+
+---
+
+### Item 1 — Add `GetSnapshot(pattern)` to PSTT.Data cache hierarchy
+
+**Files:** `libs/PSTT/src/PSTT.Data/Interfaces/ICache.cs`, `libs/PSTT/src/PSTT.Data/Cache.cs`, `libs/PSTT/src/PSTT.Data/CacheWithWildcards.cs`, `libs/PSTT/src/PSTT.Data/BridgeCache.cs`
+
+Added a pattern-overload `GetSnapshot(TKey pattern)` to `ICache<TKey,TValue>` and concrete implementations:
+- **`Cache<TKey,TValue>`**: virtual fallback — exact-key lookup only (no wildcard support in the base).
+- **`CacheWithWildcards<TKey,TValue>`**: override — if `_matcher.IsPattern(pattern)` is false, delegates to base (exact lookup); otherwise filters the full retained snapshot using `_matcher.Matches(pattern, key)`. Wildcard subscription nodes are excluded from the full snapshot (they have `Pending` status) so only real data items appear.
+- **`BridgeCache<TKey,TValue>`**: delegates to `_local.GetSnapshot(pattern)`.
+
+`RemoteCache<TValue>` inherits `CacheWithWildcards` so it gets the override automatically.
+
+**Why:** Widgets were performing their own MQTT wildcard matching against full snapshots, duplicating logic that belongs in the data layer. This is the foundational change that enables widgets to simply pass the user-configured topic pattern to the cache.
+
+---
+
+### Item 2 — `ApplicationState`: `BridgeScopeChanged` event + `RebuildBridges()` helper
+
+**File:** `src/PSTT.Dashboard.Client/Services/ApplicationState.cs`
+
+- Added `public event Action? BridgeScopeChanged` — fired whenever the bridge patterns actually change (i.e. `BridgeGeneration` incremented by `SetBridges`).
+- Added private `RebuildBridges()` helper: calls `BridgedDataCache.SetBridges(...)` and fires `BridgeScopeChanged` if the generation changed. Replaced the two direct `SetBridges` calls in `ApplyDashboardModel` and `SetSubscribedTopics` with this helper.
+
+**Why:** When the bridge scope changes (dashboard loaded, subscriptions edited), widgets holding stale subscriptions on `BridgedDataCache._local` could not observe new topics. The event lets widgets re-subscribe cleanly.
+
+---
+
+### Item 3 — `TreeViewNodeWidget`: remove wildcard computation; use data layer; react to bridge changes
+
+**File:** `src/PSTT.Dashboard.Client/Widgets/TreeViewNodeWidget.razor`
+
+- Removed `IsGlobalWildcard` static helper and all `prefix`/`wildcardTopic` computation. The widget previously transformed the user's topic (e.g. `ess1/servers/+/+` → `ess1/servers/+/#`) which broadened the match incorrectly and let topics like `ess1/servers/HUB-3/schedules/setpoint` appear under `ess1/servers/+/+`.
+- Subscription topic is now `RootTopicValue` exactly — MQTT semantics are handled by `CacheWithWildcards`.
+- Initial snapshot is seeded via `AppState.BridgedDataCache.GetSnapshot(topic)` — no local filtering.
+- Added `_lastBridgeGeneration` field; `SetupWatchers` guard now checks both topic equality and generation to detect stale subscriptions after a bridge rebuild.
+- Added `AppState.BridgeScopeChanged += OnBridgeScopeChanged` in `OnInitialized`; handler disposes the old subscription and calls `SetupWatchers()` via `InvokeAsync`.
+- Unsubscribes from `BridgeScopeChanged` in `Dispose`.
+- `OnTopicChangedAsync` now only updates `_changedAt[topic]` when the value actually differs from the stored value — prevents all initial cached items from flashing as "changed" when the Subscribe callback replays them.
+
+---
+
+### Item 4 — `DataExplorerPanel`: remove local matcher; react to bridge changes
+
+**File:** `src/PSTT.Dashboard.Client/Components/DataExplorerPanel.razor`
+
+- Removed static `MqttWildcardMatcher _matcher` field and `TopicMatchesPattern` method.
+- Snapshot seeding in `ApplySubscription` now uses per-pattern `GetSnapshot(pattern)` calls rather than one full `GetSnapshot()` + N local pattern-filter passes. Results are merged into `_topics`.
+- Added `AppState.BridgeScopeChanged += OnBridgeScopeChanged` in `OnInitialized`; handler calls `_ = InvokeAsync(ApplySubscription)` to re-subscribe when bridge patterns change.
+- Unsubscribes from `BridgeScopeChanged` in `Dispose`.
+
+⚠️ The `@using PSTT.Data` directive is left in the file (needed for subscription types used elsewhere in the component).
+
+---
+
+
+
+### Commit: 567ea83 · 2026-04-29 · branch: develop
+
+---
+
+### Item 1 — Build fixes from last session (TextEntry/DropDown/AppErrorBoundary)
+
+**Files:** `src/PSTT.Dashboard.Client/Widgets/DropDownNodeWidget.razor`,
+`src/PSTT.Dashboard.Client/Widgets/TextEntryNodeWidget.razor`,
+`src/PSTT.Dashboard.Client/Components/AppErrorBoundary.razor`
+
+**What:** Three compiler errors introduced by the last feature batch:
+- RZ9986 in both widget files: `Style="font-size:@(FontSizeStyle);"` mixes literal text with C# in a component attribute — changed to `Style="@($"font-size:{FontSizeStyle};")"`.
+- `AppErrorBoundary.MaximumErrorCount` override removed — `ErrorBoundaryBase.MaximumErrorCount` is not virtual in the current SDK.
+
+---
+
+### Item 2 — Package upgrades: ASP.NET Core 10.0.7 + MudBlazor 9.4.0
+
+**Files:** all `*.csproj` files referencing ASP.NET Core 10.x or MudBlazor.
+
+**What:**
+- All ASP.NET Core 10.x packages unified to **10.0.7** (were split between 10.0.3 and 10.0.6).
+- MudBlazor bumped from **9.1.0 → 9.4.0**. Key improvements: MudSelect (4 bug fixes), MudColorPicker black-color initialisation, MudInput duplicate blur, MudAppBar scroll-lock.
+
+---
+
+### Item 3 — Ctrl-S browser save dialog suppressed
+
+**Files:** `src/PSTT.Dashboard.Client/wwwroot/clipboard.js`
+
+**What:** Added a capture-phase `document.addEventListener('keydown', ...)` that calls `preventDefault()` for Ctrl+S/Cmd+S. Previously the dashboard handled Ctrl+S internally but the browser also opened its native Save dialog.
+
+Also fixed a naming mismatch: JS object was `mqttClipboard` but all C# callers used `psttClipboard` — renamed to `psttClipboard`. Cross-window paste was silently falling back to in-memory clipboard; it will now work correctly.
+
+---
+
+### Item 4 — Copy/paste preserves TextEntry and DropDown types
+
+**Files:** `src/PSTT.Dashboard.Client/Pages/Display.razor.cs`
+
+**What:** `PasteNodesAsync` had no cases for `TextEntryNodeData` / `DropDownNodeData` and fell through to `TextNodeModel.FromData()`, losing all type-specific properties (placeholder, publish topic, options, etc.). Added the two missing `switch` arms. JSON deserialization already produced the correct subtypes via `[JsonDerivedType]` — the switch just needed them wired up.
+
+---
+
+### Item 5 — Exit edit mode closes floating panels
+
+**Files:** `src/PSTT.Dashboard.Client/Pages/Display.razor.cs`
+
+**What:** `SwitchMode(false)` now sets `_isAddNodeOpen`, `_isDataExplorerOpen`, and `_isPropertiesOpen` all to `false`. Previously those panels stayed open after leaving edit mode.
+
+---
+
+### Item 6 — AutoSave-via-dialog persisted to server
+
+**Files:** `src/PSTT.Dashboard.Client/Pages/Display.razor.cs`
+
+**What:** When the user enables auto-save via the Unsaved Changes dialog (not the menu), the setting was applied in memory but never posted to `/api/settings/app`, so it reset on next page load. Added the missing `Http.PostAsJsonAsync` call in the dialog result handler.
+
+---
+
+### Item 7 — RemoteCache auto-reconnect (in PSTT library)
+
+**Files:** `libs/PSTT/src/PSTT.Remote/RemoteCache.cs`,
+`libs/PSTT/src/PSTT.Remote/RemoteCacheBuilder.cs`,
+`libs/PSTT/src/PSTT.Remote.Sub/Program.cs`
+
+**What:** `RemoteCacheBuilder<TValue>` gained `WithAutoReconnect(TimeSpan? delay = null)`. When enabled, `RemoteCache.OnDisconnectedAsync` spawns a background retry loop that waits `delay` (default 5 s) then calls `ConnectAsync()` (which already calls `ResubscribeAllAsync`). `pstt-sub` enables this by default so it recovers when the server restarts. All 382 PSTT lib tests pass.
+
+---
+
+## 2026-04-28 — TextEntry + DropDown widgets (FEAT-C)
+
+### Commit: 3f33bd2 · 2026-04-28 · branch: develop
+
+---
+
+### Item 1 — TextEntryNodeModel + TextEntryNodeWidget
+
+**Files:** `src/PSTT.Dashboard.Client/Models/TextEntryNodeModel.cs` (NEW),
+`src/PSTT.Dashboard.Client/Widgets/TextEntryNodeWidget.razor` (NEW)
+
+**What:** A single-line MudTextField widget that displays the current MQTT value and publishes a new value on blur or Enter. Properties: Placeholder, PublishTopic, IsReadOnly, Retain, PublishGlobally.
+
+**How:** Inherits `BaseNodeWithDataWidget<TextEntryNodeModel>`. `OnDataUpdated()` updates `_displayValue` only when the field is not focused (guarded by `_isFocused` flag) to avoid clobbering text the user is currently editing. On submit, calls `target.PublishAsync(...)` where target is `DataCache` (global) or `LocalDataCache` (dashboard-local) depending on `PublishGlobally`.
+
+---
+
+### Item 2 — DropDownNodeModel + DropDownNodeWidget
+
+**Files:** `src/PSTT.Dashboard.Client/Models/DropDownNodeModel.cs` (NEW),
+`src/PSTT.Dashboard.Client/Widgets/DropDownNodeWidget.razor` (NEW)
+
+**What:** A MudSelect dropdown populated from a comma-separated Options string. Publishes the selected value on change. Properties: Options, PublishTopic, IsReadOnly, Retain, PublishGlobally.
+
+**How:** Inherits `BaseNodeWithDataWidget<DropDownNodeModel>`. `OnDataUpdated()` updates `_selectedValue` only if the incoming MQTT value is one of the configured options (ignores values that don't match). Computed property `OptionList` on the model splits Options by comma with trimming.
+
+---
+
+### Item 3 — Wiring + serialization
+
+**Files modified:** `DashboardModel.cs`, `ApplicationState.cs`, `AddNodePanelContent.razor`, `Display.razor.cs`, `DashboardSerializerTests.cs`
+
+**What:** Full registration of both new types:
+- `TextEntryNodeData` and `DropDownNodeData` classes added to `DashboardModel.cs` with `[JsonDerivedType]` attributes
+- `RegisterComponent<>` calls added in `ApplicationState.CreateDiagramFromState()`
+- Switch cases added to the nodeData switch in `ApplicationState`
+- Entries added to `AddNodePanelContent._nodeTypes` (icons: TextFields / ArrowDropDown)
+- Switch cases added in `Display.razor.cs OnAddNodeTypeSelected()`
+- 2 new round-trip serialization tests added to `DashboardSerializerTests.cs`
+
+⚠️ Build could not be verified from CLI (terminal still only has .NET 9 SDK; project targets .NET 10). Code was verified structurally against existing patterns (ButtonNodeWidget, SliderNodeModel). Verify with VS after upgrade completes.
+
+---
+
+
+
+### Commit: 91e1c8d · 2026-04-28 · branch: develop
+
+---
+
+### Item 1 — DiagnosticErrorLogger
+
+**File:** `src/PSTT.Dashboard.Client/Services/DiagnosticErrorLogger.cs` (NEW)
+
+Implements `IErrorBoundaryLogger` (Blazor's interface called whenever an `<ErrorBoundary>` catches an exception). Logs the full exception with stack trace via `ILogger<DiagnosticErrorLogger>` (routes to Serilog on the server → appears in the server console with the full trace). In `#if DEBUG` builds, calls `Debugger.Break()` when a debugger is attached — setting a VS breakpoint on `LogErrorAsync` will now catch every future component exception at the C# level rather than waiting for it to surface as a cryptic JS error.
+
+Registered as `IErrorBoundaryLogger` (scoped) in `ServiceCollectionExtensions.AddDashboardServices()`, replacing Blazor's built-in no-op default.
+
+---
+
+### Item 2 — AppErrorBoundary.razor
+
+**File:** `src/PSTT.Dashboard.Client/Components/AppErrorBoundary.razor` (NEW)
+
+Inherits `ErrorBoundary`. Shows a red panel with the exception type and message when a component crashes (instead of the blank/crashed circuit), plus a **Dismiss** button that calls `Recover()` to reset the boundary without a page reload. `MaximumErrorCount` is overridden to 3 (vs Blazor default of 100) — if a component keeps throwing on every render, the boundary stops recovering after 3 attempts to prevent an infinite loop.
+
+---
+
+### Item 3 — Routes.razor wraps Router
+
+**File:** `src/PSTT.Dashboard.Client/Routes.razor`
+
+`<Router>` is now wrapped inside `<AppErrorBoundary>`. Previously, any unhandled exception during component rendering crashed the Blazor Server circuit, surfacing only as a vague JS error in the browser with no useful C# callstack. Now the boundary catches the exception in C#, logs it with Serilog, triggers `Debugger.Break()` in dev, and shows a recoverable error UI.
+
+⚠ Verify in VS (dotnet 10 SDK not available in terminal at time of commit).
+
+---
+
+## 2026-04-28 — Fix Slider IndexOutOfRange + FEAT-C serializer tests
+
+### Commit: 4922c52 · 2026-04-28 · branch: develop
+
+---
+
+### Item 1 — Fix SliderNodeWidget crash on new node
+
+**Files:** `src/PSTT.Dashboard.Client/Widgets/SliderNodeWidget.razor`
+
+`FormatValue()` and `OnDataUpdated()` both called `Node.DataValues?[0]` directly. When a brand-new Slider is added with no DataTopics configured, `DataValues` is an empty array (`new object?[0]`). The null-conditional `?.` only guards against null, not empty-array index access, so `[0]` threw `IndexOutOfRangeException` which Blazor Server surfaces as a `NullReferenceException` in `RemoteJSRuntime`. Fix: switched both callsites to `Node.DataValue(0)` — the safe accessor defined on `BaseNodeWithDataWidget` that returns null when the array is shorter than the requested index.
+
+---
+
+### Item 2 — Serializer round-trip tests for all four FEAT-C node types
+
+**Files:** `tests/PSTT.Dashboard.Client.Tests/DashboardSerializerTests.cs`
+
+Added 5 new tests:
+- `Serialize_SliderNodeData_RoundTrip` — verifies Min/Max/Step/Unit/PublishTopic survive serialization and IDs are remapped.
+- `Serialize_ButtonNodeData_RoundTrip` — verifies ButtonLabel/PublishValue/Topic/Variant/Color.
+- `Serialize_HtmlNodeData_RoundTrip` — verifies type is preserved (no custom properties beyond NodeData base).
+- `Serialize_IFrameNodeData_RoundTrip` — verifies SourceUrl survives.
+- `Serialize_AllFeatCTypes_TypesPreserved` — four nodes in one page, confirms each deserializes to the correct concrete type and their key properties are intact.
+
+Total tests: 27 (was 22).
+
+---
+
+## 2026-04-28 — FEAT-C: Slider, Button, HTML, IFrame node types
+
+### Commits: f58b439, efe8009 · 2026-04-28 · branch: develop
+
+---
+
+### Item 1 — SliderNodeModel + SliderNodeWidget
+
+**Files:**
+- `src/PSTT.Dashboard.Client/Models/SliderNodeModel.cs` — NEW
+- `src/PSTT.Dashboard.Client/Widgets/SliderNodeWidget.razor` — NEW
+
+Properties: Min, Max, Step, Unit, PublishTopic, IsReadOnly, Retain, PublishGlobally (no QoS — publish API doesn't support it). `OnDataUpdated()` clamps the incoming MQTT value to [Min, Max] and updates `_sliderValue` without publishing. The MudSlider uses `Immediate="false"` so `OnSliderChanged` fires only on mouse release, preventing broker flooding. Local `_sliderValue` breaks the echo loop (MQTT update → display; user drag → publish but no re-publish on the returning MQTT echo because `OnDataUpdated` only updates `_sliderValue`). Min/Max labels shown below the slider.
+
+---
+
+### Item 2 — ButtonNodeModel + ButtonNodeWidget
+
+**Files:**
+- `src/PSTT.Dashboard.Client/Models/ButtonNodeModel.cs` — NEW
+- `src/PSTT.Dashboard.Client/Widgets/ButtonNodeWidget.razor` — NEW
+
+Properties: ButtonLabel, PublishValue, PublishTopic, ButtonVariant (Filled/Outlined/Text), ButtonColor (Default/Primary/Secondary/Success/Error/Warning/Info), IsReadOnly, Retain, PublishGlobally. Single click publishes the configured payload. No QoS. Publish topic falls back to the first DataTopic if PublishTopic is empty (same pattern as Switch).
+
+---
+
+### Item 3 — HtmlNodeModel + HtmlNodeWidget
+
+**Files:**
+- `src/PSTT.Dashboard.Client/Models/HtmlNodeModel.cs` — NEW
+- `src/PSTT.Dashboard.Client/Widgets/HtmlNodeWidget.razor` — NEW
+
+No extra model properties — uses the base `TextNodeModel.Text` field for HTML content. Widget renders `@((MarkupString)(Node.Text ?? ""))`. MQTT substitution (`{0}`, `{1}`) is intentionally NOT applied — content is static HTML from the dashboard author. This avoids injection of untrusted MQTT values into a raw HTML context. If dynamic substitution is needed, the regular Text node supports it safely (values are HTML-encoded by Blazor's default rendering).
+
+---
+
+### Item 4 — IFrameNodeModel + IFrameNodeWidget
+
+**Files:**
+- `src/PSTT.Dashboard.Client/Models/IFrameNodeModel.cs` — NEW
+- `src/PSTT.Dashboard.Client/Widgets/IFrameNodeWidget.razor` — NEW
+
+Dedicated `SourceUrl` string property (not `Text`) decorated with `[NpText("URL")]`. Widget renders `<iframe src="@Node.SourceUrl" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" />`. In edit mode: `pointer-events:none` on the iframe + an absolute-positioned overlay `div` so the diagram receives all mouse events for selection and movement.
+
+---
+
+### Item 5 — Wiring (all 4 types)
+
+**Files:**
+- `src/PSTT.Dashboard.Client/Models/DashboardModel.cs` — added 4 JsonDerivedType attributes on `NodeData`; added `SliderNodeData`, `ButtonNodeData`, `HtmlNodeData`, `IFrameNodeData` classes
+- `src/PSTT.Dashboard.Client/Services/ApplicationState.cs` — added 4 `RegisterComponent` calls + 4 cases in the `nodeData switch`
+- `src/PSTT.Dashboard.Client/Components/NodeTypePickerDialog.razor` — added 4 `MudItem`/`MudPaper` entries (**⚠️ wrong component — see Item 6**)
+- `src/PSTT.Dashboard.Client/Pages/Display.razor.cs` — added 4 cases in `OnAddNodeTypeSelected` switch
+
+---
+
+### Item 6 — Bug fix: new node types not appearing in Add Node panel (efe8009)
+
+**File:** `src/PSTT.Dashboard.Client/Components/AddNodePanelContent.razor`
+
+The node type list is in `AddNodePanelContent.razor` (a floating panel shown inline in `Display.razor`), NOT `NodeTypePickerDialog.razor` (which exists but is not used in the current add-node flow). All 4 new types were added to the wrong component. Fixed by adding all 4 to `AddNodePanelContent._nodeTypes`.
+
+---
+
+## 2026-04-28 — Dialog delay fix + loopback port bug fix
+
+### Commits: d5e59fb · 2026-04-28 · branch: develop
+
+---
+
+### Item 1 — Eliminate pre-dialog delay for Open and Save As
+
+**Files:**
+- `src/PSTT.Dashboard.Client/Components/DashboardPickerDialog.razor` — removed `DashboardNames` and `RemoteRepos` parameters; `OnInitializedAsync` now self-fetches remote repos and calls `DashboardService.ListDashboardsAsync()` via `RefreshList()`
+- `src/PSTT.Dashboard.Client/Components/SaveAsDialog.razor` — removed `RemoteRepos` parameter; `OnInitializedAsync` now self-fetches remote repos
+- `src/PSTT.Dashboard.Client/Pages/Display.razor.cs` — removed `FetchRemoteRepos()` method entirely; `OpenDiagramCore` shows dialog immediately (no pre-fetch); simplified `GetServiceForDestination` (no longer needs remoteRepos list param)
+
+Previously both dialogs were passed pre-fetched remote repos as parameters, requiring an HTTP call and a dashboard list fetch BEFORE the dialog appeared. Now each dialog fetches its own data during `OnInitializedAsync` (behind a loading spinner). The dialog appears immediately on click.
+
+---
+
+### Item 2 — Dialog guard extended to all primary modals
+
+**Files:**
+- `src/PSTT.Dashboard.Client/Pages/Display.razor.cs` — renamed `_openDialogActive` → `_dialogActive`; added guard to `ExportNodesAsync`, `ImportNodesAsync`, `SaveAsDiagram`, `ShowDiagramPropertiesAsync`
+- `src/PSTT.Dashboard.Client/Layout/AppMenu.razor` — added separate `_dialogActive` guard for `ShowAbout`, `ShowStartupSettings`, `ShowRemoteRepositories`
+
+Confirmation prompts within guarded flows (delete page, discard changes) are left unguarded — they appear within an already-active dialog flow.
+
+---
+
+### Item 3 — Fix loopback HTTP client port priority (remote repos on first app start)
+
+**File:** `src/PSTT.Dashboard.Server/Extensions/ServiceCollectionExtensions.cs`
+
+**Root cause:** `CreateLoopbackHttpClient` prioritised `IHttpContextAccessor.HttpContext.Connection.LocalPort` over the startup-cached `LoopbackPort`. In a Blazor Server SignalR circuit, the active HTTP context is the WebSocket upgrade request which arrives on the HTTPS port (e.g. 7xxx). This made the loopback client try `http://localhost:7xxx/` — an HTTP connection to an HTTPS port — which fails and is caught silently, resulting in an empty remote repos list.
+
+**Fix:** Swapped the lookup order — the startup-cached HTTP `LoopbackPort` is checked first; the current HTTP context port is only used as a last resort when no startup-cached port is available. The startup callback in `WebApplicationExtensions` specifically searches for an `http://` listener address, so this always produces the correct HTTP port.
+
+This fix makes remote repos visible in dialogs on first app start (server-side interactive mode). After WASM loads, the browser-side `HttpClient` is used for all HTTP calls and the loopback client is not involved.
+
+---
+
+## 2026-04-28 — Export/import improvements and bug fixes
+
+
+### Commits: (see below) · 2026-04-28 · branch: develop
+
+---
+
+### Item 1 — Export uses sequential IDs + full-dashboard export option
+
+**Files:**
+- `src/PSTT.Dashboard.Client/Serialization/DashboardSerializer.cs` — added `SerializePage`, `SerializeNodes`, `SerializeDashboard` helpers; refactored `Serialize` to use private `CloneAndRemap`
+- `src/PSTT.Dashboard.Client/Components/ExportNodesDialog.razor` — use `DashboardSerializer` methods, add "Full Dashboard" radio option
+- `src/PSTT.Dashboard.Client/Models/ImportResult.cs` — added `AdditionalPages` property
+- `src/PSTT.Dashboard.Client/Components/ImportNodesDialog.razor` — handle `psttdashboard = "dashboard"` tag; hide page/current radio when dashboard detected; show page count info
+- `src/PSTT.Dashboard.Client/Pages/Display.razor.cs` — pass `DashboardData = BuildFullState()` to export dialog; handle `AdditionalPages` in `ImportNodesAsync`
+- `tests/PSTT.Dashboard.Client.Tests/DashboardSerializerTests.cs` — 4 new tests for `SerializePage`, `SerializeNodes`, `SerializeDashboard` helpers
+
+Export now wraps output in `{"psttdashboard":"…","data":…}` with sequential IDs applied. Import auto-detects the `"dashboard"` tag and appends all pages from the imported dashboard to the current one. The `Serialize` method is unchanged in behavior; it just delegates to `CloneAndRemap` internally.
+
+---
+
+### Item 2 — Remote open → Save redirects to Save As
+
+**Files:**
+- `src/PSTT.Dashboard.Client/Pages/Display.razor.cs` — `_openedFromRemote` field; set in `OpenDiagramCore` when `source != "local"`; checked in `SaveDashboard` (redirects to `SaveAsDiagram`); cleared in `SaveAsDiagram` on success
+
+When a dashboard is opened from a remote source, the first "Save" now redirects to "Save As" so the user can choose the destination (local or remote) explicitly. After a successful Save As, subsequent Saves go direct.
+
+---
+
+### Item 3 — Double file-open dialog guard
+
+**Files:**
+- `src/PSTT.Dashboard.Client/Pages/Display.razor.cs` — `_openDialogActive` flag; `OpenDiagram` is now a thin wrapper that sets the flag and delegates to `OpenDiagramCore`; second call returns immediately while dialog is open
+
+---
+
+
+
+### Commits: (see below) · branch: develop
+
+---
+
+### Item 1 — `[FileId]` attribute + `DashboardSerializer`
+
+**Files:**
+- `src/PSTT.Dashboard.Client/Serialization/FileIdAttribute.cs` (new)
+- `src/PSTT.Dashboard.Client/Serialization/DashboardSerializer.cs` (new)
+- `src/PSTT.Dashboard.Client/Models/DashboardModel.cs` (7 properties annotated)
+- `src/PSTT.Dashboard.Server/Services/DashboardStorageService.cs` (2 save methods wired)
+
+Saved dashboard JSON files previously contained raw GUIDs for node, port, page, and link IDs, making them hard to read and diff. The new serialization layer replaces them with compact sequential 1-based integers on write.
+
+**How it works:**
+- `[FileId]` is a property attribute (`AttributeTargets.Property, Inherited = true`) that marks ID-bearing string properties on model classes.
+- Applied to: `DashboardPageModel.Id`, `NodeData.Id`, `NodePortData.Id`, and `LinkData.Source/SourcePort/Target/TargetPort` (7 properties total).
+- `DashboardIdMapper` is a simple counter+dictionary: first occurrence of a GUID gets `"1"`, second distinct GUID gets `"2"`, etc. Same GUID in multiple places returns the same mapped value (cross-references remain consistent).
+- `DashboardSerializer.Serialize`: deep-clones the model via JSON round-trip (preserves `[JsonPolymorphic]`/`[JsonDerivedType]` on `NodeData`), then walks the clone by reflection, remapping `[FileId]` properties. The in-memory model is never mutated.
+- Properties are visited in C# declaration order (sorted by `MetadataToken`). This guarantees `Nodes` (definitions) are processed before `Links` (cross-references) within a page.
+- `DashboardSerializer.Deserialize`: passes through to `JsonSerializer.Deserialize` — sequential IDs in files are treated as opaque strings, same as GUIDs were.
+- `DashboardStorageService`: both `SaveDiagramAsync` and `SaveDiagramByNameAsync` now call `DashboardSerializer.Serialize` instead of `JsonSerializer.Serialize`.
+
+**Tests:** 18 new tests in `DashboardSerializerTests.cs` covering: mapper first/second/same/empty, node ID sequence, original model not mutated, port IDs continue sequence, link cross-references internally consistent, null port IDs pass through, multi-page counter continuity, FileInfo strings not remapped, polymorphic node types preserved, round-trip deserialization.
+
+---
+
+
+
+### Commits: (see below) · 2026-04-28 · branch: develop
+
+---
+
+### Item 1 — Bug fix: `$_` clobbered inside `switch` inside `catch`
+
+**File:** `scripts/release.ps1` (main try block, inner catch)
+
+In PowerShell, `$_` inside a `switch` body refers to the switch input, not the enclosing `catch` exception. The `default { throw "Aborted at step '$step': $_" }` arm was emitting the action string (e.g. `"abort"`) rather than the actual error. Fixed by capturing `$stepErr = $_` at the top of the catch block and using `$stepErr` throughout (in `Write-Fail`, the `throw`, and the `Prompt-OnFailure` call site).
+
+---
+
+### Item 2 — Bug fix: `[string[]]` without `@()` → `.Count` throws under strict mode
+
+**File:** `scripts/release.ps1` (`Get-StepsToRun`, `Show-StepMenu`, main block)
+
+With `Set-StrictMode -Version Latest`, accessing `.Count` on `$null` throws "The property 'Count' cannot be found on this object." When a pipeline returns nothing, `[string[]]($pipeline)` can produce `$null` rather than an empty array. Fixed by wrapping all three sites with `@()`: `[string[]]@(...)` always yields an array even for empty pipelines.
+
+---
+
+### Item 3 — Enhancement: live last-line spinner in `Invoke-Cmd`
+
+**File:** `scripts/release.ps1` (`Invoke-Cmd` function, full rewrite)
+
+Previously: `ReadToEndAsync()` waited until the process exited with no visibility during long builds (no output for minutes).
+
+Now: uses `ReadLineAsync()` polling with a tight drain loop per stream per 100 ms tick. The spinner now shows the last received output line alongside elapsed time — giving real feedback during multi-minute builds. Line display strips ANSI colour codes and truncates to terminal width.
+
+---
+
+### Item 4 — Enhancement: stuck-command detection
+
+**File:** `scripts/release.ps1` (`Invoke-Cmd` function)
+
+If no new output line arrives for 90 seconds, the spinner changes to show "⚠ no new output for Xs — may be waiting for input". The process is not killed automatically (user may intentionally be waiting), but the warning surfaces the symptom immediately.
+
+⚠ Known limitation: the 90-second threshold is hard-coded. A future enhancement could make it configurable.
+
+---
+
+### Item 5 — Enhancement: `[L]ogs` option in `Prompt-OnFailure`
+
+**File:** `scripts/release.ps1` (`Prompt-OnFailure` function)
+
+All output lines from a failed command are stored in `$script:LastCapturedLines` (initialized to `@()` at script startup and reset to `@()` at the start of each `Invoke-Cmd` call, populated only on non-zero exit). At the failure prompt, when logs are available, a `[L]ogs` option appears. Pressing `L` reprints all captured lines and loops back to the prompt. Key `D` is reserved for dep+retry, so `L` was chosen to avoid conflict.
+
+---
+
+### Item 6 — Enhancement: transitive dep resolution in menu and `Prompt-OnFailure`
+
+**File:** `scripts/release.ps1` (`Show-StepMenu` dep-add block; `Prompt-OnFailure`)
+
+Previously, auto-adding missing deps only walked one level. Now both sites use an iterative BFS (`Queue<string>`) to resolve deps transitively (e.g. selecting `tag` without `version` without `changelog` — all three are auto-added in canonical order). `HashSet.Add()` return value prevents cycles.
+
+---
+
+
+
+### Commits: 8d40ed8 (Dashboard) · d9a4436 (PSTT submodule) · 2026-04-27 · branch: develop
+
+---
+
+### Item 1 — TCP integration tests in `PSTT.Dashboard.Server.Tests`
+
+**File:** `tests/PSTT.Dashboard.Server.Tests/TcpCacheServerTests.cs` (new)
+
+Tests the `AddCacheTcpServer` DI extension (Dashboard-level glue) rather than the raw PSTT TCP protocol (already covered in `PSTT.Remote.Tests`). Uses a `CacheWithWildcards<string,string>` as upstream to avoid any MQTT dependency.
+
+Five tests:
+- `Subscribe_ReceivesUpstreamPublish` — client subscribes, server upstream publishes, client receives.
+- `Subscribe_Wildcard_ReceivesMultipleTopics` — wildcard `devices/+/state` matches two different publishes.
+- `Publish_ForwardedToUpstream` — client publishes with `forwardPublish: true`; upstream sees the value.
+- `MultipleClients_AllReceivePublish` — two independent clients both receive a single broadcast.
+- `HostedServiceLifetime_StartStop_Works` — server starts (port opens), stops (port closes), second connect fails.
+
+All 14 server tests pass (5 new + 9 pre-existing).
+
+---
+
+### Item 2 — `PSTT.Remote.Sub` CLI tool
+
+**Files:**
+- `libs/PSTT/src/PSTT.Remote.Sub/PSTT.Remote.Sub.csproj` (new)
+- `libs/PSTT/src/PSTT.Remote.Sub/Program.cs` (new)
+- `libs/PSTT/PSTT.slnx` (updated — added to `/src/` folder)
+
+`pstt-sub` connects to a PSTT TCP cache server and subscribes to one or more topics/wildcards. Prints `topic=value` to stdout on each update. All diagnostic messages go to stderr (so stdout can be piped). Supports `--timestamp` for UTC-prefixed output. Runs until Ctrl+C.
+
+Usage: `pstt-sub --port 5010 --topic sensors/# --topic home/+`
+
+---
+
+### Item 3 — `PSTT.Remote.Pub` CLI tool
+
+**Files:**
+- `libs/PSTT/src/PSTT.Remote.Pub/PSTT.Remote.Pub.csproj` (new)
+- `libs/PSTT/src/PSTT.Remote.Pub/Program.cs` (new)
+- `libs/PSTT/PSTT.slnx` (updated — added to `/src/` folder)
+
+`pstt-pub` connects to a PSTT TCP cache server, publishes a single value to a topic, and exits.
+
+Usage: `pstt-pub --port 5010 --topic sensors/temp --value 22.5`
+
+---
+
+## 2026-04-27 — TCP cache server endpoint (FEAT-H first step)
+
+### Commit: d7d6bff (Dashboard) · b99baea (PSTT submodule) · 2026-04-27 · branch: develop
+
+---
+
+### Item 1 — `AddCacheTcpServer` extension in `PSTT.Remote.AspNetCore`
+
+**File:** `libs/PSTT/src/PSTT.Remote.AspNetCore/Extensions/DataSourceRemoteServiceCollectionExtensions.cs`
+
+Added `AddCacheTcpServer<TValue>` alongside the existing `AddCacheSignalRServer` / `AddCacheWebSocketServer` extensions. Creates a `TcpServerTransport` (binds `IPAddress.Any` by default for cross-machine access) and `RemoteCacheServer<TValue>`, registers both as singletons, and adds a `TcpCacheServerLifetime : IHostedService` so the TCP socket is properly started and closed with the application lifetime.
+
+---
+
+### Item 2 — Dashboard server wiring
+
+**Files:** `src/PSTT.Dashboard.Server/Extensions/ServiceCollectionExtensions.cs`, `appsettings.json`
+
+Reads `CacheSettings:TcpPort` from configuration. When > 0, calls `AddCacheTcpServer<string>` with UTF-8 encoding and `forwardPublish: true` so client publishes flow through to the MQTT broker. Default is 0 (disabled, opt-in).
+
+External tools connect with:
+```csharp
+var cache = new RemoteCacheBuilder<string>()
+    .WithTcpTransport("hostname", port)
+    .WithUtf8Encoding()
+    .Build();
+await cache.ConnectAsync();
+```
+
+⚠️ No authentication on the TCP port — it is disabled by default and must be explicitly enabled by the server admin. Auth can be layered on a future transport.
+
+---
+
+## 2026-04-28 — TreeView persistence, UnsavedChanges dialog, floating props panel
+
+### Commit: 6930285 · 2026-04-28 · branch: develop
+
+---
+
+### Item 1 — TreeView expansion state persistence
+
+**Files:** `Widgets/TreeViewNodeWidget.razor`, `Models/TreeViewNodeModel.cs`, `Models/DashboardModel.cs`
+
+Added `SavedCollapsedPaths HashSet<string>` to `TreeViewNodeModel`. On `ToggleExpand`, both `_userCollapsedPaths` (in-widget, render-thread) and `Node.SavedCollapsedPaths` (in-model, durable) are updated together. On `SetupWatchers` (topic change or re-subscribe), collapsed paths are cleared and then restored from the model — so a tab switch that recreates the widget component recovers the same state. `ToData`/`FromData` round-trip the list via `TreeViewNodeData.CollapsedPaths` (nullable).
+
+⚠️ Old saved dashboards without `CollapsedPaths` field will auto-expand all nodes on first load (default behaviour); from that point on, any explicit collapse is persisted.
+
+---
+
+### Item 2 — UnsavedChanges dialog with auto-save checkbox
+
+**Files:** `Components/UnsavedChangesDialog.razor` (new), `Pages/Display.razor.cs`
+
+Replaced the plain `ShowMessageBoxAsync` prompt in `SwitchMode` with a proper `MudDialog` that has three actions (Save / Discard / Cancel) and a checkbox "Auto-save in future (don't show this again)". If the user checks the box, `AppState.SetAutoSaveOnExitEditMode(true)` is called so subsequent exits save silently. Discard still reverts to the pre-edit snapshot as before.
+
+---
+
+### Item 3 — Floating Node Properties panel follows selection
+
+**Files:** `Pages/Display.razor`, `Pages/Display.razor.cs`
+
+Panel is now conditionally rendered when `_isPropertiesOpen` (not `_propertiesOpen && _propertiesNode != null`). When 0 or 2+ nodes are selected, `_propertiesNode` is cleared and the panel shows "Select a single node to edit its properties." When exactly 1 node is selected, the full `NodePropertyEditor` renders as before. The panel stays open across selection changes instead of disappearing.
+
+---
+
+## 2026-04-27 — Circular self-remote integration tests (15 passing)
+
+### Commit: 05e37f7 · 2026-04-27 · branch: develop
+
+---
+
+### Item 1 — Fix `InProcessHttpClientFactory` startup crash
+
+**File:** `tests/PSTT.Dashboard.IntegrationTests/RemoteCircularSelfTests.cs`
+
+**Problem:** `ObjectDisposedException` during `WebApplicationFactory` startup. `UpdateCheckService` called `IHttpClientFactory.CreateClient()` during host startup (before the in-process handler was initialized), which threw `InvalidOperationException` from our custom factory, causing the host's `ServiceProvider` to be disposed mid-build.
+
+**Fix:** `InProcessHttpClientFactory.CreateClient()` now returns `new HttpClient()` as a fallback when `_inProcessHandler` is null. These callers (like `UpdateCheckService`) don't need the in-process route.
+
+---
+
+### Item 2 — Fix fixture auth so local CRUD tests can write dashboards
+
+**File:** `tests/PSTT.Dashboard.IntegrationTests/RemoteCircularSelfTests.cs`
+
+**Problem:** `CircularTestFixture.InitializeAsync()` calls `GET /api/settings/remote-access/token` to obtain the API token. This generates and stores the token, which activates `ApiTokenAuthFilter` on all `POST`/`DELETE /api/dashboard/...` endpoints. The fixture's `Client` had no auth headers, so tests like `SaveLocally_CanRead` got 401 instead of 200.
+
+**Fix:** After obtaining `Token`, set `Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token)`. Tests that need a client WITHOUT a token create their own via `Factory.CreateClient()` (which is unaffected).
+
+---
+
+### Item 3 — Fix proxy 200 → 204 coercion in `RemoteController`
+
+**File:** `src/PSTT.Dashboard.Server/Controllers/RemoteController.cs`
+
+**Problem:** `StreamResponseAsync` called `StatusCode(200, null)` when the upstream returned 200 with an empty body. ASP.NET Core's `ObjectResult` with a null value is silently converted to 204 No Content by the output formatters. This caused `CircularProxy_SaveDashboard_CanReadBack` and `CircularProxy_DeleteDashboard_RemovesIt` to fail with `Actual: NoContent`.
+
+**Fix:** Use `new StatusCodeResult(status)` (no body) when the upstream body is empty, reserving `StatusCode(status, body)` for non-empty bodies. This also fixes the same silent-204 bug in production when saving/deleting via a remote proxy.
+
+---
+
+### Test results
+
+- All 15 new circular self-remote tests pass
+- Full suite: 98 tests, 0 failures
+
+---
+
+## 2026-04-27 — Dialog polish, auth logging, remote repo editing
+
+### Commit: dd62465 · 2026-04-27 · branch: develop
+
+---
+
+### Item 1 — Dialog centering and draggable
+
+**File:** src/PSTT.Dashboard.Client/Pages/Display.razor.cs
+
+Both `SaveAsDialog` and `DashboardPickerDialog` were opening with default MudBlazor dialog placement (top-left). Changed `DialogOptions` for both to set `Position = DialogPosition.Center` and removed old `MaxWidth`/`FullWidth` overrides. Dialogs now open centred on the viewport.
+
+---
+
+### Item 2 — ApiTokenAuthFilter: replaced Debug.WriteLine with ILogger
+
+**File:** src/PSTT.Dashboard.Server/Filters/ApiTokenAuthFilter.cs
+
+All `System.Diagnostics.Debug.WriteLine` calls replaced with `ILogger<ApiTokenAuthFilter>` injected via constructor. The filter is registered as a scoped service so DI provides the logger automatically. Server logs will now show:
+- `LogWarning` when server is in read-only mode (403 path)
+- `LogWarning` when Bearer token mismatches (includes first 8 chars of both expected and received)
+- `LogWarning` when no/invalid Authorization header present
+- `LogDebug` when allowed via cookie, Bearer, or open-access paths
+
+This unblocks diagnosing the 403 reported on remote save (likely read-only mode or token mismatch, now visible in Serilog server logs).
+
+---
+
+### Item 3 — Edit remote repository (PUT endpoint + UI)
+
+**File:** src/PSTT.Dashboard.Server/Controllers/SettingsController.cs  
+**File:** src/PSTT.Dashboard.Client/Components/RemoteRepoSettingsDialog.razor
+
+Added `PUT /api/settings/remote-repos/{name}` endpoint to `SettingsController`. Validates new name/URL/token, checks for rename conflicts, updates the JSON entry in `appsettings.user.json`.
+
+In `RemoteRepoSettingsDialog`, clicking the Edit icon (or clicking the name/URL row) on a repo now:
+- Selects it (highlights the row)
+- Populates the form fields below (name + URL, token blank for re-entry)
+- Changes the form heading to "Edit: {name}"
+- Replaces the Add button with "Save Changes" + "Cancel"
+- On Save, calls `PUT /api/settings/remote-repos/{originalName}`
+- On success, clears editing mode and refreshes the list
+
+⚠️ Token is not round-tripped (server never sends stored tokens to browser). User must re-enter token when editing.
+
+
 
 ### Commit: b1ec487 · 2026-04-25 · branch: develop
 

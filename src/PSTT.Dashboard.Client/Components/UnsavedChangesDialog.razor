@@ -1,0 +1,26 @@
+@using MudBlazor
+@namespace PSTT.Dashboard.Components
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.body1">You have unsaved changes. Save before leaving edit mode?</MudText>
+        <MudCheckBox T="bool" @bind-Value="_autoSave" Label="Auto-save in future (don't show this again)"
+                     Class="mt-3" Color="Color.Primary" Size="Size.Small" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Save">Save</MudButton>
+        <MudButton Color="Color.Warning" OnClick="Discard">Discard</MudButton>
+        <MudButton OnClick="() => MudDialog.Cancel()">Cancel</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+
+    private bool _autoSave;
+
+    private void Save()    => MudDialog.Close(DialogResult.Ok(new UnsavedChangesResult(true,  _autoSave)));
+    private void Discard() => MudDialog.Close(DialogResult.Ok(new UnsavedChangesResult(false, _autoSave)));
+
+    public record UnsavedChangesResult(bool Save, bool EnableAutoSave);
+}

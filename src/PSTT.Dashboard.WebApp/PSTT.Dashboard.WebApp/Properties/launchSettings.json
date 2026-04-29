@@ -7,7 +7,7 @@
         "ASPNETCORE_ENVIRONMENT": "Development",
         "DOTNET_RUNNING_IN_CONTAINER": "true"
       },
-      "applicationUrl": "https://localhost:7190;http://localhost:7191"
+      "applicationUrl": "https://192.168.86.52:7190;http://192.168.86.52:7191"
     }
   }
 }

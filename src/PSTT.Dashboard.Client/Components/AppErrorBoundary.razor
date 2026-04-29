@@ -1,0 +1,24 @@
+@inherits ErrorBoundary
+
+@if (CurrentException is null)
+{
+    @ChildContent
+}
+else
+{
+    <div style="margin: 2rem; padding: 1.5rem; background: #b71c1c; color: white; border-radius: 8px; font-family: monospace; max-width: 100%;">
+        <div style="font-size: 1.1rem; font-weight: bold; margin-bottom: 0.75rem;">⚠ Unhandled component exception</div>
+        <div style="font-size: 0.85rem; word-break: break-all;">
+            <strong>@CurrentException.GetType().FullName</strong><br />
+            @CurrentException.Message
+        </div>
+        <div style="margin-top: 1rem; font-size: 0.75rem; opacity: 0.8;">Full stack trace is in the server log.</div>
+        <button @onclick="Recover"
+                style="margin-top: 1rem; padding: 0.4rem 1rem; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.5); border-radius: 4px; cursor: pointer;">
+            Dismiss
+        </button>
+    </div>
+}
+
+@code {
+}

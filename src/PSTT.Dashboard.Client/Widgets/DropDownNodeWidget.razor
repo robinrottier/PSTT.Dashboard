@@ -1,0 +1,63 @@
+@using PSTT.Dashboard.Models
+@using PSTT.Dashboard.Services
+@inherits BaseNodeWithDataWidget<DropDownNodeModel>
+
+<StandardNodeLayout Node="Node" ExtraCssClass="dropdown-node">
+    <ExtraContent>
+        <div style="flex:1;min-height:0;min-width:0;display:flex;align-items:center;padding:4px 8px;">
+            <MudSelect T="string"
+                       Value="@_selectedValue"
+                       ValueChanged="@OnSelectionChanged"
+                       Disabled="@Node.IsReadOnly"
+                       Variant="Variant.Outlined"
+                       Margin="Margin.Dense"
+                       FullWidth="true"
+                       Dense="true"
+                       Style="@($"font-size:{FontSizeStyle};")">
+                @foreach (var option in Node.OptionList)
+                {
+                    <MudSelectItem T="string" Value="@option">@option</MudSelectItem>
+                }
+            </MudSelect>
+        </div>
+    </ExtraContent>
+</StandardNodeLayout>
+
+@code {
+    private string? _selectedValue;
+
+    private string FontSizeStyle =>
+        Node.FontSize.HasValue ? $"{Node.FontSize}px" : "1em";
+
+    protected override void OnInitialized()
+    {
+        Node.MinimumDimensions = new(100, 50);
+        if (Node.Size == null || Node.Size.Width < 100 || Node.Size.Height < 50)
+            Node.Size = new(180, 70);
+        base.OnInitialized();
+    }
+
+    protected override void OnDataUpdated()
+    {
+        var incoming = Node.DataValue(0)?.ToString();
+        // Only update selection if the value matches one of the configured options
+        if (incoming != null && Node.OptionList.Contains(incoming))
+            _selectedValue = incoming;
+        StateHasChanged();
+    }
+
+    private async Task OnSelectionChanged(string value)
+    {
+        _selectedValue = value;
+        if (!Node.IsReadOnly)
+            await Publish(value);
+    }
+
+    private async Task Publish(string payload)
+    {
+        var publishTopic = !string.IsNullOrEmpty(Node.PublishTopic) ? Node.PublishTopic : Node.DataTopic(0);
+        if (string.IsNullOrEmpty(publishTopic)) return;
+        var target = Node.PublishGlobally ? AppState.DataCache : AppState.LocalDataCache;
+        await target.PublishAsync(publishTopic, payload, null, Node.Retain);
+    }
+}

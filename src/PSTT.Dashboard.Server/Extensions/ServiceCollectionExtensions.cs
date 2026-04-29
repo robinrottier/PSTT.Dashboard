@@ -53,6 +53,19 @@ public static class ServiceCollectionExtensions
             deserializer: b => Encoding.UTF8.GetString(b),
             forwardPublish: true);
 
+        // Optional TCP cache server: enables external tools to subscribe/publish via PSTT TCP protocol.
+        // Set CacheSettings:TcpPort > 0 to enable (0 = disabled).
+        var tcpPort = int.TryParse(configuration["CacheSettings:TcpPort"], out var tp) ? tp : 0;
+        if (tcpPort > 0)
+        {
+            services.AddCacheTcpServer<string>(
+                serverCache,
+                tcpPort,
+                serializer:    v => Encoding.UTF8.GetBytes(v),
+                deserializer:  b => Encoding.UTF8.GetString(b),
+                forwardPublish: true);
+        }
+
         // Scoped per-circuit cache: downstream of serverCache, wildcards forwarded.
         // 30 s grace period avoids MQTT churn when Blazor reconnects or the user navigates.
         services.AddScoped<ICache<string,string>>(sp => new CacheBuilder<string,string>()
@@ -98,10 +111,15 @@ public static class ServiceCollectionExtensions
 
     private static HttpClient CreateLoopbackHttpClient(IServiceProvider sp)
     {
-        var ctx = sp.GetService<IHttpContextAccessor>()?.HttpContext;
-        var port = ctx?.Connection.LocalPort ?? 0;
+        // Prefer the startup-cached HTTP port (set from Kestrel's http:// listener).
+        // Blazor Server circuits run on the SignalR/WebSocket connection which may be HTTPS —
+        // using that connection's port would result in HTTP→HTTPS mismatch and silent failures.
+        var port = sp.GetService<PSTT.Dashboard.Services.RenderModeOptions>()?.LoopbackPort ?? 0;
         if (port == 0)
-            port = sp.GetService<PSTT.Dashboard.Services.RenderModeOptions>()?.LoopbackPort ?? 0;
+        {
+            var ctx = sp.GetService<IHttpContextAccessor>()?.HttpContext;
+            port = ctx?.Connection.LocalPort ?? 0;
+        }
         return new HttpClient
         {
             BaseAddress = port > 0 ? new Uri($"http://localhost:{port}/") : null

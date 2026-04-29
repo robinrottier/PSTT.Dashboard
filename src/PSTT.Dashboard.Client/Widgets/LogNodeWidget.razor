@@ -31,11 +31,11 @@
                             Class="pa-0">
                 <thead>
                     <tr>
-                        @if (Node.ShowDate || Node.ShowTime) { <th style="white-space:nowrap;width:6rem;">Time</th> }
-                        @if (Node.ShowTopicFull) { <th style="overflow:hidden;text-overflow:ellipsis;">Topic</th> }
-                        @if (Node.ShowTopicPath) { <th style="overflow:hidden;text-overflow:ellipsis;">Path</th> }
-                        @if (Node.ShowTopicName) { <th style="overflow:hidden;text-overflow:ellipsis;">Name</th> }
-                        @if (Node.ShowValue)     { <th>Value</th> }
+                        @if (Node.ShowDate || Node.ShowTime) { <th style="white-space:nowrap;@ColWidthStyle(Node.TimeWidth, "6rem")">Time</th> }
+                        @if (Node.ShowTopicFull) { <th style="overflow:hidden;text-overflow:ellipsis;@ColWidthStyle(Node.TopicWidth, null)">Topic</th> }
+                        @if (Node.ShowTopicPath) { <th style="overflow:hidden;text-overflow:ellipsis;@ColWidthStyle(Node.TopicWidth, null)">Path</th> }
+                        @if (Node.ShowTopicName) { <th style="overflow:hidden;text-overflow:ellipsis;@ColWidthStyle(Node.TopicWidth, null)">Name</th> }
+                        @if (Node.ShowValue)     { <th style="@ColWidthStyle(Node.ValueWidth, null)">Value</th> }
                     </tr>
                 </thead>
                 <tbody>
@@ -115,4 +115,8 @@
         var idx = topic.LastIndexOf('/');
         return idx < 0 ? topic : topic[(idx + 1)..];
     }
+
+    /// Returns a CSS width declaration, using <paramref name="px"/> if non-zero, else <paramref name="fallback"/> if provided, else empty string.
+    private static string ColWidthStyle(int px, string? fallback) =>
+        px > 0 ? $"width:{px}px;" : (fallback != null ? $"width:{fallback};" : string.Empty);
 }

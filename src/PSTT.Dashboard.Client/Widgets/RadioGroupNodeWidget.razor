@@ -1,0 +1,63 @@
+@using PSTT.Dashboard.Models
+@using PSTT.Dashboard.Services
+@inherits BaseNodeWithDataWidget<RadioGroupNodeModel>
+
+<StandardNodeLayout Node="Node" ExtraCssClass="radio-group-node">
+    <ExtraContent>
+        <div style="flex:1;min-height:0;min-width:0;padding:4px;overflow:auto;">
+            <MudRadioGroup T="string" Value="@_currentValue" ValueChanged="@OnSelectionChanged">
+                <div style="display:flex;flex-direction:@FlexDirection();flex-wrap:wrap;gap:2px;">
+                    @foreach (var (label, value) in Node.ItemList)
+                    {
+                        var v = value;
+                        <MudRadio T="string" Value="@v" Color="@GetColor()" Disabled="@Node.IsReadOnly">@label</MudRadio>
+                    }
+                </div>
+            </MudRadioGroup>
+        </div>
+    </ExtraContent>
+</StandardNodeLayout>
+
+@code {
+    private string? _currentValue;
+
+    protected override void OnInitialized()
+    {
+        Node.MinimumDimensions = new(80, 40);
+        if (Node.Size == null || Node.Size.Width < 80 || Node.Size.Height < 40)
+            Node.Size = new(200, 80);
+        base.OnInitialized();
+    }
+
+    protected override void OnDataUpdated()
+    {
+        var raw = Node.DataValue(0)?.ToString();
+        if (_currentValue == raw) return;
+        _currentValue = raw;
+    }
+
+    private async Task OnSelectionChanged(string value)
+    {
+        if (Node.IsReadOnly) return;
+        _currentValue = value;
+        var publishTopic = !string.IsNullOrEmpty(Node.PublishTopic)
+            ? Node.PublishTopic
+            : Node.DataTopic(0);
+        if (string.IsNullOrEmpty(publishTopic)) return;
+        var target = Node.PublishGlobally ? AppState.DataCache : AppState.LocalDataCache;
+        await target.PublishAsync(publishTopic, value, null, Node.Retain);
+    }
+
+    private string FlexDirection() => Node.Orientation == "Vertical" ? "column" : "row";
+
+    private Color GetColor() => Node.RadioColor switch
+    {
+        "Primary"   => Color.Primary,
+        "Secondary" => Color.Secondary,
+        "Success"   => Color.Success,
+        "Error"     => Color.Error,
+        "Warning"   => Color.Warning,
+        "Info"      => Color.Info,
+        _           => Color.Default,
+    };
+}

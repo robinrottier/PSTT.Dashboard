@@ -17,14 +17,17 @@
       10. version         Compute next semver tag from latest git tag
       11. changelog       Insert versioned section into CHANGELOG.md
       12. push-changelog  Commit + push the changelog update
-      13. prep-submodules Merge PSTT develop→main; pin submodule to PSTT main
-      14. pr              Create PR → main, wait for CI checks, merge
-      15. tag             Create annotated tag on origin/main and push it
-      16. restore-submodules Restore PSTT submodule back to develop tracking [skip ci]
-      17. wait-workflows  Wait for release workflows triggered by the tag
-      18. post-deploy     SSH deploy: docker compose pull + up -d (skipped if DEPLOY_HOST not set)
+      13. push-pstt       Push unpushed PSTT commits to origin; wait for PSTT CI to pass
+      14. push-blazor-diagrams  Push unpushed Blazor.Diagrams commits to origin; wait for CI
+      15. prep-submodules Merge PSTT develop→main; pin submodule to PSTT main
+      16. pr              Create PR → main, wait for CI checks, merge
+      17. tag             Create annotated tag on origin/main and push it
+      18. merge-back      Git Flow: merge main back into develop so the tag is reachable from develop (MinVer)
+      19. restore-submodules Restore PSTT submodule back to develop tracking [skip ci]
+      20. wait-workflows  Wait for release workflows triggered by the tag
+      21. post-deploy     SSH deploy: docker compose pull + up -d (skipped if DEPLOY_HOST not set)
 
-    Steps 1–8 are purely local; steps 9–18 require git remote and/or gh CLI.
+    Steps 1–8 are purely local; steps 9–19 require git remote and/or gh CLI.
 
     Use -Verify to run only steps 1–8 as a quick local CI mirror — no git state
     changes, no gh required. Suitable as a Copilot post-change verification gate.
@@ -70,8 +73,8 @@
     a failure without re-running build/test.
     Step names: preflight clean test-pstt test-blazor-diagrams
                 build-debug build-release publish-check docker-build
-                sync version changelog push-changelog prep-submodules
-                pr tag restore-submodules wait-workflows post-deploy
+                sync version changelog push-changelog push-pstt push-blazor-diagrams
+                prep-submodules pr tag merge-back restore-submodules wait-workflows post-deploy
 
 .PARAMETER Only
     Run exactly one named step and exit.
@@ -277,8 +280,9 @@ $StepOrder = @(
     'test-pstt', 'test-blazor-diagrams',
     'build-debug', 'build-release', 'publish-check', 'docker-build',
     'sync', 'version', 'changelog', 'push-changelog',
+    'push-pstt', 'push-blazor-diagrams',
     'prep-submodules',
-    'pr', 'tag', 'restore-submodules', 'wait-workflows', 'post-deploy'
+    'pr', 'tag', 'merge-back', 'restore-submodules', 'wait-workflows', 'post-deploy'
 )
 # Steps that are purely local (no git remote / gh required)
 $LocalSteps = @('preflight', 'clean', 'test-pstt', 'test-blazor-diagrams', 'build-debug', 'build-release', 'publish-check', 'docker-build')
@@ -296,9 +300,12 @@ $StepDesc = @{
     'version'              = 'Compute next version'
     'changelog'            = 'Update CHANGELOG.md'
     'push-changelog'       = 'Commit and push changelog'
+    'push-pstt'            = 'Push PSTT commits to origin and wait for PSTT CI'
+    'push-blazor-diagrams' = 'Push Blazor.Diagrams commits to origin and wait for CI'
     'prep-submodules'      = 'Merge PSTT develop→main; pin submodule to PSTT main'
     'pr'                   = 'Create PR → wait for CI → merge'
     'restore-submodules'   = 'Restore PSTT submodule to develop tracking'
+    'merge-back'           = 'Git Flow: merge main back into develop (makes release tag reachable by MinVer)'
     'tag'                  = 'Create and push release tag'
     'wait-workflows'       = 'Wait for release workflows'
     'post-deploy'          = 'SSH deploy: docker compose pull + up -d'
@@ -308,8 +315,8 @@ $StepDesc = @{
 $StepGroups = [ordered]@{
     'Preflight'      = @('preflight', 'clean')
     'Build & Test'   = @('test-pstt', 'test-blazor-diagrams', 'build-debug', 'build-release', 'publish-check', 'docker-build')
-    'Version'        = @('sync', 'version', 'changelog', 'push-changelog', 'prep-submodules')
-    'GitHub Release' = @('pr', 'tag', 'restore-submodules', 'wait-workflows')
+    'Version'        = @('sync', 'version', 'changelog', 'push-changelog', 'push-pstt', 'push-blazor-diagrams', 'prep-submodules')
+    'GitHub Release' = @('pr', 'tag', 'merge-back', 'restore-submodules', 'wait-workflows')
     'Deploy'         = @('post-deploy')
 }
 # Hard step dependencies (a step will throw or produce wrong output if its dep hasn't run)
@@ -317,6 +324,7 @@ $StepDeps = @{
     'changelog'      = @('version')          # uses $script:NextVersion
     'push-changelog' = @('version')          # commit message uses $script:NextVersion
     'tag'            = @('version')          # throws if $script:NextVersion is null
+    'merge-back'     = @('tag')              # must tag before merging back
     'wait-workflows' = @('tag')              # nothing to poll without a pushed tag
     # post-deploy has no hard dep — it can be rerun independently at any time
 }
@@ -370,15 +378,18 @@ function Get-StepsToRun {
 }
 
 # ─── Shared state populated by steps ─────────────────────────────────────────
-$script:NextVersion    = $null
-$script:CurrentBranch  = $null
+$script:NextVersion         = $null
+$script:CurrentBranch       = $null
+$script:LastCapturedLines   = @()  # lines from last failed Invoke-Cmd; shown via [L]ogs in Prompt-OnFailure
 
 # ─── Command helpers ──────────────────────────────────────────────────────────
 
 # Run a command with a spinner in interactive mode; stream verbosely otherwise.
-# On success: single ✓ line with elapsed time. On failure: last ≤50 lines dumped.
+# In interactive mode: shows spinner + last output line; detects no-output-for-90s stalls.
+# On failure: last ≤50 lines dumped; all lines stored in $script:LastCapturedLines for [L]ogs.
 function Invoke-Cmd([string]$Exe, [string[]]$ArgList) {
     $label = "$Exe $($ArgList -join ' ')"
+    $script:LastCapturedLines = @()
 
     if (-not $IsInteractive) {
         Write-Step "→ $label"
@@ -402,8 +413,6 @@ function Invoke-Cmd([string]$Exe, [string[]]$ArgList) {
     $proc = [System.Diagnostics.Process]::new()
     $proc.StartInfo = $psi
     $proc.Start() | Out-Null
-    $stdoutTask = $proc.StandardOutput.ReadToEndAsync()
-    $stderrTask = $proc.StandardError.ReadToEndAsync()
 
     $width = try { [Math]::Max(40, $Host.UI.RawUI.WindowSize.Width) } catch { 80 }
     $maxLbl = $width - 14
@@ -412,12 +421,56 @@ function Invoke-Cmd([string]$Exe, [string[]]$ArgList) {
     $si     = 0
     $sw     = [System.Diagnostics.Stopwatch]::StartNew()
 
-    while (-not $proc.HasExited) {
+    # Incremental line reading to enable live preview and avoid backpressure
+    $allOut         = [System.Collections.Generic.List[string]]::new()
+    $lastDispLine   = ''
+    $lastOutputTime = 0.0   # seconds elapsed when last line was received
+    $stuckWarnSec   = 90
+    $stdoutDone     = $false
+    $stderrDone     = $false
+    $stdoutTask     = $proc.StandardOutput.ReadLineAsync()
+    $stderrTask     = $proc.StandardError.ReadLineAsync()
+
+    while (-not ($stdoutDone -and $stderrDone)) {
+        # Drain stdout in a tight loop to avoid pipe backpressure
+        while (-not $stdoutDone -and $stdoutTask.IsCompleted) {
+            $line = try { $stdoutTask.Result } catch { $null }
+            if ($null -ne $line) {
+                $allOut.Add($line)
+                $lastDispLine   = $line
+                $lastOutputTime = $sw.Elapsed.TotalSeconds
+                $stdoutTask     = $proc.StandardOutput.ReadLineAsync()
+            } else { $stdoutDone = $true }
+        }
+        # Drain stderr in a tight loop to avoid pipe backpressure
+        while (-not $stderrDone -and $stderrTask.IsCompleted) {
+            $line = try { $stderrTask.Result } catch { $null }
+            if ($null -ne $line) {
+                $allOut.Add($line)
+                $lastDispLine   = $line
+                $lastOutputTime = $sw.Elapsed.TotalSeconds
+                $stderrTask     = $proc.StandardError.ReadLineAsync()
+            } else { $stderrDone = $true }
+        }
+        if ($stdoutDone -and $stderrDone) { break }
+
+        # Spinner with last output line and stuck-command warning
         $elapsed  = $sw.Elapsed.ToString('m\:ss')
-        $spinLine = "  $($spin[$si % $spin.Count])  $disp  [$elapsed]"
-        $pad      = ' ' * [Math]::Max(0, $width - $spinLine.Length - 1)
-        Write-Host "`r$spinLine$pad" -NoNewline -ForegroundColor $C.Dim
+        $stuckFor = $sw.Elapsed.TotalSeconds - $lastOutputTime
+        $spinCore = "  $($spin[$si % $spin.Count])  $disp  [$elapsed]"
         $si++
+        $spinLine = if ($stuckFor -gt $stuckWarnSec) {
+            "$spinCore  ⚠ no new output for $([int]$stuckFor)s — may be waiting for input"
+        } elseif ($lastDispLine) {
+            $maxX = $width - $spinCore.Length - 4
+            if ($maxX -gt 10) {
+                $trimmed = ($lastDispLine.Trim() -replace '\x1B\[[0-9;]*m', '') -replace '\s+', ' '
+                if ($trimmed.Length -gt $maxX) { $trimmed = $trimmed.Substring(0, $maxX - 1) + '…' }
+                "$spinCore  $trimmed"
+            } else { $spinCore }
+        } else { $spinCore }
+        $pad = ' ' * [Math]::Max(0, $width - $spinLine.Length - 1)
+        Write-Host "`r$spinLine$pad" -NoNewline -ForegroundColor $C.Dim
         Start-Sleep -Milliseconds 100
     }
     $proc.WaitForExit()
@@ -425,15 +478,14 @@ function Invoke-Cmd([string]$Exe, [string[]]$ArgList) {
 
     $ec      = $proc.ExitCode
     $elapsed = $sw.Elapsed.ToString('m\:ss')
-    $stdout  = $stdoutTask.Result
-    $stderr  = $stderrTask.Result
+    $lines   = $allOut.ToArray()
 
     if ($ec -eq 0) {
         Write-Host "  ✓  $disp  [$elapsed]" -ForegroundColor $C.Ok
     } else {
-        $lines = @((($stdout + "`n" + $stderr).Trim() -split "`r?\n") | Where-Object { $_ -ne '' })
-        $tail  = if ($lines.Count -gt 50) { $lines[-50..-1] } else { $lines }
-        if ($lines.Count -gt 50) { Write-Host "    ... ($($lines.Count - 50) earlier lines omitted) ..." -ForegroundColor $C.Dim }
+        $script:LastCapturedLines = $lines
+        $tail = if ($lines.Count -gt 50) { $lines[-50..-1] } else { $lines }
+        if ($lines.Count -gt 50) { Write-Host "    ... ($($lines.Count - 50) earlier lines omitted; press L at prompt for full output) ..." -ForegroundColor $C.Dim }
         foreach ($ln in $tail) { Write-Host "    $ln" -ForegroundColor $C.Dim }
     }
     return $ec
@@ -694,6 +746,102 @@ function Step-CommitChangelog {
     Write-Ok "Changelog committed and pushed"
 }
 
+# ─── Step: push-pstt / push-blazor-diagrams ─────────────────────────────────
+# Shared helper: push any locally-ahead commits on a submodule branch to its
+# GitHub origin, then wait for the submodule repo's CI to pass on that commit.
+# If the submodule is in detached-HEAD state or has nothing to push, skips
+# gracefully.  If gh is unavailable the push still happens but CI wait is skipped.
+function Invoke-SubmodulePushAndWait {
+    param([string]$SubPath, [string]$DisplayName)
+
+    $branch = $null; $pushedSha = $null; $originUrl = $null
+
+    Push-Location $SubPath
+    try {
+        $branch = Get-CmdOutput git @('rev-parse', '--abbrev-ref', 'HEAD')
+        if ($branch -eq 'HEAD') {
+            Write-Warn "$DisplayName is in detached HEAD state — nothing to push"
+            return
+        }
+
+        Assert-Cmd git @('fetch', 'origin') "git fetch failed in $DisplayName"
+
+        $unpushed = Get-CmdOutput git @('log', '--oneline', "origin/$branch..$branch")
+        if (-not $unpushed) {
+            Write-Ok "$DisplayName / $branch is already up to date with origin — nothing to push"
+            return
+        }
+
+        $lines = @($unpushed -split "`n" | Where-Object { $_ })
+        Write-Step "Pushing $($lines.Count) unpushed commit(s) in $DisplayName / ${branch}:"
+        foreach ($ln in $lines) { Write-Step "  $ln" }
+
+        if ($IsDryRun) { Write-Warn "DRYRUN: skipping push to $DisplayName"; return }
+
+        Assert-Cmd git @('push', 'origin', $branch) "git push failed for $DisplayName / $branch"
+        Assert-Cmd git @('fetch', 'origin', $branch) "git fetch after push failed in $DisplayName"
+        $pushedSha = Get-CmdOutput git @('rev-parse', "origin/$branch")
+        Write-Ok "Pushed $DisplayName / $branch → $($pushedSha.Substring(0,8))"
+
+        $originUrl = Get-CmdOutput git @('remote', 'get-url', 'origin')
+    } finally { Pop-Location }
+
+    if (-not $pushedSha) { return }  # dry-run or detached
+
+    # ── Wait for CI in the submodule's own GitHub repo ────────────────────────
+    if ($IsNoGh -or -not (Get-Command gh -ErrorAction SilentlyContinue)) {
+        Write-Warn "gh not available — skipping CI wait for $DisplayName"
+        return
+    }
+    if (-not ($originUrl -match 'github\.com[:/](.+?)/(.+?)(?:\.git)?$')) {
+        Write-Warn "Cannot parse GitHub slug from $DisplayName remote URL — skipping CI wait"
+        return
+    }
+    $repoSlug = "$($Matches[1])/$($Matches[2])"
+
+    $timeoutSec = $WorkflowTimeoutMinutes * 60
+    $interval = 15; $elapsed = 0
+    Write-Step "Waiting for CI on $repoSlug / $($pushedSha.Substring(0,8)) (timeout: $WorkflowTimeoutMinutes min)..."
+
+    while ($true) {
+        Start-Sleep -Seconds $interval; $elapsed += $interval
+        if ($elapsed -gt $timeoutSec) { throw "Timeout ($WorkflowTimeoutMinutes min) waiting for CI on $repoSlug" }
+
+        $runsJson = Get-CmdOutput gh @('run', 'list', '--repo', $repoSlug, '--branch', $branch, '--limit', '20', '--json', 'status,conclusion,name,headSha')
+        if (-not $runsJson) { Write-Step "  Waiting for runs on $repoSlug..."; continue }
+        try   { $runs = @($runsJson | ConvertFrom-Json | Where-Object { $_.headSha -eq $pushedSha }) }
+        catch { Write-Step "  Parsing run list..."; continue }
+
+        if ($runs.Count -eq 0) {
+            Write-Step "  No runs yet for $($pushedSha.Substring(0,8))..."
+            # After 2 minutes with no runs, assume no workflows are configured
+            if ($elapsed -gt 120) {
+                Write-Warn "No CI triggered on $repoSlug after 2 min — assuming no workflows, continuing"
+                return
+            }
+            continue
+        }
+
+        $failed  = @($runs | Where-Object { $_.status -eq 'completed' -and $_.conclusion -notin @('success','skipped','neutral') })
+        $pending = @($runs | Where-Object { $_.status -ne 'completed' })
+
+        if ($failed.Count -gt 0) {
+            $failedDesc = ($failed | ForEach-Object { $n = $_.name; $c = $_.conclusion; "$n ($c)" }) -join ', '
+            throw "CI failed on ${repoSlug}: $failedDesc"
+        }
+        if ($pending.Count -eq 0) { Write-Ok "CI passed on $repoSlug"; break }
+        Write-Step "  In progress: $(($pending.name) -join ', ')..."
+    }
+}
+
+function Step-PushPstt {
+    Invoke-SubmodulePushAndWait -SubPath (Join-Path $RepoRoot 'libs' 'PSTT') -DisplayName 'PSTT'
+}
+
+function Step-PushBlazorDiagrams {
+    Invoke-SubmodulePushAndWait -SubPath (Join-Path $RepoRoot 'libs' 'Blazor.Diagrams') -DisplayName 'Blazor.Diagrams'
+}
+
 # ─── Step: prep-submodules ───────────────────────────────────────────────────
 function Step-PrepSubmodules {
     $psttPath = Join-Path $RepoRoot 'libs' 'PSTT'
@@ -711,10 +859,16 @@ function Step-PrepSubmodules {
     Write-Step "Pinning Dashboard submodule pointer to PSTT main..."
     Assert-Cmd git @('config', '-f', '.gitmodules', 'submodule.libs/PSTT.branch', 'main') "Failed to update .gitmodules"
     Assert-Cmd git @('add', '.gitmodules', 'libs/PSTT') "git add failed"
-    Assert-Cmd git @('commit', '-m', 'chore: pre-release — pin PSTT submodule to main') "git commit failed"
-    if ($IsDryRun) { Write-Warn "DRYRUN: skipping push of submodule prep commit"; return }
-    $branch = if ($script:CurrentBranch) { $script:CurrentBranch } else { Get-CmdOutput git @('rev-parse', '--abbrev-ref', 'HEAD') }
-    Assert-Cmd git @('push', 'origin', $branch) "git push failed after submodule prep"
+    # Nothing staged = submodule already pinned at the right commit; treat as success
+    git diff --cached --quiet
+    if ($LASTEXITCODE -ne 0) {
+        Assert-Cmd git @('commit', '-m', 'chore: pre-release — pin PSTT submodule to main') "git commit failed"
+        if ($IsDryRun) { Write-Warn "DRYRUN: skipping push of submodule prep commit"; return }
+        $branch = if ($script:CurrentBranch) { $script:CurrentBranch } else { Get-CmdOutput git @('rev-parse', '--abbrev-ref', 'HEAD') }
+        Assert-Cmd git @('push', 'origin', $branch) "git push failed after submodule prep"
+    } else {
+        Write-Warn "Submodule pointer already up to date — nothing to commit"
+    }
     Write-Ok "PSTT submodule pinned to main — ready for release PR"
 }
 
@@ -749,10 +903,16 @@ function Step-CreateMergePR {
     Write-Step "Creating PR: $branch → main for $($script:NextVersion)"
     if ($IsDryRun) { Write-Warn "DRYRUN: skipping PR create/merge"; return }
 
-    Assert-Cmd gh @('pr', 'create', '--title', "Release $($script:NextVersion)", '--body', "Prepare release $($script:NextVersion)", '--base', 'main', '--head', $branch) "Failed to create PR"
-    $prNum = Get-CmdOutput gh @('pr', 'view', '--json', 'number', '--jq', '.number')
-    if (-not $prNum) { throw "Could not determine PR number" }
-    Write-Ok "PR #$prNum created"
+    # Reuse an existing open PR for this branch rather than failing
+    $prNum = Get-CmdOutput gh @('pr', 'list', '--head', $branch, '--base', 'main', '--state', 'open', '--json', 'number', '--jq', '.[0].number')
+    if ($prNum) {
+        Write-Warn "PR #$prNum already exists for '$branch' — reusing it"
+    } else {
+        Assert-Cmd gh @('pr', 'create', '--title', "Release $($script:NextVersion)", '--body', "Prepare release $($script:NextVersion)", '--base', 'main', '--head', $branch) "Failed to create PR"
+        $prNum = Get-CmdOutput gh @('pr', 'list', '--head', $branch, '--base', 'main', '--state', 'open', '--json', 'number', '--jq', '.[0].number')
+        if (-not $prNum) { throw "Could not determine PR number after create" }
+        Write-Ok "PR #$prNum created"
+    }
 
     # Wait for CI checks using gh pr checks (accurate per-check status)
     $timeoutSec = $WorkflowTimeoutMinutes * 60
@@ -794,7 +954,28 @@ function Step-CreateTag {
     Write-Ok "Tag $($script:NextVersion) created and pushed"
 }
 
-# ─── Step: wait-workflows ────────────────────────────────────────────────────
+# ─── Step: merge-back ────────────────────────────────────────────────────────
+function Step-MergeBack {
+    # Git Flow: after merging develop→main and tagging, merge main back into
+    # develop so the release tag is in develop's commit ancestry.  Without this
+    # MinVer on develop cannot see the tag (it lives on main's merge commit, which
+    # is a child of develop's tip, not an ancestor of it).
+    #
+    # The merge is straightforward because develop and main diverged only at the
+    # PR merge commit; the file trees are identical, so git resolves any overlapping
+    # changes automatically (the restore-submodules step that follows will fix the
+    # submodule pointer back to develop tracking as usual).
+    $branch = if ($script:CurrentBranch) { $script:CurrentBranch } else { Get-CmdOutput git @('rev-parse', '--abbrev-ref', 'HEAD') }
+    Write-Step "Merging origin/main back into $branch (Git Flow release finish)..."
+    Assert-Cmd git @('fetch', 'origin', 'main') "Failed to fetch origin/main"
+    $mergeMsg = "chore: merge release $($script:NextVersion) back into $branch [skip ci]"
+    Assert-Cmd git @('merge', 'origin/main', '--no-ff', '-m', $mergeMsg) "Merge of origin/main into $branch failed"
+    if ($IsDryRun) { Write-Warn "DRYRUN: skipping push of merge-back commit"; return }
+    Assert-Cmd git @('push', 'origin', $branch) "git push failed after merge-back"
+    Write-Ok "Tag $($script:NextVersion) is now reachable from $branch (MinVer will see it)"
+}
+
+
 function Step-WaitWorkflows {
     if ($IsNoGh -or -not (Get-Command gh -ErrorAction SilentlyContinue)) {
         Write-Warn "gh not available: skipping workflow wait"
@@ -937,10 +1118,20 @@ function Show-StepMenu([string[]]$planned) {
                 Write-Host "  Auto-add missing steps? [Y/n] " -ForegroundColor $C.Yellow -NoNewline
                 $ans = (Read-Host).Trim().ToLower()
                 if ($ans -eq '' -or $ans -eq 'y') {
-                    foreach ($s in $StepOrder) {
-                        if (-not $selected.Contains($s)) { continue }
-                        if (-not $StepDeps.ContainsKey($s)) { continue }
-                        foreach ($dep in $StepDeps[$s]) { [void]$selected.Add($dep) }
+                    # Auto-add transitively via BFS
+                    $bfsQ = [System.Collections.Generic.Queue[string]]::new()
+                    foreach ($s in @($selected)) {
+                        if ($StepDeps.ContainsKey($s)) {
+                            foreach ($dep in $StepDeps[$s]) {
+                                if (-not $selected.Contains($dep)) { [void]$bfsQ.Enqueue($dep) }
+                            }
+                        }
+                    }
+                    while ($bfsQ.Count -gt 0) {
+                        $dep = $bfsQ.Dequeue()
+                        if ($selected.Add($dep) -and $StepDeps.ContainsKey($dep)) {
+                            foreach ($dd in $StepDeps[$dep]) { [void]$bfsQ.Enqueue($dd) }
+                        }
                     }
                     continue  # redisplay menu with deps added
                 }
@@ -989,35 +1180,62 @@ function Show-StepMenu([string[]]$planned) {
     }
 
     # Return in canonical step order
-    return [string[]]($StepOrder | Where-Object { $selected.Contains($_) })
+    return [string[]]@($StepOrder | Where-Object { $selected.Contains($_) })
 }
 
-# Interactive prompt when a step fails: Retry / Dep+retry / Skip / Abort
+# Interactive prompt when a step fails: Retry / Dep+retry / Skip / Logs / Abort
 function Prompt-OnFailure([string]$stepName) {
     if (-not $IsInteractive) { return 'abort' }
     Write-Host "`n  Step '$stepName' failed." -ForegroundColor $C.Fail
 
-    # Identify deps that can be run to unblock this step
-    # Use [string[]] cast so an absent key gives empty array, never $null
-    [string[]]$deps = if ($StepDeps.ContainsKey($stepName)) { $StepDeps[$stepName] } else { @() }
-    if ($deps.Count -gt 0) {
-        Write-Host "  This step requires: $($deps -join ', ')" -ForegroundColor $C.Warn
-        Write-Host "  [R]etry  [D]ep+retry (run deps first)  [S]kip  [A]bort (default)" -ForegroundColor $C.Yellow
-    } else {
-        Write-Host "  [R]etry  [S]kip  [A]bort (default)" -ForegroundColor $C.Yellow
+    # Resolve transitive deps via BFS (same logic as menu dep check)
+    $depSet = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $bfsQ   = [System.Collections.Generic.Queue[string]]::new()
+    if ($StepDeps.ContainsKey($stepName)) {
+        foreach ($d in $StepDeps[$stepName]) { [void]$bfsQ.Enqueue($d) }
     }
-    $choice = (Read-Host '  Choice').Trim().ToLower()
+    while ($bfsQ.Count -gt 0) {
+        $d = $bfsQ.Dequeue()
+        if ($depSet.Add($d) -and $StepDeps.ContainsKey($d)) {
+            foreach ($dd in $StepDeps[$d]) { [void]$bfsQ.Enqueue($dd) }
+        }
+    }
+    [string[]]$deps = @($StepOrder | Where-Object { $depSet.Contains($_) })
+
+    $hasLogs = $script:LastCapturedLines.Count -gt 0
+    $logsHint = if ($hasLogs) { '  [L]ogs' } else { '' }
+
+    $choice = ''
+    while ($true) {
+        if ($deps.Count -gt 0) {
+            Write-Host "  This step requires: $($deps -join ', ')" -ForegroundColor $C.Warn
+            Write-Host "  [R]etry  [D]ep+retry (run deps first)  [S]kip$logsHint  [A]bort (default)" -ForegroundColor $C.Yellow
+        } else {
+            Write-Host "  [R]etry  [S]kip$logsHint  [A]bort (default)" -ForegroundColor $C.Yellow
+        }
+        $raw    = Read-Host '  Choice'
+        $choice = if ($raw) { $raw.Trim().ToLower() } else { '' }
+
+        if ($choice -eq 'l' -and $hasLogs) {
+            Write-Host "`n  --- Full command output ($($script:LastCapturedLines.Count) lines) ---" -ForegroundColor $C.Dim
+            foreach ($ln in $script:LastCapturedLines) { Write-Host "    $ln" -ForegroundColor $C.Dim }
+            Write-Host "  --- End of output ---`n" -ForegroundColor $C.Dim
+            continue  # re-show prompt
+        }
+        break
+    }
 
     if ($choice -eq 'r') { return 'retry' }
     if ($choice -eq 's') { return 'skip' }
     if ($choice -eq 'd' -and $deps.Count -gt 0) {
-        # Run each dep step inline so the failed step can succeed on retry
+        # Run each dep step in canonical order (deps already transitively resolved)
         foreach ($dep in $deps) {
             Write-Header "[dep] $dep — $($StepDesc[$dep])"
             try {
                 & $StepFns[$dep]
             } catch {
-                Write-Fail "Dependency step '$dep' failed: $_"
+                $depErr = $_
+                Write-Fail "Dependency step '$dep' failed: $depErr"
                 Write-Warn "Aborting — fix '$dep' first, then retry '$stepName'"
                 return 'abort'
             }
@@ -1040,11 +1258,14 @@ $StepFns = @{
     'sync'           = { Step-GitSync }
     'version'        = { Step-ComputeVersion }
     'changelog'      = { Step-UpdateChangelog }
-    'push-changelog' = { Step-CommitChangelog }
+    'push-changelog'       = { Step-CommitChangelog }
+    'push-pstt'            = { Step-PushPstt }
+    'push-blazor-diagrams' = { Step-PushBlazorDiagrams }
     'prep-submodules'      = { Step-PrepSubmodules }
     'pr'             = { Step-CreateMergePR }
     'restore-submodules'   = { Step-RestoreSubmodules }
     'tag'            = { Step-CreateTag }
+    'merge-back'     = { Step-MergeBack }
     'wait-workflows' = { Step-WaitWorkflows }
     'post-deploy'    = { Step-PostDeploy }
 }
@@ -1054,11 +1275,11 @@ try {
     if ($IsVerify)  { Write-Warn "VERIFY MODE — local checks only, no git state changes" }
     if ($IsDryRun)  { Write-Warn "DRY RUN — no pushes, merges or tags will be made" }
 
-    $stepsToRun = [string[]](Get-StepsToRun)
+    $stepsToRun = [string[]]@(Get-StepsToRun)
 
     # When running interactively with no explicit step selection, show the menu
     if ($IsInteractive -and -not $Only -and -not $From -and $SkipSet.Count -eq 0) {
-        $stepsToRun = [string[]](Show-StepMenu $stepsToRun)
+        $stepsToRun = [string[]]@(Show-StepMenu $stepsToRun)
     } else {
         Write-Host "`nSteps to run: $($stepsToRun -join ' → ')" -ForegroundColor $C.Cyan
     }
@@ -1076,12 +1297,13 @@ try {
                 & $StepFns[$step]
                 $succeeded = $true
             } catch {
-                Write-Fail "Step '$step' failed: $_"
+                $stepErr = $_
+                Write-Fail "Step '$step' failed: $stepErr"
                 $action = Prompt-OnFailure $step
                 switch ($action) {
                     'retry' { Write-Warn "Retrying '$step'..." }
                     'skip'  { Write-Warn "Skipping '$step'"; $succeeded = $true }
-                    default { throw "Aborted at step '$step': $_" }
+                    default { throw "Aborted at step '$step': $stepErr" }
                 }
             }
         }

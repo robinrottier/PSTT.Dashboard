@@ -27,6 +27,18 @@ public class ApplicationState
     {
         var raw = configuration?["App:MaxMessageHistory"];
         _maxMessageHistory = int.TryParse(raw, out var v) && v > 0 ? v : 500;
+        AutoSaveOnExitEditMode = bool.TryParse(configuration?["App:AutoSaveOnExit"], out var autoSave) && autoSave;
+
+        var instances = new List<AlternateInstance>();
+        for (var i = 0; ; i++)
+        {
+            var label = configuration?[$"App:AlternateInstances:{i}:Label"];
+            var url   = configuration?[$"App:AlternateInstances:{i}:Url"];
+            if (string.IsNullOrEmpty(label) || string.IsNullOrEmpty(url)) break;
+            instances.Add(new(label, url));
+        }
+        AlternateInstances = instances;
+
         DataCache = dataCache ?? new Cache<string,string>();
         BridgedDataCache = new BridgeCache<string,string>(DataCache);
     }
@@ -84,10 +96,18 @@ public class ApplicationState
     /// </summary>
     public ICache<string,string> LocalDataCache => BridgedDataCache.Local;
 
+    /// <summary>
+    /// Raised whenever the bridge scope changes (i.e. <see cref="BridgedDataCache"/> has been
+    /// reconfigured with a new set of patterns). Components that hold subscriptions on
+    /// <see cref="BridgedDataCache"/> should re-subscribe when this event fires.
+    /// </summary>
+    public event Action? BridgeScopeChanged;
+
     // Theme & UI preferences
     public ThemeMode ThemeMode { get; private set; } = ThemeMode.Auto;
     public bool AutoSaveOnExitEditMode { get; private set; } = false;
     public bool ShowName { get; private set; } = true;
+    public IReadOnlyList<AlternateInstance> AlternateInstances { get; private set; } = [];
 
     /// <summary>File name (stem) used for saving/loading. Set by the caller, not from file contents.</summary>
     public string DashboardName { get; private set; } = string.Empty;
@@ -270,6 +290,12 @@ public class ApplicationState
         NotifyStateChangedAsync();
     }
 
+    public void SetAlternateInstances(IReadOnlyList<AlternateInstance> instances)
+    {
+        AlternateInstances = instances;
+        NotifyStateChangedAsync();
+    }
+
     public void ToggleShowDiagramName()
     {
         ShowName = !ShowName;
@@ -365,7 +391,7 @@ public class ApplicationState
         ShowName = model.ShowName;
         if (model.MqttSubscriptions != null)
             SubscribedTopics = new HashSet<string>(model.MqttSubscriptions);
-        BridgedDataCache.SetBridges(SubscribedTopics.Append("$DASHBOARD/#"));
+        RebuildBridges();
         NotifyStateChangedAsync();
     }
 
@@ -410,6 +436,15 @@ public class ApplicationState
         diagram.RegisterComponent<BatteryNodeModel, BatteryNodeWidget>();
         diagram.RegisterComponent<LogNodeModel, LogNodeWidget>();
         diagram.RegisterComponent<TreeViewNodeModel, TreeViewNodeWidget>();
+        diagram.RegisterComponent<SliderNodeModel, SliderNodeWidget>();
+        diagram.RegisterComponent<ButtonNodeModel, ButtonNodeWidget>();
+        diagram.RegisterComponent<HtmlNodeModel, HtmlNodeWidget>();
+        diagram.RegisterComponent<IFrameNodeModel, IFrameNodeWidget>();
+        diagram.RegisterComponent<TextEntryNodeModel, TextEntryNodeWidget>();
+        diagram.RegisterComponent<DropDownNodeModel, DropDownNodeWidget>();
+        diagram.RegisterComponent<MarkdownNodeModel, MarkdownNodeWidget>();
+        diagram.RegisterComponent<ButtonGroupNodeModel, ButtonGroupNodeWidget>();
+        diagram.RegisterComponent<RadioGroupNodeModel, RadioGroupNodeWidget>();
 
         if (page != null)
         {
@@ -423,7 +458,16 @@ public class ApplicationState
                     BatteryNodeData d  => BatteryNodeModel.FromData(d),
                     LogNodeData d      => LogNodeModel.FromData(d),
                     TreeViewNodeData d => TreeViewNodeModel.FromData(d),
-                    _                  => TextNodeModel.FromData(nodeData),
+                    SliderNodeData d   => SliderNodeModel.FromData(d),
+                    ButtonNodeData d   => ButtonNodeModel.FromData(d),
+                    HtmlNodeData d     => HtmlNodeModel.FromData(d),
+                    IFrameNodeData d     => IFrameNodeModel.FromData(d),
+                    TextEntryNodeData d  => TextEntryNodeModel.FromData(d),
+                    DropDownNodeData d   => DropDownNodeModel.FromData(d),
+                    MarkdownNodeData d   => MarkdownNodeModel.FromData(d),
+                    ButtonGroupNodeData d => ButtonGroupNodeModel.FromData(d),
+                    RadioGroupNodeData d  => RadioGroupNodeModel.FromData(d),
+                    _                    => TextNodeModel.FromData(nodeData),
                 };
 
                 node.Locked = readOnly;
@@ -539,10 +583,23 @@ public class ApplicationState
     }
 
     // MQTT Methods
+
+    /// <summary>
+    /// Rebuilds the bridge patterns from <see cref="SubscribedTopics"/> and fires
+    /// <see cref="BridgeScopeChanged"/> if the scope actually changed.
+    /// </summary>
+    private void RebuildBridges()
+    {
+        var prevGen = BridgedDataCache.BridgeGeneration;
+        BridgedDataCache.SetBridges(SubscribedTopics.Append("$DASHBOARD/#"));
+        if (BridgedDataCache.BridgeGeneration != prevGen)
+            BridgeScopeChanged?.Invoke();
+    }
+
     public void SetSubscribedTopics(IEnumerable<string> topics)
     {
         SubscribedTopics = new HashSet<string>(topics);
-        BridgedDataCache.SetBridges(SubscribedTopics.Append("$DASHBOARD/#"));
+        RebuildBridges();
         NotifyStateChangedAsync();
     }
 
@@ -660,3 +717,6 @@ public class ApplicationState
         }
     }
 }
+
+/// <summary>A link to an alternate instance of this dashboard (e.g. read-only vs admin port).</summary>
+public record AlternateInstance(string Label, string Url);

@@ -225,6 +225,8 @@ All settings can be supplied as environment variables (using `__` as the section
 | Read-only ports | `ReadOnlyPorts` | Comma-separated port numbers served as read-only (e.g. `8080`). Use with `ASPNETCORE_URLS` to enable dual-port mode. | *(empty)* |
 | Render mode | `RenderMode` | `Auto` \| `WebAssembly` \| `Server` | `Auto` |
 
+For the full list of all settings (including `App`, `Startup`, `CacheSettings`, `UpdateAgent`, `AlternateInstances`, etc.), see [**CONFIGURATION.md**](documents/CONFIGURATION.md).
+
 See [Deployment modes](documents/deployment-modes.md) for detailed guidance on all access-control and render-mode options.
 
 ---

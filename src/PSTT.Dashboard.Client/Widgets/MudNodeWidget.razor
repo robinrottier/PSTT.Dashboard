@@ -7,7 +7,7 @@
     <ExtraContent>
         @if (!string.IsNullOrEmpty(Node.Text))
         {
-            <div style="@TextStyle">@FormatText()</div>
+            <div style="@TextStyle">@FormatHtml()</div>
         }
     </ExtraContent>
 </StandardNodeLayout>

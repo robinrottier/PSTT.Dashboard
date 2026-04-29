@@ -44,14 +44,20 @@
                     <MudList T="RemoteRepoInfo">
                         @foreach (var repo in _repos)
                         {
-                            <MudListItem T="RemoteRepoInfo" Value="repo">
+                            var r = repo;
+                            var isEditing = _editingName == r.Name;
+                            <MudListItem T="RemoteRepoInfo" Value="repo" Style="@(isEditing ? "background:var(--mud-palette-action-default-hover);" : "")">
                                 <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
-                                    <MudStack>
-                                        <MudText Typo="Typo.body2"><strong>@repo.Name</strong></MudText>
-                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@repo.Url</MudText>
+                                    <MudStack Spacing="0" Style="cursor:pointer;flex:1;" @onclick="@(() => StartEditing(r))">
+                                        <MudText Typo="Typo.body2"><strong>@r.Name</strong></MudText>
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@r.Url</MudText>
                                     </MudStack>
-                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
-                                                   OnClick="@(() => RemoveRepo(repo.Name))" />
+                                    <div style="display:flex;gap:2px;">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary"
+                                                       OnClick="@(() => StartEditing(r))" Title="Edit" />
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                                       OnClick="@(() => RemoveRepo(r.Name))" Title="Delete" />
+                                    </div>
                                 </div>
                             </MudListItem>
                         }
@@ -59,22 +65,33 @@
                 }
             </div>
 
-            <!-- Add new remote repo -->
+            <!-- Add / Edit remote repo -->
             <div>
-                <MudText Typo="Typo.subtitle2" Class="mb-2">Add Remote Repository</MudText>
+                <MudText Typo="Typo.subtitle2" Class="mb-2">@(_editingName != null ? $"Edit: {_editingName}" : "Add Remote Repository")</MudText>
                 <MudStack Spacing="2">
-                    <MudTextField T="string" @bind-Value="_newName" Label="Name" Variant="Variant.Outlined" Dense="true" />
-                    <MudTextField T="string" @bind-Value="_newUrl" Label="URL (https://...)" Variant="Variant.Outlined" Dense="true" />
-                    <MudTextField T="string" @bind-Value="_newToken" Label="API Token (from target server)" 
-                                  Variant="Variant.Outlined" Dense="true" InputType="InputType.Password" />
+                    <MudTextField T="string" @bind-Value="_newName" Label="Name" Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense" />
+                    <MudTextField T="string" @bind-Value="_newUrl" Label="URL (https://...)" Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense" />
+                    <MudTextField T="string" @bind-Value="_newToken" Label="API Token (from target server)"
+                                  Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense" InputType="InputType.Password" />
                     @if (!string.IsNullOrEmpty(_addError))
                     {
                         <MudAlert Severity="Severity.Error" Dense="true">@_addError</MudAlert>
                     }
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AddRepo" Disabled="_loading"
-                               FullWidth="true">
-                        @(_loading ? "Adding…" : "Add Repository")
-                    </MudButton>
+                    <MudStack Row="true" Spacing="1">
+                        @if (_editingName != null)
+                        {
+                            <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small" OnClick="CancelEdit" Disabled="_loading">Cancel</MudButton>
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" OnClick="SaveEdit" Disabled="_loading" Style="flex:1;">
+                                @(_loading ? "Saving…" : "Save Changes")
+                            </MudButton>
+                        }
+                        else
+                        {
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AddRepo" Disabled="_loading" FullWidth="true">
+                                @(_loading ? "Adding…" : "Add Repository")
+                            </MudButton>
+                        }
+                    </MudStack>
                 </MudStack>
             </div>
         </MudStack>
@@ -199,6 +216,57 @@
             await LoadRepos();
         }
         catch { }
+    }
+
+    private string? _editingName;
+
+    private void StartEditing(RemoteRepoInfo repo)
+    {
+        _editingName = repo.Name;
+        _newName = repo.Name;
+        _newUrl = repo.Url;
+        _newToken = string.Empty;
+        _addError = null;
+        StateHasChanged();
+    }
+
+    private void CancelEdit()
+    {
+        _editingName = null;
+        _newName = _newUrl = _newToken = string.Empty;
+        _addError = null;
+    }
+
+    private async Task SaveEdit()
+    {
+        _addError = null;
+        if (string.IsNullOrWhiteSpace(_newName)) { _addError = "Name required"; return; }
+        if (string.IsNullOrWhiteSpace(_newUrl)) { _addError = "URL required"; return; }
+        if (string.IsNullOrWhiteSpace(_newToken)) { _addError = "Token required"; return; }
+
+        _loading = true;
+        StateHasChanged();
+        try
+        {
+            var resp = await Http.PutAsJsonAsync($"/api/settings/remote-repos/{Uri.EscapeDataString(_editingName!)}",
+                new { name = _newName, url = _newUrl, apiToken = _newToken });
+            if (resp.IsSuccessStatusCode)
+            {
+                CancelEdit();
+                await LoadRepos();
+            }
+            else
+                _addError = $"Error (HTTP {resp.StatusCode})";
+        }
+        catch (Exception ex)
+        {
+            _addError = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
     }
 
     private void Cancel() => MudDialog.Cancel();

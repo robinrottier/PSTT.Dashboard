@@ -1,0 +1,57 @@
+@using PSTT.Dashboard.Models
+@using PSTT.Dashboard.Services
+@inherits BaseNodeWithDataWidget<ButtonNodeModel>
+
+<StandardNodeLayout Node="Node" ExtraCssClass="button-node">
+    <ExtraContent>
+        <div style="flex:1;min-height:0;min-width:0;display:flex;align-items:center;justify-content:center;padding:4px;">
+            <MudButton Variant="@GetVariant()"
+                       Color="@GetColor()"
+                       OnClick="@OnButtonClick"
+                       Disabled="@Node.IsReadOnly"
+                       Style="width:100%;height:100%;min-height:32px;">
+                @(string.IsNullOrEmpty(Node.ButtonLabel) ? "Press" : Node.ButtonLabel)
+            </MudButton>
+        </div>
+    </ExtraContent>
+</StandardNodeLayout>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Node.MinimumDimensions = new(60, 40);
+        if (Node.Size == null || Node.Size.Width < 60 || Node.Size.Height < 40)
+            Node.Size = new(120, 70);
+        base.OnInitialized();
+    }
+
+    protected override void OnDataUpdated() { }
+
+    private async Task OnButtonClick()
+    {
+        if (Node.IsReadOnly) return;
+        var publishTopic = !string.IsNullOrEmpty(Node.PublishTopic) ? Node.PublishTopic : Node.DataTopic(0);
+        if (string.IsNullOrEmpty(publishTopic)) return;
+        var payload = string.IsNullOrEmpty(Node.PublishValue) ? "1" : Node.PublishValue;
+        var target = Node.PublishGlobally ? AppState.DataCache : AppState.LocalDataCache;
+        await target.PublishAsync(publishTopic, payload, null, Node.Retain);
+    }
+
+    private Variant GetVariant() => Node.ButtonVariant switch
+    {
+        "Outlined" => Variant.Outlined,
+        "Text"     => Variant.Text,
+        _          => Variant.Filled,
+    };
+
+    private Color GetColor() => Node.ButtonColor switch
+    {
+        "Primary"   => Color.Primary,
+        "Secondary" => Color.Secondary,
+        "Success"   => Color.Success,
+        "Error"     => Color.Error,
+        "Warning"   => Color.Warning,
+        "Info"      => Color.Info,
+        _           => Color.Default,
+    };
+}

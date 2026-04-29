@@ -1,0 +1,63 @@
+@using MudBlazor
+
+@* Shared file-list panel used by Open and Save-As dialogs.
+   Shows a spinner while loading, the file list when ready, or an empty-state message.
+   Height is fixed so the dialog does not jump when content changes. *@
+
+<div style="@ContainerStyle">
+    @if (IsLoading)
+    {
+        <div style="display:flex;justify-content:center;align-items:center;height:100%;">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Small" />
+        </div>
+    }
+    else if (Names.Count == 0)
+    {
+        <div style="display:flex;justify-content:center;align-items:center;height:100%;color:var(--mud-palette-text-secondary);font-size:0.8125rem;">
+            @(EmptyMessage ?? "No dashboards available")
+        </div>
+    }
+    else
+    {
+        <div style="overflow-y:auto;height:100%;">
+            @foreach (var name in Names)
+            {
+                var n = name;
+                var isSelected = n == SelectedName;
+                <div style="@ItemStyle(isSelected)"
+                     @onclick="@(() => OnNameSelected.InvokeAsync(n))">
+                    <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@n</span>
+                    @if (AllowDelete)
+                    {
+                        <span @onclick:stopPropagation="true" style="flex-shrink:0;">
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                           Color="Color.Error" Style="padding:2px;"
+                                           OnClick="@(() => OnDeleteClicked.InvokeAsync(n))" />
+                        </span>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public List<string> Names { get; set; } = [];
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public string? SelectedName { get; set; }
+    [Parameter] public bool AllowDelete { get; set; }
+    [Parameter] public string? EmptyMessage { get; set; }
+    [Parameter] public EventCallback<string> OnNameSelected { get; set; }
+    [Parameter] public EventCallback<string> OnDeleteClicked { get; set; }
+
+    // ~5 rows at 28px each + border
+    private const string ContainerStyle =
+        "height:148px;border:1px solid var(--mud-palette-lines-default);border-radius:4px;" +
+        "background:var(--mud-palette-background);overflow:hidden;";
+
+    private static string ItemStyle(bool selected) =>
+        "display:flex;align-items:center;gap:4px;padding:4px 8px;cursor:pointer;font-size:0.8125rem;" +
+        (selected
+            ? "background:var(--mud-palette-primary);color:var(--mud-palette-primary-text);"
+            : "border:none;");
+}

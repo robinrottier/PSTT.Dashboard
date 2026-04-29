@@ -119,8 +119,10 @@ public class RemoteController : ControllerBase
     private async Task<IActionResult> StreamResponseAsync(HttpResponseMessage response, CancellationToken ct)
     {
         var body = await response.Content.ReadAsStringAsync(ct);
-        var contentType = response.Content.Headers.ContentType?.ToString() ?? "application/json";
-        return StatusCode((int)response.StatusCode, body == string.Empty ? null : (object)body);
+        var status = (int)response.StatusCode;
+        // StatusCode(status, null) can be silently converted to 204 by ASP.NET output formatters.
+        // Use StatusCodeResult (no body) explicitly when the upstream returned an empty body.
+        return body == string.Empty ? new StatusCodeResult(status) : StatusCode(status, body);
     }
 
     private HttpClient CreateClient(string baseUrl, string? token)

@@ -66,7 +66,11 @@ public class SettingsController : ControllerBase
     public IActionResult GetApp()
     {
         var autoSaveOnExit = _configuration.GetValue<bool>("App:AutoSaveOnExit", false);
-        return Ok(new { autoSaveOnExit });
+        var alternateInstances = _configuration
+            .GetSection("App:AlternateInstances")
+            .Get<List<AlternateInstanceConfig>>()
+            ?? [];
+        return Ok(new { autoSaveOnExit, alternateInstances });
     }
 
     /// <summary>Sets system-wide app preferences. Admin only.</summary>
@@ -194,7 +198,48 @@ public class SettingsController : ControllerBase
         return Ok(new { success = true });
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    /// <summary>Updates an existing remote repository. Admin only.</summary>
+    [HttpPut("remote-repos/{name}")]
+    public async Task<IActionResult> UpdateRemoteRepo(string name, [FromBody] RemoteRepoRequest request)
+    {
+        if (!IsAdminOrNoAuth()) return Unauthorized(new { error = "Admin authentication required." });
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+            return BadRequest(new { error = "Name is required." });
+
+        if (string.IsNullOrWhiteSpace(request.Url) || !Uri.TryCreate(request.Url, UriKind.Absolute, out var uri) ||
+            (uri.Scheme != "http" && uri.Scheme != "https"))
+            return BadRequest(new { error = "A valid absolute URL (http or https) is required." });
+
+        if (string.IsNullOrWhiteSpace(request.ApiToken))
+            return BadRequest(new { error = "API token is required." });
+
+        var existing = GetRemoteReposFromConfig();
+        if (!existing.Any(r => string.Equals(r.Name, name, StringComparison.OrdinalIgnoreCase)))
+            return NotFound(new { error = $"Remote repository '{name}' not found." });
+
+        // If renaming, ensure new name doesn't conflict with another entry
+        var safeName = request.Name.Trim();
+        if (!string.Equals(name, safeName, StringComparison.OrdinalIgnoreCase) &&
+            existing.Any(r => string.Equals(r.Name, safeName, StringComparison.OrdinalIgnoreCase)))
+            return Conflict(new { error = $"A remote repository named '{safeName}' already exists." });
+
+        await _userSettings.UpdateAsync(root =>
+        {
+            var arr = root["RemoteRepositories"] as JsonArray;
+            if (arr == null) return;
+            var toUpdate = arr
+                .OfType<JsonObject>()
+                .FirstOrDefault(o => string.Equals(o["Name"]?.GetValue<string>(), name, StringComparison.OrdinalIgnoreCase));
+            if (toUpdate == null) return;
+            toUpdate["Name"] = safeName;
+            toUpdate["Url"] = request.Url.TrimEnd('/');
+            toUpdate["ApiToken"] = request.ApiToken.Trim();
+        });
+
+        return Ok(new { success = true });
+    }
+
 
     private bool IsAdminOrNoAuth()
     {
@@ -237,4 +282,10 @@ public class RemoteRepoEntry
     public string Name { get; set; } = string.Empty;
     public string Url { get; set; } = string.Empty;
     public string ApiToken { get; set; } = string.Empty;
+}
+
+public class AlternateInstanceConfig
+{
+    public string Label { get; set; } = string.Empty;
+    public string Url { get; set; } = string.Empty;
 }

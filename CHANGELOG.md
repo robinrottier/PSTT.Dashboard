@@ -7,6 +7,88 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [v0.1.7] - 2026-04-29
+
+## [v0.1.7] - 2026-04-29
+
+## [v0.1.7] - 2026-04-29
+
+## [v0.1.7] - 2026-04-29
+
+### Added
+- **`GetSnapshot(pattern)` on cache**: PSTT.Data library now exposes a pattern-overload of `GetSnapshot` on `ICache`, `Cache`, `CacheWithWildcards`, and `BridgeCache`. MQTT wildcard resolution (`+` / `#`) is now handled in the data layer, not in individual widgets.
+- **`BridgeScopeChanged` event** on `ApplicationState`: fires whenever the bridge cache is reconfigured (dashboard loaded, subscription list edited). Components can subscribe to re-establish their data watchers.
+- **RemoteCache auto-reconnect**: `RemoteCacheBuilder.WithAutoReconnect()` (in PSTT library) — when the server drops, the client automatically retries and re-subscribes to all topics. `pstt-sub` uses this by default.
+- **Markdown widget**: new node type that renders static Markdown content (via `Markdig`). Author content in the Text property; supports GFM tables, task lists, code blocks.
+- **Button Group widget**: new node type for mode-selection — multiple buttons sharing a publish topic, each with its own label and value. Highlights the button matching the current data value.
+- **Radio Group widget**: new node type for exclusive selection — `MudRadioGroup` with options defined as `Label=Value` pairs; publishes the selected value on change; highlights the current selection from live MQTT data.
+- **About box: alternate instance links**: configure a list of `{ Label, Url }` pairs under `App:AlternateInstances` in `appsettings.json` (or `appsettings.user.json`); the About box shows them as buttons linking to the other instances (useful for read-only ↔ admin port navigation).
+
+- **HTML templates in Text node**: the format template now supports HTML tags (e.g. `<b>{0}</b> kWh`). Static markup is rendered by the browser; data values substituted via `{0}`, `{1}`, etc. are HTML-encoded automatically to prevent injection from MQTT payloads.
+
+- **Configuration reference**: new `documents/CONFIGURATION.md` covering every supported setting with defaults, descriptions, environment variable names, a complete sample JSON, and a table of which settings the UI can write at runtime.
+
+new properties on the Log node for Time, Topic, and Value column widths (in pixels; 0 = auto). Fixes variable-width columns when cell content varies in length.
+- **App settings applied on first launch**: `AutoSaveOnExit` is now read from `IConfiguration` in the `ApplicationState` constructor (server startup), eliminating the "setting not visible until F5" bug when running from VS debugger.
+- **About box modal z-index**: dialog now renders above floating panels (Add Node, Properties, Data Explorer) via CSS `--mud-zindex-dialog: 2100`.
+- **TreeView incorrect match range**: `ess1/servers/+/+` was internally widened to `ess1/servers/+/#`, causing deeper topics like `ess1/servers/HUB-3/schedules/setpoint` to appear incorrectly. Widget now passes the user-configured topic pattern directly to the cache.
+- **TreeView / DataExplorer not updating on new topics**: when a new topic arrived after the widget's subscription was established but the bridge scope had changed, neither widget would update. Both now re-subscribe when `BridgeScopeChanged` fires.
+- **TreeView false "changed" highlights**: initial cache replay via Subscribe callbacks was marking all pre-existing topics as recently changed. Only genuine value changes now trigger the highlight.
+- Ctrl-S no longer opens the browser's native Save dialog while the dashboard is open.
+- Copy/paste of TextEntry and DropDown nodes now preserves all type-specific properties (placeholder, publish topic, options, etc.).
+- Floating panels (Add Node, Data Explorer, Properties) are now closed automatically when leaving edit mode.
+- Auto-save preference set via the Unsaved Changes dialog is now persisted to the server and survives page refresh.
+- Cross-window clipboard paste (psttClipboard JS object) was misnamed and not working — fixed.
+
+### Changed
+- All ASP.NET Core packages updated to 10.0.7 (were split between 10.0.3 and 10.0.6).
+- MudBlazor updated from 9.1.0 to 9.4.0 (MudSelect, MudColorPicker, MudInput bug fixes).
+
+
+- **HTML node**: Renders the node's Text property as raw HTML markup (`MarkupString`). Content is static (no MQTT value substitution) to avoid injection from untrusted broker payloads. Intended for dashboard-author-controlled rich content.
+- **IFrame node**: Embeds an external URL in a sandboxed `<iframe>` (`sandbox="allow-scripts allow-same-origin allow-forms allow-popups"`). In edit mode the iframe is covered by a transparent overlay so node selection and movement work normally.
+- Dashboard JSON files now use compact sequential 1-based integers for node, port, page, and link IDs instead of raw GUIDs. IDs are remapped on save only; runtime model is unchanged. Makes saved files significantly more readable and diff-friendly.
+- Export dialog now has a **Full Dashboard** option (in addition to Selected Nodes and Current Page). Exports all pages as a portable JSON envelope that can be imported into another dashboard installation.
+- Import dialog now accepts full-dashboard exports; imported pages are appended to the current dashboard (not replacing it).
+- Export/Import now use sequential IDs (same remapping as file save) — exported JSON is compact and readable.
+- **Text Entry node**: Single-line MudTextField widget. Displays the current MQTT value; publishes a new value on blur/Enter. Configurable placeholder, publish topic, read-only mode, retain flag, and publish scope (broker vs dashboard-local). Does not overwrite text the user is currently editing when an MQTT update arrives.
+- **Drop Down node**: MudSelect dropdown with a comma-separated options list. Publishes the selected value. Syncs with incoming MQTT value only when the value matches one of the configured options. Same publish options as Text Entry.
+
+### Fixed
+- Opening a dashboard from a remote source and then pressing **Save** now redirects to **Save As**, preventing silent overwrite of a local file with the same name.
+- A second **Open Dashboard** dialog can no longer be triggered while the first is still open (previously two concurrent dialogs could stack up if the open was slow).
+- **Open** and **Save As** dialogs now appear instantly — remote repos and dashboard list are fetched inside the dialog (with a loading spinner) rather than blocking before showing the dialog.
+- Dialog guard extended to all primary modal dialogs: Export, Import, Save As, Dashboard Properties (Display page) and About, Startup Settings, Remote Repositories (app menu) — any of these now blocks until closed.
+- Remote repositories list failed to show in dialogs on first app start. Root cause: the server-side loopback HTTP client was being constructed with the HTTPS port (from the active Blazor Server circuit) instead of the HTTP port cached at startup, causing silent HTTP→HTTPS connection failures. Fixed by preferring the startup-cached HTTP port.
+- **Slider node** crashed with `NullReferenceException` immediately after being added to the dashboard (before any MQTT topic is configured). Root cause: `FormatValue()` accessed `DataValues[0]` directly on an empty array. Fixed by using the safe `DataValue(0)` accessor.
+
+## [v0.1.6] - 2026-04-28
+
+## [v0.1.6] - 2026-04-28
+
+### Added
+- TCP cache server endpoint (FEAT-H first step): set `CacheSettings:TcpPort` to a non-zero port to expose the PSTT cache over TCP. External tools can subscribe to topics and publish values using `RemoteCacheBuilder<string>.WithTcpTransport(host, port).WithUtf8Encoding().Build()`. Disabled by default (port 0).
+- `pstt-sub` CLI tool (PSTT submodule): subscribe to topics/wildcards on a PSTT TCP cache server; prints `topic=value` to stdout, supports multiple `--topic` args and `--timestamp` flag.
+- `pstt-pub` CLI tool (PSTT submodule): publish a single value to a PSTT TCP cache server topic and exit.
+- TreeView widget now persists expansion/collapse state per node: collapsed paths are saved in the dashboard file and restored after tab switches or page reload. Explicitly collapsed branches stay collapsed; newly discovered MQTT topics still auto-expand.
+- New "Unsaved Changes" dialog (Save / Discard / Cancel) replaces the plain confirmation prompt when leaving edit mode. Includes an "Auto-save in future" checkbox — ticking it suppresses the dialog for all subsequent exits.
+- Floating Node Properties panel now follows the selection: stays visible when you switch to a different node (updates to show the new node's properties), and shows a "Select a single node" hint when nothing or multiple nodes are selected.
+- Remote repository entries can now be edited in place (click Edit icon in Configure Remotes dialog). Previously only Add + Delete were supported.
+- Circular self-remote integration tests (15 tests): local CRUD, Bearer token auth (valid/invalid/none), circular proxy CRUD (list/get/save/delete), remote repo CRUD (add duplicate, edit, rename conflict).
+
+### Fixed
+- `release.ps1`: step failure error messages showed the action name rather than the actual error — fixed `$_` clobbering inside `switch` inside `catch`.
+- `release.ps1`: "The property 'Count' cannot be found" crash after a step failure — fixed by using `[string[]]@(...)` wrappers.
+- Open and Save As dialogs now open centred on the window instead of top-left.
+- Server logs now show the reason for 401/403 on dashboard write endpoints (token mismatch, read-only mode, no auth header), making remote save failures diagnosable.
+- Remote proxy (RemoteController) no longer silently converts 200 responses with empty bodies to 204 No Content — write operations (save/delete via remote) now correctly return 200.
+
+### Added
+- `release.ps1` spinner now shows last build output line + elapsed time (live feedback during long builds).
+- `release.ps1` stuck-command warning: ⚠ appears in spinner after 90 s with no new output.
+- `release.ps1` `[L]ogs` option at failure prompt to review full captured output without re-running.
+- `release.ps1` transitive dependency resolution in step menu and dep+retry prompt (BFS, not just direct parents).
+
 ## [v0.1.5] - 2026-04-25
 
 ### Added

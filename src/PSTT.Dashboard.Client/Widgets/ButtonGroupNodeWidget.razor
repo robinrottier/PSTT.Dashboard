@@ -1,0 +1,75 @@
+@using PSTT.Dashboard.Models
+@using PSTT.Dashboard.Services
+@inherits BaseNodeWithDataWidget<ButtonGroupNodeModel>
+
+<StandardNodeLayout Node="Node" ExtraCssClass="button-group-node">
+    <ExtraContent>
+        <div style="flex:1;min-height:0;min-width:0;display:flex;flex-direction:@FlexDirection();align-items:stretch;justify-content:center;gap:4px;padding:4px;flex-wrap:wrap;">
+            @foreach (var (label, value) in Node.ItemList)
+            {
+                var v = value;
+                var isActive = _currentValue != null && _currentValue == value;
+                <MudButton Variant="@GetVariant()"
+                           Color="@GetColor(isActive)"
+                           OnClick="@(() => OnButtonClick(v))"
+                           Disabled="@Node.IsReadOnly"
+                           Style="flex:1;min-width:40px;min-height:32px;">
+                    @label
+                </MudButton>
+            }
+        </div>
+    </ExtraContent>
+</StandardNodeLayout>
+
+@code {
+    private string? _currentValue;
+
+    protected override void OnInitialized()
+    {
+        Node.MinimumDimensions = new(80, 40);
+        if (Node.Size == null || Node.Size.Width < 80 || Node.Size.Height < 40)
+            Node.Size = new(200, 70);
+        base.OnInitialized();
+    }
+
+    protected override void OnDataUpdated()
+    {
+        var raw = Node.DataValue(0)?.ToString();
+        if (_currentValue == raw) return;
+        _currentValue = raw;
+    }
+
+    private async Task OnButtonClick(string value)
+    {
+        if (Node.IsReadOnly) return;
+        var publishTopic = !string.IsNullOrEmpty(Node.PublishTopic)
+            ? Node.PublishTopic
+            : Node.DataTopic(0);
+        if (string.IsNullOrEmpty(publishTopic)) return;
+        var target = Node.PublishGlobally ? AppState.DataCache : AppState.LocalDataCache;
+        await target.PublishAsync(publishTopic, value, null, Node.Retain);
+    }
+
+    private string FlexDirection() => Node.Orientation == "Vertical" ? "column" : "row";
+
+    private Variant GetVariant() => Node.ButtonVariant switch
+    {
+        "Outlined" => Variant.Outlined,
+        "Text"     => Variant.Text,
+        _          => Variant.Filled,
+    };
+
+    private Color GetColor(bool isActive) =>
+        ParseColor(isActive ? Node.ActiveButtonColor : Node.ButtonColor);
+
+    private static Color ParseColor(string? s) => s switch
+    {
+        "Primary"   => Color.Primary,
+        "Secondary" => Color.Secondary,
+        "Success"   => Color.Success,
+        "Error"     => Color.Error,
+        "Warning"   => Color.Warning,
+        "Info"      => Color.Info,
+        _           => Color.Default,
+    };
+}

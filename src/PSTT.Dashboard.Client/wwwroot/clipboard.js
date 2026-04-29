@@ -2,7 +2,14 @@
 // Uses the async Clipboard API (requires user gesture and HTTPS / localhost).
 // Both functions return null on failure so callers can fall back to the in-memory clipboard.
 
-window.mqttClipboard = {
+// Prevent the browser's native Ctrl+S / Cmd+S save dialog — the dashboard handles it.
+document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+    }
+}, true);
+
+window.psttClipboard = {
     /**
      * Write text to the OS clipboard.
      * @param {string} text
