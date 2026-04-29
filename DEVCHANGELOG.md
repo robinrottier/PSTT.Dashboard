@@ -1,3 +1,23 @@
+## 2026-05-05 — App settings loaded synchronously at startup
+
+### Commit: TBD · 2026-05-05 · branch: develop
+
+---
+
+### Item 1 — `AutoSaveOnExit` (and future app settings) read from `IConfiguration` in `ApplicationState` constructor
+
+**File:** `src/PSTT.Dashboard.Client/Services/ApplicationState.cs`
+
+**Problem:** `App:AutoSaveOnExit` (and other App-section settings) were not applied until a browser client connected and `MainLayout.OnAfterRenderAsync` made an HTTP round-trip to `GET /api/settings/app`. On the very first VS debugger launch this race meant the WASM client's HTTP call could fail (loopback address not ready) or the Blazor Server circuit's HTTP call silently threw, leaving the checkbox unset.
+
+**Root cause:** `appsettings.user.json` is added to `IConfiguration` at server startup (in `AddDashboardDataDirectory`), and `ApplicationState` already receives `IConfiguration` in its constructor — but only read `App:MaxMessageHistory` from it. `App:AutoSaveOnExit` was ignored.
+
+**Fix:** Added `configuration?.GetValue<bool>("App:AutoSaveOnExit") ?? false` to the constructor alongside the existing `MaxMessageHistory` read. `ApplicationState` is scoped and constructed when the first circuit or WASM request arrives, at which point `IConfiguration` already has all values from the startup JSON files. No HTTP call needed.
+
+**WASM note:** In the WASM host `IConfiguration` reflects only the WASM-bundled `appsettings.json` (not the server's `appsettings.user.json`), so the HTTP fetch in `MainLayout` is still needed for WASM and remains unchanged. The constructor default of `false` is immediately overridden by that fetch. No regression.
+
+---
+
 ## 2026-05-05 — TreeView & DataExplorer wildcard + live-update fixes
 
 ### Commit: 6079280 · 2026-05-05 · branch: develop

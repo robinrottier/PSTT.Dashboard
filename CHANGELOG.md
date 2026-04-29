@@ -13,6 +13,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **RemoteCache auto-reconnect**: `RemoteCacheBuilder.WithAutoReconnect()` (in PSTT library) — when the server drops, the client automatically retries and re-subscribes to all topics. `pstt-sub` uses this by default.
 
 ### Fixed
+- **App settings applied on first launch**: `AutoSaveOnExit` is now read from `IConfiguration` in the `ApplicationState` constructor (server startup), eliminating the "setting not visible until F5" bug when running from VS debugger.
 - **TreeView incorrect match range**: `ess1/servers/+/+` was internally widened to `ess1/servers/+/#`, causing deeper topics like `ess1/servers/HUB-3/schedules/setpoint` to appear incorrectly. Widget now passes the user-configured topic pattern directly to the cache.
 - **TreeView / DataExplorer not updating on new topics**: when a new topic arrived after the widget's subscription was established but the bridge scope had changed, neither widget would update. Both now re-subscribe when `BridgeScopeChanged` fires.
 - **TreeView false "changed" highlights**: initial cache replay via Subscribe callbacks was marking all pre-existing topics as recently changed. Only genuine value changes now trigger the highlight.

@@ -27,6 +27,7 @@ public class ApplicationState
     {
         var raw = configuration?["App:MaxMessageHistory"];
         _maxMessageHistory = int.TryParse(raw, out var v) && v > 0 ? v : 500;
+        AutoSaveOnExitEditMode = bool.TryParse(configuration?["App:AutoSaveOnExit"], out var autoSave) && autoSave;
         DataCache = dataCache ?? new Cache<string,string>();
         BridgedDataCache = new BridgeCache<string,string>(DataCache);
     }
