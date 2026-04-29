@@ -57,8 +57,16 @@
 
     protected override async Task OnInitializedAsync()
     {
-        try { _remoteRepos = await Http.GetFromJsonAsync<List<RemoteRepoInfo>>("/api/settings/remote-repos") ?? []; }
-        catch { _remoteRepos = []; }
+        try
+        {
+            _remoteRepos = await Http.GetFromJsonAsync<List<RemoteRepoInfo>>("/api/settings/remote-repos") ?? [];
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load remote repositories");
+            _errorMessage = $"Failed to load remote repositories: {ex.Message}";
+            _remoteRepos = [];
+        }
         await RefreshList();
     }
 
