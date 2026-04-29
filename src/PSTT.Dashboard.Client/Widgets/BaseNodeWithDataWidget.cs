@@ -2,6 +2,7 @@ using Blazor.Diagrams.Core.Anchors;
 using Blazor.Diagrams.Core.Models;
 using Microsoft.AspNetCore.Components;
 using PSTT.Dashboard.Models;
+using System.Text.RegularExpressions;
 
 namespace PSTT.Dashboard.Widgets;
 
@@ -180,6 +181,42 @@ public abstract class BaseNodeWithDataWidget<TNode> : BaseNodeWidget<TNode>
                 null);
         }
         catch { return Node.Text; }
+    }
+
+    private static readonly Regex _formatTokenRegex =
+        new(@"\{(\d+)(?::([^}]*))?\}", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Renders <see cref="TextNodeModel.Text"/> as a <see cref="MarkupString"/> so that
+    /// HTML tags in the static template (e.g. <c>&lt;b&gt;</c>, <c>&lt;br&gt;</c>) are
+    /// interpreted by the browser rather than displayed as literal text.
+    ///
+    /// Data values substituted for <c>{0}</c>, <c>{1}</c>, etc. are HTML-encoded before
+    /// insertion to prevent injection from MQTT payloads authored outside the dashboard.
+    /// </summary>
+    protected MarkupString FormatHtml()
+    {
+        if (string.IsNullOrEmpty(Node.Text)) return new MarkupString(string.Empty);
+        try
+        {
+            var html = _formatTokenRegex.Replace(Node.Text, m =>
+            {
+                int idx = int.Parse(m.Groups[1].Value);
+                string? spec = m.Groups[2].Success && m.Groups[2].Length > 0 ? m.Groups[2].Value : null;
+                object? raw = idx < Node.DataValues.Length ? Node.DataValues[idx] : null;
+                string formatted;
+                try
+                {
+                    formatted = spec != null
+                        ? string.Format($"{{0:{spec}}}", new FormattableValue(raw))
+                        : (raw?.ToString() ?? string.Empty);
+                }
+                catch { formatted = raw?.ToString() ?? string.Empty; }
+                return System.Net.WebUtility.HtmlEncode(formatted);
+            });
+            return new MarkupString(html);
+        }
+        catch { return new MarkupString(System.Net.WebUtility.HtmlEncode(Node.Text)); }
     }
 
     /// <summary>Wraps an arbitrary MQTT value for use with string.Format numeric format specifiers.</summary>
