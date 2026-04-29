@@ -632,6 +632,7 @@ public partial class Display : IDisposable
             "DropDown"    => new DropDownNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400)))    { Title = $"Drop Down {_nodeCounter++}" },
             "Markdown"    => new MarkdownNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400)))    { Title = $"Markdown {_nodeCounter++}" },
             "ButtonGroup" => new ButtonGroupNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400))) { Title = $"Button Group {_nodeCounter++}" },
+            "RadioGroup"  => new RadioGroupNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400)))  { Title = $"Radio Group {_nodeCounter++}" },
             _            => new TextNodeModel(new Point(rng.Next(50, 500), rng.Next(50, 400)))       { Title = $"Node {_nodeCounter++}" },
         };
 

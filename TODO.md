@@ -11,10 +11,11 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 ## 🟡 Minor Enhancements
 
 - [ ] about box
-	- [ ] model diaglog should go above edit panels like add node or node properties
-	- [ ] about box at end, should have configurable button to jump to other implementations
+	- [ ] about box at end, should have configurable button to jump to other implementations on same installation
 	      e.g if we';re on first port whichi is read only port then link to rw url and vice versa
 		  can only come from config ... cant work out sensibel value bec=asue we're behind firewalls, proxies etc
+		  -- easiest is just list of labels and url's whic jump to readonly or admin port but just a list from config
+		  -- **DONE** via `App:AlternateInstances` config array, shown as buttons in About box
 
 
 - [ ] release.ps1
@@ -70,11 +71,9 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 	  - rows vary dependign on what data is available....so topic search is ess1/servers/+/+ and first "+" matches a row, second "+" matches on fixed column entry
 	  OR same as above but invert rows/columns
 	  Configuration could come from an xml or json input for now rather than properties page designer. Likely to include properties like ColTemplate, RowTemplte, Rows, Columns, ColumnHeaders and some means of simple text entry, single value entry or repeated multivalues for rows. 
-- [ ] **Button groups** _(done: Button Group widget added)_ — **Radio group** — similar to button group but with exclusive selection
-- [ ] **Checkbox group** — similar to button group but with independent selection
-- [ ] **Drop down list** _(done: see DropDown widget)_
-- [ ] **Text entry** _(done: see TextEntry widget)_
-- [ ] **Markdown** _(done: Markdown widget added)_
+- [ ] **Radio group** — similar to button group but with exclusive selection -- **DONE** ✓
+- [ ] **Checkbox group** — similar to button group but with independent selection -- just a "visualization display" option as logic the same for all these
+- [ ] Anything mudblazor offers for input should be easy to do
 
 - [ ] **Chart**
       — in-memory time-series sparkline graph. Difficult!! where does it get history from?

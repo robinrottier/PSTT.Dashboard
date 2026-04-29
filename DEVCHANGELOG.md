@@ -1,3 +1,67 @@
+## 2026-04-29 — About box enhancements; Radio Group widget
+
+### Commit: TBD · 2026-04-29 · branch: develop
+
+---
+
+### Item 1 — About box: modal z-index already fixed
+
+**Status:** Already resolved in a prior session via CSS custom property override in `src/PSTT.Dashboard.Client/wwwroot/app.css`:
+```css
+:root { --mud-zindex-dialog: 2100; }
+```
+`FloatingPanel` uses a base z-index of 2000 and increments on focus. MudDialog now renders at 2100 so it always appears above floating panels. No code change needed this session.
+
+---
+
+### Item 2 — About box: configurable alternate-instance links
+
+**Problem:** No way to link from one dashboard instance to another (e.g. read-only → admin port), which must come from server config as the URL cannot be inferred from behind proxies/firewalls.
+
+**Files changed:**
+- `Services/ApplicationState.cs` — Added `AlternateInstance` record; `AlternateInstances` property (populated from `IConfiguration` at construction via manual index-loop since binder extension isn't referenced in Client); `SetAlternateInstances()` setter.
+- `Server/Controllers/SettingsController.cs` — `GET /api/settings/app` now returns `alternateInstances` array; added `AlternateInstanceConfig` POCO.
+- `Layout/MainLayout.razor` — Updated `AppSettingsResponse` record; calls `AppState.SetAlternateInstances()` after loading app settings.
+- `Components/AboutDialog.razor` — New "Alternate Instances" card at the bottom of the dialog, visible only when `AppState.AlternateInstances.Count > 0`. Renders as outlined `MudButton` per entry, each opening in a new tab.
+
+**Config schema** (in `appsettings.user.json` or `appsettings.json`):
+```json
+"App": {
+  "AlternateInstances": [
+    { "Label": "Read-Only Instance", "Url": "http://host:5002" },
+    { "Label": "Admin Instance",     "Url": "http://host:5001" }
+  ]
+}
+```
+
+**Notes:**
+- Server-side `ApplicationState` reads instances from `IConfiguration` directly in constructor (uses indexed keys like `App:AlternateInstances:0:Label`).
+- WASM clients get the list from `GET /api/settings/app` via `MainLayout.razor` after page load.
+- The TODO item listed this as pending; it's now done.
+
+---
+
+### Item 3 — Radio Group widget (FEAT-C)
+
+**Problem:** FEAT-C listed "Radio group — similar to button group but with exclusive selection".
+
+**Files created:**
+- `Models/RadioGroupNodeModel.cs` — Node model with `Items` (Label=Value per line), `Orientation` (Horizontal/Vertical), `RadioColor`, `PublishTopic`, `IsReadOnly`, `Retain`, `PublishGlobally`. Same `ItemList` computed property as `ButtonGroupNodeModel`.
+- `Widgets/RadioGroupNodeWidget.razor` — `BaseNodeWithDataWidget<RadioGroupNodeModel>`; renders `MudRadioGroup<string>` with `Value`/`ValueChanged` (MudBlazor 9 API); inner `MudRadio<string>` elements with `Value` parameter wrapped in a flex div for orientation control. `OnSelectionChanged` updates `_currentValue` immediately and publishes to MQTT (or local cache).
+
+**Files modified:**
+- `Models/DashboardModel.cs` — Added `[JsonDerivedType(typeof(RadioGroupNodeData), "RadioGroup")]`; added `RadioGroupNodeData` class.
+- `Services/ApplicationState.cs` — Registered `RadioGroupNodeModel/RadioGroupNodeWidget`; added `RadioGroupNodeData d => RadioGroupNodeModel.FromData(d)` case in deserialization switch.
+- `Pages/Display.razor.cs` — Added `"RadioGroup" => new RadioGroupNodeModel(...)` case in `OnAddNodeTypeSelected`.
+- `Components/AddNodePanelContent.razor` — Added `("RadioGroup", Icons.Material.Filled.RadioButtonChecked, "Radio Group", "Exclusive selection, publishes on change")` entry.
+
+**Notes:**
+- In MudBlazor 9, `MudRadioGroup<T>` parameter was renamed from `SelectedOption`/`SelectedOptionChanged` to `Value`/`ValueChanged`; `MudRadio<T>` `Option` → `Value`. The widget uses the new API; fixed MUD0002 analyzer warnings.
+- Wrapping `MudRadio` elements in a `<div style="display:flex;...">` inside `MudRadioGroup` doesn't break the `[CascadingParameter]` registration since cascading values propagate through the full component tree, not just direct children.
+- All 127 tests pass after changes.
+
+---
+
 ## 2026-04-29 — FEAT-C: Markdown widget, Button Group widget, Log column widths
 
 ### Commit: TBD · 2026-04-29 · branch: develop

@@ -28,6 +28,17 @@ public class ApplicationState
         var raw = configuration?["App:MaxMessageHistory"];
         _maxMessageHistory = int.TryParse(raw, out var v) && v > 0 ? v : 500;
         AutoSaveOnExitEditMode = bool.TryParse(configuration?["App:AutoSaveOnExit"], out var autoSave) && autoSave;
+
+        var instances = new List<AlternateInstance>();
+        for (var i = 0; ; i++)
+        {
+            var label = configuration?[$"App:AlternateInstances:{i}:Label"];
+            var url   = configuration?[$"App:AlternateInstances:{i}:Url"];
+            if (string.IsNullOrEmpty(label) || string.IsNullOrEmpty(url)) break;
+            instances.Add(new(label, url));
+        }
+        AlternateInstances = instances;
+
         DataCache = dataCache ?? new Cache<string,string>();
         BridgedDataCache = new BridgeCache<string,string>(DataCache);
     }
@@ -96,6 +107,7 @@ public class ApplicationState
     public ThemeMode ThemeMode { get; private set; } = ThemeMode.Auto;
     public bool AutoSaveOnExitEditMode { get; private set; } = false;
     public bool ShowName { get; private set; } = true;
+    public IReadOnlyList<AlternateInstance> AlternateInstances { get; private set; } = [];
 
     /// <summary>File name (stem) used for saving/loading. Set by the caller, not from file contents.</summary>
     public string DashboardName { get; private set; } = string.Empty;
@@ -278,6 +290,12 @@ public class ApplicationState
         NotifyStateChangedAsync();
     }
 
+    public void SetAlternateInstances(IReadOnlyList<AlternateInstance> instances)
+    {
+        AlternateInstances = instances;
+        NotifyStateChangedAsync();
+    }
+
     public void ToggleShowDiagramName()
     {
         ShowName = !ShowName;
@@ -426,6 +444,7 @@ public class ApplicationState
         diagram.RegisterComponent<DropDownNodeModel, DropDownNodeWidget>();
         diagram.RegisterComponent<MarkdownNodeModel, MarkdownNodeWidget>();
         diagram.RegisterComponent<ButtonGroupNodeModel, ButtonGroupNodeWidget>();
+        diagram.RegisterComponent<RadioGroupNodeModel, RadioGroupNodeWidget>();
 
         if (page != null)
         {
@@ -447,6 +466,7 @@ public class ApplicationState
                     DropDownNodeData d   => DropDownNodeModel.FromData(d),
                     MarkdownNodeData d   => MarkdownNodeModel.FromData(d),
                     ButtonGroupNodeData d => ButtonGroupNodeModel.FromData(d),
+                    RadioGroupNodeData d  => RadioGroupNodeModel.FromData(d),
                     _                    => TextNodeModel.FromData(nodeData),
                 };
 
@@ -697,3 +717,6 @@ public class ApplicationState
         }
     }
 }
+
+/// <summary>A link to an alternate instance of this dashboard (e.g. read-only vs admin port).</summary>
+public record AlternateInstance(string Label, string Url);

@@ -157,6 +157,27 @@
             </MudCard>
         }
 
+        @if (AppState.AlternateInstances.Count > 0)
+        {
+            <MudCard Class="mb-1">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">Alternate Instances</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent Class="d-flex flex-wrap gap-2 pb-3">
+                    @foreach (var inst in AppState.AlternateInstances)
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                   Href="@inst.Url" Target="_blank"
+                                   StartIcon="@Icons.Material.Filled.OpenInNew">
+                            @inst.Label
+                        </MudButton>
+                    }
+                </MudCardContent>
+            </MudCard>
+        }
+
     </DialogContent>
 </MudDialog>
 

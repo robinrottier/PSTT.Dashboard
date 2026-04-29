@@ -66,7 +66,11 @@ public class SettingsController : ControllerBase
     public IActionResult GetApp()
     {
         var autoSaveOnExit = _configuration.GetValue<bool>("App:AutoSaveOnExit", false);
-        return Ok(new { autoSaveOnExit });
+        var alternateInstances = _configuration
+            .GetSection("App:AlternateInstances")
+            .Get<List<AlternateInstanceConfig>>()
+            ?? [];
+        return Ok(new { autoSaveOnExit, alternateInstances });
     }
 
     /// <summary>Sets system-wide app preferences. Admin only.</summary>
@@ -278,4 +282,10 @@ public class RemoteRepoEntry
     public string Name { get; set; } = string.Empty;
     public string Url { get; set; } = string.Empty;
     public string ApiToken { get; set; } = string.Empty;
+}
+
+public class AlternateInstanceConfig
+{
+    public string Label { get; set; } = string.Empty;
+    public string Url { get; set; } = string.Empty;
 }

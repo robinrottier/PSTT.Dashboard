@@ -50,6 +50,7 @@ public class DashboardFileInfo
 [JsonDerivedType(typeof(DropDownNodeData),    "DropDown")]
 [JsonDerivedType(typeof(MarkdownNodeData),    "Markdown")]
 [JsonDerivedType(typeof(ButtonGroupNodeData), "ButtonGroup")]
+[JsonDerivedType(typeof(RadioGroupNodeData),  "RadioGroup")]
 public abstract class NodeData
 {
     [FileId] public string Id { get; set; } = string.Empty;
@@ -174,6 +175,17 @@ public class ButtonGroupNodeData : NodeData
     public string? ButtonVariant { get; set; }
     public string? ButtonColor { get; set; }
     public string? ActiveButtonColor { get; set; }
+    public string? PublishTopic { get; set; }
+    public bool IsReadOnly { get; set; } = false;
+    public bool Retain { get; set; } = false;
+    public bool PublishGlobally { get; set; } = true;
+}
+
+public class RadioGroupNodeData : NodeData
+{
+    public string? Items { get; set; }
+    public string? Orientation { get; set; }
+    public string? RadioColor { get; set; }
     public string? PublishTopic { get; set; }
     public bool IsReadOnly { get; set; } = false;
     public bool Retain { get; set; } = false;
