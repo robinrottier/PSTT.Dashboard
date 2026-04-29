@@ -16,8 +16,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Radio Group widget**: new node type for exclusive selection — `MudRadioGroup` with options defined as `Label=Value` pairs; publishes the selected value on change; highlights the current selection from live MQTT data.
 - **About box: alternate instance links**: configure a list of `{ Label, Url }` pairs under `App:AlternateInstances` in `appsettings.json` (or `appsettings.user.json`); the About box shows them as buttons linking to the other instances (useful for read-only ↔ admin port navigation).
 
-### Fixed
-- **Log viewer column widths**: new properties on the Log node for Time, Topic, and Value column widths (in pixels; 0 = auto). Fixes variable-width columns when cell content varies in length.
+- **Configuration reference**: new `documents/CONFIGURATION.md` covering every supported setting with defaults, descriptions, environment variable names, a complete sample JSON, and a table of which settings the UI can write at runtime.
+
+new properties on the Log node for Time, Topic, and Value column widths (in pixels; 0 = auto). Fixes variable-width columns when cell content varies in length.
 - **App settings applied on first launch**: `AutoSaveOnExit` is now read from `IConfiguration` in the `ApplicationState` constructor (server startup), eliminating the "setting not visible until F5" bug when running from VS debugger.
 - **About box modal z-index**: dialog now renders above floating panels (Add Node, Properties, Data Explorer) via CSS `--mud-zindex-dialog: 2100`.
 - **TreeView incorrect match range**: `ess1/servers/+/+` was internally widened to `ess1/servers/+/#`, causing deeper topics like `ess1/servers/HUB-3/schedules/setpoint` to appear incorrectly. Widget now passes the user-configured topic pattern directly to the cache.

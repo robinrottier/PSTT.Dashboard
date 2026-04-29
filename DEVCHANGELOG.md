@@ -1,4 +1,32 @@
-## 2026-04-29 — About box enhancements; Radio Group widget
+## 2026-04-29 — App settings documentation
+
+### Commit: TBD · 2026-04-29 · branch: develop
+
+---
+
+### Item 1 — `documents/CONFIGURATION.md`
+
+**Files changed:**
+- `documents/CONFIGURATION.md` *(new)*
+- `README.md` — added link to CONFIGURATION.md under Configuration reference section
+
+**What changed and why:**
+A comprehensive configuration reference was missing. The README had only the most common settings; lesser-known keys (`App:AlternateInstances`, `App:MaxMessageHistory`, `Startup`, `CacheSettings`, `UpdateAgent`, `AllowedPathBase`, `RemoteAccess`, etc.) were undocumented or only discoverable by reading source code.
+
+**`CONFIGURATION.md` covers:**
+- Config layering order (appsettings.json → user override → env vars)
+- A complete sample JSON block with inline comments for every supported key
+- Section-by-section reference table for every setting (default, description, notes)
+- Environment variable naming rules (`__` separator)
+- Table of which settings are writable at runtime via the UI (written to `appsettings.user.json`)
+
+**Caveats/notes:**
+- The sample JSON uses `//` comments which are not valid JSON — this is intentional (it is documentation, not a file to be loaded directly). The comments follow the same convention as `appsettings.Development.UpdateAgent.example.json`.
+- The `appsettings.Development.json` comment at the top of that file says `edit this file and save — at runtime it appears to be simply reloaded immediately`. This is true for that file when running in development, but `appsettings.user.json` requires a server restart to pick up manual file changes. This distinction is called out in CONFIGURATION.md.
+
+---
+
+
 
 ### Commit: TBD · 2026-04-29 · branch: develop
 
