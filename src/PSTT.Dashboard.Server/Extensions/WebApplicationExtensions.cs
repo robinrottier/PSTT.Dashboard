@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
@@ -80,6 +81,19 @@ public static class WebApplicationExtensions
                 return next(context);
             });
         }
+
+        // Configure forwarded headers support for reverse proxy scenarios (nginx, etc.)
+        // This must run early in the pipeline so other middleware sees the correct scheme/host.
+        app.UseForwardedHeaders(new ForwardedHeadersOptions
+        {
+            ForwardedHeaders = ForwardedHeaders.XForwardedFor | 
+                               ForwardedHeaders.XForwardedProto |
+                               ForwardedHeaders.XForwardedHost,
+            // In production behind a trusted reverse proxy, limit to known networks.
+            // For development/testing, accept from any source.
+            KnownNetworks = { }, // Empty = accept from all (configure in production!)
+            KnownProxies = { }   // Empty = accept from all (configure in production!)
+        });
 
         // Configure the HTTP request pipeline
         if (app.Environment.IsDevelopment())

@@ -191,18 +191,29 @@ AllowedPathBase=dashboard
 
 The app reads the `X-Forwarded-Prefix` header sent by nginx. Only the exact value configured in `AllowedPathBase` is accepted; arbitrary client values are ignored.
 
-Minimal nginx location block:
+**Minimal nginx location block:**
 
 ```nginx
 location /dashboard/ {
     proxy_pass         http://localhost:8080/;
     proxy_http_version 1.1;
+
+    # WebSocket support (required for Blazor Server SignalR)
     proxy_set_header   Upgrade $http_upgrade;
     proxy_set_header   Connection "upgrade";
+    proxy_cache_bypass $http_upgrade;
+
+    # Preserve the original request information
     proxy_set_header   Host $host;
+    proxy_set_header   X-Real-IP $remote_addr;
+    proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header   X-Forwarded-Proto $scheme;
+    proxy_set_header   X-Forwarded-Host $host;
     proxy_set_header   X-Forwarded-Prefix /dashboard;
 }
 ```
+
+> **Important:** The `X-Forwarded-*` headers are required for correct URL generation and server-to-self API calls. Without them, Blazor Server circuits may fail to load remote repositories or other API endpoints.
 
 The app is also fully accessible at `http://localhost:8080` simultaneously (without the subpath).
 

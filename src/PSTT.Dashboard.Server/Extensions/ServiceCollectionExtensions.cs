@@ -80,6 +80,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<DashboardStorageService>();
         services.AddSingleton<UserSettingsService>();
         services.AddSingleton<LoginTokenStore>();
+        services.AddSingleton<IRemoteRepoService, RemoteRepoService>();
         services.AddHttpContextAccessor();
         services.AddScoped<HttpClient>(sp => CreateLoopbackHttpClient(sp));
         services.AddScoped<IDashboardService, ServerDashboardService>();
@@ -111,22 +112,63 @@ public static class ServiceCollectionExtensions
 
     private static HttpClient CreateLoopbackHttpClient(IServiceProvider sp)
     {
-        // Prefer the startup-cached HTTP address (set from Kestrel's http:// listener).
-        // Blazor Server circuits run on the SignalR/WebSocket connection which may be HTTPS —
-        // using that connection's address ensures we connect to the actual listening endpoint.
-        var renderModeOptions = sp.GetService<PSTT.Dashboard.Services.RenderModeOptions>();
-        var address = renderModeOptions?.LoopbackAddress;
+        Uri? address = null;
 
+        var ctx = sp.GetService<IHttpContextAccessor>()?.HttpContext;
+
+        // Priority 1: Check if we're behind a reverse proxy (forwarded headers present)
+        // In this case, use the public-facing URL because the internal address may not be accessible
+        if (ctx != null)
+        {
+            var forwardedProto = ctx.Request.Headers["X-Forwarded-Proto"].FirstOrDefault();
+            var forwardedHost = ctx.Request.Headers["X-Forwarded-Host"].FirstOrDefault();
+            var forwardedPrefix = ctx.Request.Headers["X-Forwarded-Prefix"].FirstOrDefault();
+
+            if (!string.IsNullOrEmpty(forwardedHost))
+            {
+                // Reverse proxy scenario: use the forwarded scheme and host (what the client sees)
+                var scheme = !string.IsNullOrEmpty(forwardedProto) ? forwardedProto : ctx.Request.Scheme;
+                var pathBase = !string.IsNullOrEmpty(forwardedPrefix) ? forwardedPrefix.TrimEnd('/') : ctx.Request.PathBase.Value;
+
+                var uriBuilder = new UriBuilder(scheme, forwardedHost)
+                {
+                    Path = pathBase ?? ""
+                };
+                address = uriBuilder.Uri;
+            }
+        }
+
+        // Priority 2: Use the startup-cached HTTP address (development/direct access)
+        // This avoids SSL certificate validation issues with self-signed certs on IP addresses
         if (address == null)
         {
-            // Fallback: construct address from current HTTP context
-            var ctx = sp.GetService<IHttpContextAccessor>()?.HttpContext;
-            if (ctx != null)
+            var renderModeOptions = sp.GetService<PSTT.Dashboard.Services.RenderModeOptions>();
+            address = renderModeOptions?.LoopbackAddress;
+        }
+
+        // Priority 3: Fallback to current request address (shouldn't normally happen)
+        if (address == null && ctx != null)
+        {
+            var scheme = ctx.Request.Scheme;
+            var host = ctx.Request.Host.Host;
+            var port = ctx.Request.Host.Port;
+            var pathBase = ctx.Request.PathBase.Value;
+
+            // Prefer HTTP over HTTPS for loopback to avoid certificate issues
+            // If the request is HTTPS, try to find the HTTP port by subtracting 1 (common convention)
+            if (scheme == "https" && port.HasValue)
             {
-                var port = ctx.Connection.LocalPort;
-                var host = ctx.Request.Host.Host;
-                if (port > 0)
-                    address = new Uri($"http://{host}:{port}/");
+                // Common pattern: HTTP port is HTTPS port + 1 (e.g., 7190 HTTPS, 7191 HTTP)
+                var httpPort = port.Value + 1;
+                address = new Uri($"http://{host}:{httpPort}{pathBase}");
+            }
+            else if (port.HasValue)
+            {
+                address = new Uri($"{scheme}://{host}:{port}{pathBase}");
+            }
+            else
+            {
+                address = new Uri($"{scheme}://{host}{pathBase}");
             }
         }
 

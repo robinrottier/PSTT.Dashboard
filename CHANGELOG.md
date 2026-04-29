@@ -7,6 +7,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **Server-side HTTP loopback failures**: Fixed `HttpRequestException: Connection refused` on first load when the app binds to a non-localhost IP address (e.g., `192.168.86.52:7191`). The loopback HTTP client now uses the actual server address instead of hardcoding `localhost`.
+- **SSL certificate validation for self-referencing remotes**: Fixed `AuthenticationException: RemoteCertificateNameMismatch` when a remote repository points back to the same server via HTTPS with an IP address. The `RemoteController` now bypasses SSL validation for self-references.
+- **Reverse proxy support**: Server-side Blazor circuits now correctly respect `X-Forwarded-*` headers from nginx or other reverse proxies, ensuring API calls target the public-facing URL instead of internal Kestrel addresses.
+
+### Changed
+- **Server-side component optimization**: `DashboardPickerDialog` and other server-side components now use direct service injection instead of HTTP loopback calls when running server-side, improving performance and simplifying reverse-proxy deployments.
+- **Loopback HTTP client priority**: The loopback client now prefers the HTTP listener address over HTTPS to avoid SSL certificate issues in development. Priority order: (1) reverse-proxy headers, (2) startup-cached HTTP address, (3) current request with HTTPS→HTTP port heuristic.
+- **Reverse proxy documentation**: Enhanced nginx configuration example in README with all required headers for Blazor Server SignalR support and forwarded headers handling.
+
+---
+
 ## [v0.1.7] - 2026-04-29
 
 ## [v0.1.7] - 2026-04-29

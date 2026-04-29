@@ -7,6 +7,7 @@
 @inject HttpClient Http
 @inject ILogger<DashboardPickerDialog> Logger
 @inject ILoggerFactory LoggerFactory
+@inject IServiceProvider ServiceProvider
 
 <MudDialog Style="min-width:420px;">
     <TitleContent>
@@ -59,7 +60,27 @@
     {
         try
         {
-            _remoteRepos = await Http.GetFromJsonAsync<List<RemoteRepoInfo>>("/api/settings/remote-repos") ?? [];
+            // Option 1: When running server-side, use direct service injection to avoid HTTP loopback
+            if (!OperatingSystem.IsBrowser())
+            {
+                // Server-side: directly call the service (no network round-trip)
+                var remoteRepoService = ServiceProvider.GetService(typeof(IRemoteRepoService)) as IRemoteRepoService;
+                if (remoteRepoService != null)
+                {
+                    _remoteRepos = await remoteRepoService.GetRemoteReposAsync();
+                }
+                else
+                {
+                    // Fallback to HTTP if service not registered (shouldn't happen in normal operation)
+                    Logger.LogWarning("IRemoteRepoService not found, falling back to HTTP");
+                    _remoteRepos = await Http.GetFromJsonAsync<List<RemoteRepoInfo>>("/api/settings/remote-repos") ?? [];
+                }
+            }
+            else
+            {
+                // WASM: use HttpClient to call the API via the browser
+                _remoteRepos = await Http.GetFromJsonAsync<List<RemoteRepoInfo>>("/api/settings/remote-repos") ?? [];
+            }
         }
         catch (Exception ex)
         {

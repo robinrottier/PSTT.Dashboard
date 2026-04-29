@@ -127,7 +127,30 @@ public class RemoteController : ControllerBase
 
     private HttpClient CreateClient(string baseUrl, string? token)
     {
-        var client = _httpClientFactory.CreateClient();
+        // Check if this is a loopback/self-reference by comparing the base URL to the current request
+        var isSelfReference = false;
+        if (Request?.Host.Host != null && Uri.TryCreate(baseUrl, UriKind.Absolute, out var remoteUri))
+        {
+            isSelfReference = string.Equals(remoteUri.Host, Request.Host.Host, StringComparison.OrdinalIgnoreCase);
+        }
+
+        HttpClient client;
+        if (isSelfReference)
+        {
+            // For self-references, skip SSL certificate validation to avoid issues with
+            // self-signed certs on IP addresses or localhost/hostname mismatches
+            var handler = new HttpClientHandler
+            {
+                ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true
+            };
+            client = new HttpClient(handler);
+            _logger.LogInformation("[RemoteController] Created self-referencing client with SSL validation bypassed");
+        }
+        else
+        {
+            client = _httpClientFactory.CreateClient();
+        }
+
         client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
         client.Timeout = TimeSpan.FromSeconds(30);
         if (!string.IsNullOrEmpty(token))
