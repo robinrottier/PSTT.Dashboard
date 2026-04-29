@@ -127,7 +127,20 @@ public class RemoteController : ControllerBase
 
     private HttpClient CreateClient(string baseUrl, string? token)
     {
-        var client = _httpClientFactory.CreateClient();
+        // Check if this is a loopback/self-reference by comparing the base URL to the current request
+        var isSelfReference = false;
+        if (Request?.Host.Host != null && Uri.TryCreate(baseUrl, UriKind.Absolute, out var remoteUri))
+        {
+            isSelfReference = string.Equals(remoteUri.Host, Request.Host.Host, StringComparison.OrdinalIgnoreCase);
+        }
+
+        // For self-references use the "loopback" named client (SSL validation bypassed).
+        // Using the factory for both cases lets tests override it via IHttpClientFactory replacement.
+        var clientName = isSelfReference ? "loopback" : string.Empty;
+        if (isSelfReference)
+            _logger.LogInformation("[RemoteController] Self-referencing proxy — using loopback client");
+        var client = _httpClientFactory.CreateClient(clientName);
+
         client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
         client.Timeout = TimeSpan.FromSeconds(30);
         if (!string.IsNullOrEmpty(token))

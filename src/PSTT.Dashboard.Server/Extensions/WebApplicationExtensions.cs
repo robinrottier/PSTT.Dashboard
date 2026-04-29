@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
@@ -35,11 +36,10 @@ public static class WebApplicationExtensions
                 foreach (var address in addresses)
                 {
                     if (!address.StartsWith("http://", StringComparison.OrdinalIgnoreCase)) continue;
-                    var normalized = address.Replace("+", "localhost").Replace("*", "localhost")
-                                            .Replace("[::]", "localhost").Replace("0.0.0.0", "localhost");
-                    if (Uri.TryCreate(normalized, UriKind.Absolute, out var uri) && uri.Port > 0)
+                    // Don't normalize to localhost - use the actual address
+                    if (Uri.TryCreate(address, UriKind.Absolute, out var uri) && uri.Port > 0)
                     {
-                        renderModeOptions?.CacheLoopbackPort(uri.Port);
+                        renderModeOptions?.CacheLoopbackAddress(uri);
                         return;
                     }
                 }
@@ -47,13 +47,18 @@ public static class WebApplicationExtensions
             catch { /* non-critical — middleware fallback will cache on the first request */ }
         });
 
-        // Fallback: cache the local port on the first request in case the startup callback didn't
-        // find an HTTP address (e.g. HTTPS-only deployment). CacheLoopbackPort is once-only
-        // (CompareExchange), so this won't overwrite the port already set by the startup callback.
+        // Fallback: cache the local address on the first request in case the startup callback didn't
+        // find an HTTP address (e.g. HTTPS-only deployment). CacheLoopbackAddress is once-only
+        // (CompareExchange), so this won't overwrite the address already set by the startup callback.
         app.Use(async (ctx, next) =>
         {
-            ctx.RequestServices.GetService<PSTT.Dashboard.Services.RenderModeOptions>()
-                ?.CacheLoopbackPort(ctx.Connection.LocalPort);
+            var port = ctx.Connection.LocalPort;
+            var host = ctx.Request.Host.Host;
+            if (port > 0)
+            {
+                ctx.RequestServices.GetService<PSTT.Dashboard.Services.RenderModeOptions>()
+                    ?.CacheLoopbackAddress(new Uri($"http://{host}:{port}/"));
+            }
             await next();
         });
 
@@ -76,6 +81,19 @@ public static class WebApplicationExtensions
                 return next(context);
             });
         }
+
+        // Configure forwarded headers support for reverse proxy scenarios (nginx, etc.)
+        // This must run early in the pipeline so other middleware sees the correct scheme/host.
+        app.UseForwardedHeaders(new ForwardedHeadersOptions
+        {
+            ForwardedHeaders = ForwardedHeaders.XForwardedFor | 
+                               ForwardedHeaders.XForwardedProto |
+                               ForwardedHeaders.XForwardedHost,
+            // In production behind a trusted reverse proxy, limit to known networks.
+            // For development/testing, accept from any source.
+            KnownNetworks = { }, // Empty = accept from all (configure in production!)
+            KnownProxies = { }   // Empty = accept from all (configure in production!)
+        });
 
         // Configure the HTTP request pipeline
         if (app.Environment.IsDevelopment())

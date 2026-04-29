@@ -1,3 +1,102 @@
+## 2026-05-XX — Reverse-proxy support & server-side service optimization
+
+### Commit: TBD · 2026-05-XX · branch: develop
+
+---
+
+### Item 1 — Fix loopback HTTP client for non-localhost bindings
+
+**Problem:** When the app was configured to bind to a specific IP address (e.g., `192.168.86.52:7191` in `launchSettings.json`), the first invocation of `DashboardPickerDialog` would fail with `HttpRequestException: Connection refused (localhost:7191)`. The loopback `HttpClient` was hardcoded to `http://localhost:{port}/`, which didn't match Kestrel's actual listening address. After an F5 refresh, the page would work (likely due to cached/different initialization paths).
+
+**Files changed:**
+- `src/PSTT.Dashboard.Client/Services/RenderModeOptions.cs` — Changed from caching only `_loopbackPort` (int) to caching the full `_loopbackAddress` (Uri). Added `LoopbackAddress` property; kept `LoopbackPort` for backward compatibility. Added `CacheLoopbackAddress(Uri)` method.
+- `src/PSTT.Dashboard.Server/Extensions/ServiceCollectionExtensions.cs` — Updated `CreateLoopbackHttpClient()` to prefer the startup-cached HTTP address over HTTPS from the current request. This avoids SSL certificate validation issues with self-signed certs on IP addresses. Added fallback logic to construct HTTP address from HTTPS by adding 1 to the port (common convention: 7190 HTTPS → 7191 HTTP).
+- `src/PSTT.Dashboard.Server/Extensions/WebApplicationExtensions.cs` — Updated startup callback to cache the full URI (e.g., `http://192.168.86.52:7191/`) instead of just the port. Removed normalization logic that was converting IP addresses to `localhost`.
+
+**How it works:**
+1. At startup, `IServerAddressesFeature` reports the actual listening addresses (e.g., `https://192.168.86.52:7190;http://192.168.86.52:7191`).
+2. The startup callback finds the first `http://` address and caches the full `Uri` via `RenderModeOptions.CacheLoopbackAddress(uri)`.
+3. `CreateLoopbackHttpClient()` uses this cached HTTP address as **priority 2** (after checking for reverse-proxy headers), avoiding HTTPS and SSL issues.
+4. Fallback middleware caches `new Uri($"http://{host}:{port}/")` from the first HTTP request if startup caching failed.
+
+**Priority order in CreateLoopbackHttpClient:**
+1. **Reverse proxy headers** (`X-Forwarded-Host` present) → use forwarded scheme/host/prefix
+2. **Startup-cached HTTP address** → prefer HTTP to avoid SSL validation issues
+3. **Current request address** → fallback with heuristic to convert HTTPS port to HTTP port (+1)
+
+**Result:** First-run connection failures eliminated when binding to non-localhost addresses; SSL validation issues avoided for loopback calls.
+
+---
+
+### Item 2 — Fix SSL validation for self-referencing remote repositories
+
+**Problem:** When a remote repository was configured to point back to the same server (e.g., `SelfRemote` → `https://192.168.86.52:7190/`), the `RemoteController` would fail with `AuthenticationException: The remote certificate is invalid according to the validation procedure: RemoteCertificateNameMismatch`. This happened because the development SSL certificate's subject name (usually `localhost`) didn't match the IP address `192.168.86.52`.
+
+**Files changed:**
+- `src/PSTT.Dashboard.Server/Controllers/RemoteController.cs` — Updated `CreateClient()` to detect self-references (same host as current request) and skip SSL certificate validation for those cases using a custom `HttpClientHandler`.
+
+**How it works:**
+1. `CreateClient(baseUrl, token)` compares the remote URL's host with the current request's host.
+2. If they match, it creates an `HttpClient` with `ServerCertificateCustomValidationCallback = (_, _, _, _) => true` to bypass SSL validation.
+3. For external remotes, it uses the normal `IHttpClientFactory.CreateClient()` with standard validation.
+
+**Security considerations:**
+- This only affects **self-references** (same host), not external remote repositories.
+- In production, consider using proper certificates that cover all hostnames/IPs, or configure `SelfRemote` to use the HTTP port instead of HTTPS.
+- Alternative approach: configure `SelfRemote` with `http://localhost:7191/` instead of `https://192.168.86.52:7190/` to use the loopback HTTP listener.
+
+---
+
+### Item 3 — Add reverse-proxy support with forwarded headers
+
+**Problem:** When deployed behind a reverse proxy (nginx, etc.), the app needs to generate URLs using the public-facing scheme/host/port (e.g., `https://dashboard.example.com`), not Kestrel's internal address (e.g., `http://192.168.86.52:7191`). Server-side Blazor circuits making loopback HTTP calls would target the internal address, bypassing proxy routing/auth or failing due to unreachable addresses.
+
+**Files changed:**
+- `src/PSTT.Dashboard.Server/Extensions/WebApplicationExtensions.cs` — Added `UseForwardedHeaders()` middleware with support for `X-Forwarded-For`, `X-Forwarded-Proto`, and `X-Forwarded-Host` headers.
+- `src/PSTT.Dashboard.Server/Extensions/ServiceCollectionExtensions.cs` — Updated `CreateLoopbackHttpClient()` to check for forwarded headers as **priority 1**. Builds the base URL from `X-Forwarded-Proto`/`X-Forwarded-Host`/`X-Forwarded-Prefix` if set by the reverse proxy.
+- `README.md` — Enhanced the reverse proxy section with a complete nginx configuration example including all required headers (`X-Forwarded-*`, `Upgrade`, `Connection`, etc.) and a warning about their importance for Blazor Server circuits.
+
+**How it works:**
+1. nginx (or other reverse proxy) sets `X-Forwarded-Proto`, `X-Forwarded-Host`, and `X-Forwarded-Prefix` headers.
+2. `UseForwardedHeaders()` middleware populates `HttpContext.Request.Scheme`, `HttpContext.Request.Host`, etc. with the public-facing values.
+3. `CreateLoopbackHttpClient()` checks for `X-Forwarded-Host` in the current request and builds a `Uri` using the forwarded scheme/host/prefix.
+4. Server-side circuits making API calls now target the public URL (e.g., `https://dashboard.example.com/api/...`) which routes back through nginx.
+
+**Caveats:**
+- ⚠️ `KnownNetworks` and `KnownProxies` are empty (accept from any source). In production, these should be locked down to trusted proxy IPs.
+- ⚠️ The forwarded headers middleware runs after the path-base middleware; order is intentional (path base should be applied after scheme/host/port are corrected).
+
+---
+
+### Item 4 — Add direct service injection for server-side components (Option 1)
+
+**Problem:** Server-side Blazor circuits were making HTTP loopback calls to their own API controllers (e.g., `/api/settings/remote-repos`), adding network overhead and complicating reverse-proxy scenarios. This was inefficient when both the component and the controller run in the same process.
+
+**Files changed:**
+- `src/PSTT.Dashboard.Client/Services/IRemoteRepoService.cs` *(new)* — Interface for remote repository service, shared between Client and Server projects.
+- `src/PSTT.Dashboard.Server/Services/RemoteRepoService.cs` *(new)* — Server-side implementation that reads configuration directly, avoiding HTTP loopback.
+- `src/PSTT.Dashboard.Server/Extensions/ServiceCollectionExtensions.cs` — Registered `IRemoteRepoService` as singleton.
+- `src/PSTT.Dashboard.Client/Components/DashboardPickerDialog.razor` — Updated `OnInitializedAsync()` to detect execution context:
+  - **Server-side** (`!OperatingSystem.IsBrowser()`): directly injects and calls `IRemoteRepoService.GetRemoteReposAsync()` (no HTTP).
+  - **WASM** (`OperatingSystem.IsBrowser()`): uses `HttpClient` to call `/api/settings/remote-repos` as before.
+
+**How it works:**
+1. At startup, `RemoteRepoService` is registered in the DI container.
+2. When `DashboardPickerDialog` initializes, it checks `OperatingSystem.IsBrowser()`.
+3. Server-side: `ServiceProvider.GetService(typeof(IRemoteRepoService))` returns the service, which reads from `IConfiguration` directly.
+4. WASM: falls back to `Http.GetFromJsonAsync<>()` as before.
+
+**Benefits:**
+- Eliminates network round-trip for server-side circuits.
+- Works correctly in reverse-proxy scenarios without requiring complex loopback URL construction.
+- More efficient and simpler to reason about.
+
+**Future work:**
+- Consider applying this pattern to other server-to-self API calls (e.g., dashboard list, auth checks).
+- Abstract the pattern into a reusable helper or convention.
+
+---
+
 ## 2026-04-29 — HTML template support in Text node
 
 ### Commit: 778a15c · 2026-04-29 · branch: develop
