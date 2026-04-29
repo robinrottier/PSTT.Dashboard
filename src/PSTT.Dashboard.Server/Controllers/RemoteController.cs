@@ -134,22 +134,12 @@ public class RemoteController : ControllerBase
             isSelfReference = string.Equals(remoteUri.Host, Request.Host.Host, StringComparison.OrdinalIgnoreCase);
         }
 
-        HttpClient client;
+        // For self-references use the "loopback" named client (SSL validation bypassed).
+        // Using the factory for both cases lets tests override it via IHttpClientFactory replacement.
+        var clientName = isSelfReference ? "loopback" : string.Empty;
         if (isSelfReference)
-        {
-            // For self-references, skip SSL certificate validation to avoid issues with
-            // self-signed certs on IP addresses or localhost/hostname mismatches
-            var handler = new HttpClientHandler
-            {
-                ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true
-            };
-            client = new HttpClient(handler);
-            _logger.LogInformation("[RemoteController] Created self-referencing client with SSL validation bypassed");
-        }
-        else
-        {
-            client = _httpClientFactory.CreateClient();
-        }
+            _logger.LogInformation("[RemoteController] Self-referencing proxy — using loopback client");
+        var client = _httpClientFactory.CreateClient(clientName);
 
         client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
         client.Timeout = TimeSpan.FromSeconds(30);

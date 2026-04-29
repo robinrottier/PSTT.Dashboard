@@ -89,6 +89,14 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ApiTokenAuthFilter>();
 
         services.AddHttpClient("UpdateCheck");
+        // Named client for self-referencing (loopback) proxy calls: SSL cert validation is
+        // bypassed so self-signed certs on localhost/IP don't block circular calls.
+        // In tests the entire IHttpClientFactory is replaced, so this registration is overridden.
+        services.AddHttpClient("loopback").ConfigurePrimaryHttpMessageHandler(() =>
+            new HttpClientHandler
+            {
+                ServerCertificateCustomValidationCallback = (_, _, _, _) => true
+            });
         services.AddSingleton<UpdateCheckService>();
         services.AddHostedService(sp => sp.GetRequiredService<UpdateCheckService>());
 
