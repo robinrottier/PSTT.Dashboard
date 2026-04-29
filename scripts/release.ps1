@@ -17,13 +17,15 @@
       10. version         Compute next semver tag from latest git tag
       11. changelog       Insert versioned section into CHANGELOG.md
       12. push-changelog  Commit + push the changelog update
-      13. prep-submodules Merge PSTT develop→main; pin submodule to PSTT main
-      14. pr              Create PR → main, wait for CI checks, merge
-      15. tag             Create annotated tag on origin/main and push it
-      16. merge-back      Git Flow: merge main back into develop so the tag is reachable from develop (MinVer)
-      17. restore-submodules Restore PSTT submodule back to develop tracking [skip ci]
-      18. wait-workflows  Wait for release workflows triggered by the tag
-      19. post-deploy     SSH deploy: docker compose pull + up -d (skipped if DEPLOY_HOST not set)
+      13. push-pstt       Push unpushed PSTT commits to origin; wait for PSTT CI to pass
+      14. push-blazor-diagrams  Push unpushed Blazor.Diagrams commits to origin; wait for CI
+      15. prep-submodules Merge PSTT develop→main; pin submodule to PSTT main
+      16. pr              Create PR → main, wait for CI checks, merge
+      17. tag             Create annotated tag on origin/main and push it
+      18. merge-back      Git Flow: merge main back into develop so the tag is reachable from develop (MinVer)
+      19. restore-submodules Restore PSTT submodule back to develop tracking [skip ci]
+      20. wait-workflows  Wait for release workflows triggered by the tag
+      21. post-deploy     SSH deploy: docker compose pull + up -d (skipped if DEPLOY_HOST not set)
 
     Steps 1–8 are purely local; steps 9–19 require git remote and/or gh CLI.
 
@@ -71,8 +73,8 @@
     a failure without re-running build/test.
     Step names: preflight clean test-pstt test-blazor-diagrams
                 build-debug build-release publish-check docker-build
-                sync version changelog push-changelog prep-submodules
-                pr tag merge-back restore-submodules wait-workflows post-deploy
+                sync version changelog push-changelog push-pstt push-blazor-diagrams
+                prep-submodules pr tag merge-back restore-submodules wait-workflows post-deploy
 
 .PARAMETER Only
     Run exactly one named step and exit.
@@ -278,6 +280,7 @@ $StepOrder = @(
     'test-pstt', 'test-blazor-diagrams',
     'build-debug', 'build-release', 'publish-check', 'docker-build',
     'sync', 'version', 'changelog', 'push-changelog',
+    'push-pstt', 'push-blazor-diagrams',
     'prep-submodules',
     'pr', 'tag', 'merge-back', 'restore-submodules', 'wait-workflows', 'post-deploy'
 )
@@ -297,6 +300,8 @@ $StepDesc = @{
     'version'              = 'Compute next version'
     'changelog'            = 'Update CHANGELOG.md'
     'push-changelog'       = 'Commit and push changelog'
+    'push-pstt'            = 'Push PSTT commits to origin and wait for PSTT CI'
+    'push-blazor-diagrams' = 'Push Blazor.Diagrams commits to origin and wait for CI'
     'prep-submodules'      = 'Merge PSTT develop→main; pin submodule to PSTT main'
     'pr'                   = 'Create PR → wait for CI → merge'
     'restore-submodules'   = 'Restore PSTT submodule to develop tracking'
@@ -310,7 +315,7 @@ $StepDesc = @{
 $StepGroups = [ordered]@{
     'Preflight'      = @('preflight', 'clean')
     'Build & Test'   = @('test-pstt', 'test-blazor-diagrams', 'build-debug', 'build-release', 'publish-check', 'docker-build')
-    'Version'        = @('sync', 'version', 'changelog', 'push-changelog', 'prep-submodules')
+    'Version'        = @('sync', 'version', 'changelog', 'push-changelog', 'push-pstt', 'push-blazor-diagrams', 'prep-submodules')
     'GitHub Release' = @('pr', 'tag', 'merge-back', 'restore-submodules', 'wait-workflows')
     'Deploy'         = @('post-deploy')
 }
@@ -741,6 +746,102 @@ function Step-CommitChangelog {
     Write-Ok "Changelog committed and pushed"
 }
 
+# ─── Step: push-pstt / push-blazor-diagrams ─────────────────────────────────
+# Shared helper: push any locally-ahead commits on a submodule branch to its
+# GitHub origin, then wait for the submodule repo's CI to pass on that commit.
+# If the submodule is in detached-HEAD state or has nothing to push, skips
+# gracefully.  If gh is unavailable the push still happens but CI wait is skipped.
+function Invoke-SubmodulePushAndWait {
+    param([string]$SubPath, [string]$DisplayName)
+
+    $branch = $null; $pushedSha = $null; $originUrl = $null
+
+    Push-Location $SubPath
+    try {
+        $branch = Get-CmdOutput git @('rev-parse', '--abbrev-ref', 'HEAD')
+        if ($branch -eq 'HEAD') {
+            Write-Warn "$DisplayName is in detached HEAD state — nothing to push"
+            return
+        }
+
+        Assert-Cmd git @('fetch', 'origin') "git fetch failed in $DisplayName"
+
+        $unpushed = Get-CmdOutput git @('log', '--oneline', "origin/$branch..$branch")
+        if (-not $unpushed) {
+            Write-Ok "$DisplayName / $branch is already up to date with origin — nothing to push"
+            return
+        }
+
+        $lines = @($unpushed -split "`n" | Where-Object { $_ })
+        Write-Step "Pushing $($lines.Count) unpushed commit(s) in $DisplayName / ${branch}:"
+        foreach ($ln in $lines) { Write-Step "  $ln" }
+
+        if ($IsDryRun) { Write-Warn "DRYRUN: skipping push to $DisplayName"; return }
+
+        Assert-Cmd git @('push', 'origin', $branch) "git push failed for $DisplayName / $branch"
+        Assert-Cmd git @('fetch', 'origin', $branch) "git fetch after push failed in $DisplayName"
+        $pushedSha = Get-CmdOutput git @('rev-parse', "origin/$branch")
+        Write-Ok "Pushed $DisplayName / $branch → $($pushedSha.Substring(0,8))"
+
+        $originUrl = Get-CmdOutput git @('remote', 'get-url', 'origin')
+    } finally { Pop-Location }
+
+    if (-not $pushedSha) { return }  # dry-run or detached
+
+    # ── Wait for CI in the submodule's own GitHub repo ────────────────────────
+    if ($IsNoGh -or -not (Get-Command gh -ErrorAction SilentlyContinue)) {
+        Write-Warn "gh not available — skipping CI wait for $DisplayName"
+        return
+    }
+    if (-not ($originUrl -match 'github\.com[:/](.+?)/(.+?)(?:\.git)?$')) {
+        Write-Warn "Cannot parse GitHub slug from $DisplayName remote URL — skipping CI wait"
+        return
+    }
+    $repoSlug = "$($Matches[1])/$($Matches[2])"
+
+    $timeoutSec = $WorkflowTimeoutMinutes * 60
+    $interval = 15; $elapsed = 0
+    Write-Step "Waiting for CI on $repoSlug / $($pushedSha.Substring(0,8)) (timeout: $WorkflowTimeoutMinutes min)..."
+
+    while ($true) {
+        Start-Sleep -Seconds $interval; $elapsed += $interval
+        if ($elapsed -gt $timeoutSec) { throw "Timeout ($WorkflowTimeoutMinutes min) waiting for CI on $repoSlug" }
+
+        $runsJson = Get-CmdOutput gh @('run', 'list', '--repo', $repoSlug, '--branch', $branch, '--limit', '20', '--json', 'status,conclusion,name,headSha')
+        if (-not $runsJson) { Write-Step "  Waiting for runs on $repoSlug..."; continue }
+        try   { $runs = @($runsJson | ConvertFrom-Json | Where-Object { $_.headSha -eq $pushedSha }) }
+        catch { Write-Step "  Parsing run list..."; continue }
+
+        if ($runs.Count -eq 0) {
+            Write-Step "  No runs yet for $($pushedSha.Substring(0,8))..."
+            # After 2 minutes with no runs, assume no workflows are configured
+            if ($elapsed -gt 120) {
+                Write-Warn "No CI triggered on $repoSlug after 2 min — assuming no workflows, continuing"
+                return
+            }
+            continue
+        }
+
+        $failed  = @($runs | Where-Object { $_.status -eq 'completed' -and $_.conclusion -notin @('success','skipped','neutral') })
+        $pending = @($runs | Where-Object { $_.status -ne 'completed' })
+
+        if ($failed.Count -gt 0) {
+            $failedDesc = ($failed | ForEach-Object { $n = $_.name; $c = $_.conclusion; "$n ($c)" }) -join ', '
+            throw "CI failed on ${repoSlug}: $failedDesc"
+        }
+        if ($pending.Count -eq 0) { Write-Ok "CI passed on $repoSlug"; break }
+        Write-Step "  In progress: $(($pending.name) -join ', ')..."
+    }
+}
+
+function Step-PushPstt {
+    Invoke-SubmodulePushAndWait -SubPath (Join-Path $RepoRoot 'libs' 'PSTT') -DisplayName 'PSTT'
+}
+
+function Step-PushBlazorDiagrams {
+    Invoke-SubmodulePushAndWait -SubPath (Join-Path $RepoRoot 'libs' 'Blazor.Diagrams') -DisplayName 'Blazor.Diagrams'
+}
+
 # ─── Step: prep-submodules ───────────────────────────────────────────────────
 function Step-PrepSubmodules {
     $psttPath = Join-Path $RepoRoot 'libs' 'PSTT'
@@ -1157,7 +1258,9 @@ $StepFns = @{
     'sync'           = { Step-GitSync }
     'version'        = { Step-ComputeVersion }
     'changelog'      = { Step-UpdateChangelog }
-    'push-changelog' = { Step-CommitChangelog }
+    'push-changelog'       = { Step-CommitChangelog }
+    'push-pstt'            = { Step-PushPstt }
+    'push-blazor-diagrams' = { Step-PushBlazorDiagrams }
     'prep-submodules'      = { Step-PrepSubmodules }
     'pr'             = { Step-CreateMergePR }
     'restore-submodules'   = { Step-RestoreSubmodules }
