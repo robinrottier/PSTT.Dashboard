@@ -1,3 +1,32 @@
+## 2026-04-29 — HTML template support in Text node
+
+### Commit: 778a15c · 2026-04-29 · branch: develop
+
+---
+
+### Item 1 — FormatHtml() for safe HTML template rendering
+
+**Problem:** Static HTML tags in the Text node's format template (e.g. `<b>{0}</b>`) were displayed as literal encoded text because Blazor auto-encodes plain strings. The user wanted template authors to be able to use HTML markup in the template while keeping MQTT-sourced data values safely encoded against injection.
+
+**Files changed:**
+- `src/PSTT.Dashboard.Client/Widgets/BaseNodeWithDataWidget.cs` — Added `FormatHtml()` method + `_formatTokenRegex` compiled `Regex`.
+- `src/PSTT.Dashboard.Client/Widgets/MudNodeWidget.razor` — Changed `@FormatText()` to `@FormatHtml()` (returns `MarkupString`).
+- `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor` — Updated helper text to document HTML support.
+
+**How it works:**
+1. `_formatTokenRegex` (`\{(\d+)(?::([^}]*))?\}`) finds all `{N}` and `{N:spec}` tokens in the template.
+2. For each token, the corresponding `DataValues[N]` is formatted (using `FormattableValue` for numeric specs) then `HtmlEncode`d.
+3. The surrounding HTML template text is left as-is and rendered as `MarkupString` — angle-brackets in the template come from the dashboard author and are trusted.
+4. Fallback: any exception returns the raw template safely encoded.
+
+**Scope:**
+- Only `MudNodeWidget` (the Text node) was changed. `BatteryNodeWidget` and `GaugeNodeWidget` still use `FormatText()` — their labels are compact numeric displays; HTML authoring is not the intent.
+
+**Caveats:**
+- The template text itself is trusted (it comes from the dashboard JSON authored by the dashboard editor). Any user who can edit the dashboard can inject arbitrary HTML/JS via the template. This is consistent with the `HtmlNodeWidget` which also renders raw HTML — both nodes require the user to have edit access.
+
+---
+
 ## 2026-04-29 — App settings documentation
 
 ### Commit: TBD · 2026-04-29 · branch: develop

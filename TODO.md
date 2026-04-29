@@ -6,17 +6,7 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 ## BUGS
 
-- [ ] MinVer:I am developing on develop branch, in sync with main which has tag 0.1.6 .. but I only see a version like 0.1.3-dev.89. Why cant I see full 0.1.6 version which is my develop is based on?
-
 ## 🟡 Minor Enhancements
-
-- [ ] about box
-	- [ ] about box at end, should have configurable button to jump to other implementations on same installation
-	      e.g if we';re on first port whichi is read only port then link to rw url and vice versa
-		  can only come from config ... cant work out sensibel value bec=asue we're behind firewalls, proxies etc
-		  -- easiest is just list of labels and url's whic jump to readonly or admin port but just a list from config
-		  -- **DONE** via `App:AlternateInstances` config array, shown as buttons in About box
-
 
 - [ ] release.ps1
 	- [ ] if a step is stuck on a command prompt for input can anything be done to detect that and abort or prompt user?

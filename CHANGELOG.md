@@ -16,6 +16,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Radio Group widget**: new node type for exclusive selection — `MudRadioGroup` with options defined as `Label=Value` pairs; publishes the selected value on change; highlights the current selection from live MQTT data.
 - **About box: alternate instance links**: configure a list of `{ Label, Url }` pairs under `App:AlternateInstances` in `appsettings.json` (or `appsettings.user.json`); the About box shows them as buttons linking to the other instances (useful for read-only ↔ admin port navigation).
 
+- **HTML templates in Text node**: the format template now supports HTML tags (e.g. `<b>{0}</b> kWh`). Static markup is rendered by the browser; data values substituted via `{0}`, `{1}`, etc. are HTML-encoded automatically to prevent injection from MQTT payloads.
+
 - **Configuration reference**: new `documents/CONFIGURATION.md` covering every supported setting with defaults, descriptions, environment variable names, a complete sample JSON, and a table of which settings the UI can write at runtime.
 
 new properties on the Log node for Time, Topic, and Value column widths (in pixels; 0 = auto). Fixes variable-width columns when cell content varies in length.
