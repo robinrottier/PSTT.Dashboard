@@ -20,11 +20,12 @@
       13. prep-submodules Merge PSTT develop→main; pin submodule to PSTT main
       14. pr              Create PR → main, wait for CI checks, merge
       15. tag             Create annotated tag on origin/main and push it
-      16. restore-submodules Restore PSTT submodule back to develop tracking [skip ci]
-      17. wait-workflows  Wait for release workflows triggered by the tag
-      18. post-deploy     SSH deploy: docker compose pull + up -d (skipped if DEPLOY_HOST not set)
+      16. merge-back      Git Flow: merge main back into develop so the tag is reachable from develop (MinVer)
+      17. restore-submodules Restore PSTT submodule back to develop tracking [skip ci]
+      18. wait-workflows  Wait for release workflows triggered by the tag
+      19. post-deploy     SSH deploy: docker compose pull + up -d (skipped if DEPLOY_HOST not set)
 
-    Steps 1–8 are purely local; steps 9–18 require git remote and/or gh CLI.
+    Steps 1–8 are purely local; steps 9–19 require git remote and/or gh CLI.
 
     Use -Verify to run only steps 1–8 as a quick local CI mirror — no git state
     changes, no gh required. Suitable as a Copilot post-change verification gate.
@@ -71,7 +72,7 @@
     Step names: preflight clean test-pstt test-blazor-diagrams
                 build-debug build-release publish-check docker-build
                 sync version changelog push-changelog prep-submodules
-                pr tag restore-submodules wait-workflows post-deploy
+                pr tag merge-back restore-submodules wait-workflows post-deploy
 
 .PARAMETER Only
     Run exactly one named step and exit.
@@ -278,7 +279,7 @@ $StepOrder = @(
     'build-debug', 'build-release', 'publish-check', 'docker-build',
     'sync', 'version', 'changelog', 'push-changelog',
     'prep-submodules',
-    'pr', 'tag', 'restore-submodules', 'wait-workflows', 'post-deploy'
+    'pr', 'tag', 'merge-back', 'restore-submodules', 'wait-workflows', 'post-deploy'
 )
 # Steps that are purely local (no git remote / gh required)
 $LocalSteps = @('preflight', 'clean', 'test-pstt', 'test-blazor-diagrams', 'build-debug', 'build-release', 'publish-check', 'docker-build')
@@ -299,6 +300,7 @@ $StepDesc = @{
     'prep-submodules'      = 'Merge PSTT develop→main; pin submodule to PSTT main'
     'pr'                   = 'Create PR → wait for CI → merge'
     'restore-submodules'   = 'Restore PSTT submodule to develop tracking'
+    'merge-back'           = 'Git Flow: merge main back into develop (makes release tag reachable by MinVer)'
     'tag'                  = 'Create and push release tag'
     'wait-workflows'       = 'Wait for release workflows'
     'post-deploy'          = 'SSH deploy: docker compose pull + up -d'
@@ -309,7 +311,7 @@ $StepGroups = [ordered]@{
     'Preflight'      = @('preflight', 'clean')
     'Build & Test'   = @('test-pstt', 'test-blazor-diagrams', 'build-debug', 'build-release', 'publish-check', 'docker-build')
     'Version'        = @('sync', 'version', 'changelog', 'push-changelog', 'prep-submodules')
-    'GitHub Release' = @('pr', 'tag', 'restore-submodules', 'wait-workflows')
+    'GitHub Release' = @('pr', 'tag', 'merge-back', 'restore-submodules', 'wait-workflows')
     'Deploy'         = @('post-deploy')
 }
 # Hard step dependencies (a step will throw or produce wrong output if its dep hasn't run)
@@ -317,6 +319,7 @@ $StepDeps = @{
     'changelog'      = @('version')          # uses $script:NextVersion
     'push-changelog' = @('version')          # commit message uses $script:NextVersion
     'tag'            = @('version')          # throws if $script:NextVersion is null
+    'merge-back'     = @('tag')              # must tag before merging back
     'wait-workflows' = @('tag')              # nothing to poll without a pushed tag
     # post-deploy has no hard dep — it can be rerun independently at any time
 }
@@ -850,7 +853,28 @@ function Step-CreateTag {
     Write-Ok "Tag $($script:NextVersion) created and pushed"
 }
 
-# ─── Step: wait-workflows ────────────────────────────────────────────────────
+# ─── Step: merge-back ────────────────────────────────────────────────────────
+function Step-MergeBack {
+    # Git Flow: after merging develop→main and tagging, merge main back into
+    # develop so the release tag is in develop's commit ancestry.  Without this
+    # MinVer on develop cannot see the tag (it lives on main's merge commit, which
+    # is a child of develop's tip, not an ancestor of it).
+    #
+    # The merge is straightforward because develop and main diverged only at the
+    # PR merge commit; the file trees are identical, so git resolves any overlapping
+    # changes automatically (the restore-submodules step that follows will fix the
+    # submodule pointer back to develop tracking as usual).
+    $branch = if ($script:CurrentBranch) { $script:CurrentBranch } else { Get-CmdOutput git @('rev-parse', '--abbrev-ref', 'HEAD') }
+    Write-Step "Merging origin/main back into $branch (Git Flow release finish)..."
+    Assert-Cmd git @('fetch', 'origin', 'main') "Failed to fetch origin/main"
+    $mergeMsg = "chore: merge release $($script:NextVersion) back into $branch [skip ci]"
+    Assert-Cmd git @('merge', 'origin/main', '--no-ff', '-m', $mergeMsg) "Merge of origin/main into $branch failed"
+    if ($IsDryRun) { Write-Warn "DRYRUN: skipping push of merge-back commit"; return }
+    Assert-Cmd git @('push', 'origin', $branch) "git push failed after merge-back"
+    Write-Ok "Tag $($script:NextVersion) is now reachable from $branch (MinVer will see it)"
+}
+
+
 function Step-WaitWorkflows {
     if ($IsNoGh -or -not (Get-Command gh -ErrorAction SilentlyContinue)) {
         Write-Warn "gh not available: skipping workflow wait"
@@ -1138,6 +1162,7 @@ $StepFns = @{
     'pr'             = { Step-CreateMergePR }
     'restore-submodules'   = { Step-RestoreSubmodules }
     'tag'            = { Step-CreateTag }
+    'merge-back'     = { Step-MergeBack }
     'wait-workflows' = { Step-WaitWorkflows }
     'post-deploy'    = { Step-PostDeploy }
 }
