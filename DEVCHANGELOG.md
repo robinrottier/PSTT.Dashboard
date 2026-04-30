@@ -1,3 +1,24 @@
+## 2026-04-30 — release.ps1 interactive menu improvements
+
+### Commit: 6759d4e · 2026-04-30 17:xx UTC · branch: develop
+
+---
+
+### Item 1 — release.ps1 arg/menu enhancements
+
+**Changes:**
+- **`-Preset` (positional)**: `release.ps1 build` or `release.ps1 all` pre-populates the menu selection before it's shown. Supports the same token syntax as the interactive prompt (group keywords, numbers, ranges, comma-separated). Menu still displays so the user can review/modify before typing `r`.
+- **`r`/`run` required to execute**: Bare `<Enter>` no longer starts the run. A warning is shown instead. Requires explicit `r` or `run` to avoid accidental execution.
+- **`a` alias for `all`**: Shorter to type when you want all steps.
+- **`x` alias for `exit`/`quit`**: One keystroke to quit the menu.
+- Updated the on-screen command hint text to reflect all of the above.
+
+**Files:** `scripts/release.ps1`
+
+**Remaining TODO:** Detecting when a spawned subprocess is stuck waiting for input (Invoke-Cmd stall detection already fires after 90s of no output, which covers most cases).
+
+---
+
 ## 2026-04-30 — pstt-sub --tree mode; configurable reverse proxy trust; pstt-monitor TODO
 
 ### Commits: 825b841, bc85697, da1be0a · 2026-04-30 16-17 UTC · branch: develop

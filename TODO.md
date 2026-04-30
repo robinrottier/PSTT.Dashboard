@@ -10,10 +10,6 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 - [ ] release.ps1
 	- [ ] if a step is stuck on a command prompt for input can anything be done to detect that and abort or prompt user?
-	- [ ] shouwld accept "a" for "all" to run all steps without prompting for each one
-	- [ ] shoudl accept r and run aswell as just enter to start the run -- maybe enter is dangerous and should not be accepted, you have to enter r[un]
-	- [ ] x for e[X]it
-	- [ ] command line should accept any keyword you can type e.g. like "build" or "all" to preload that setting
 
 - [ ] Node Property dialog - color transition
 	- [ ] Needs a means to drag reordering around the conditions to specify which is first match
