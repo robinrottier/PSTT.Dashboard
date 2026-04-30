@@ -82,6 +82,13 @@
 .PARAMETER Skip
     Step name(s) to skip. Accepts an array or a comma-separated string.
 
+.PARAMETER Preset
+    Pre-select steps in the interactive menu using the same keywords accepted
+    at the prompt: a group name (e.g. 'build'), 'all', step numbers or ranges
+    (e.g. '1-5'), or a comma-separated mix (e.g. 'build,version').
+    The menu is still shown so the selection can be reviewed and adjusted
+    before typing 'r' to run.
+
 .PARAMETER NonInteractive
     Suppress all interactive prompts; abort automatically on failure.
     Implied when stdin is redirected (e.g. CI pipelines).
@@ -98,6 +105,9 @@
 
 .EXAMPLE
     pwsh ./scripts/release.ps1 -h
+    pwsh ./scripts/release.ps1                              # interactive menu (start from nothing)
+    pwsh ./scripts/release.ps1 build                        # preload 'Build & Test' group in menu
+    pwsh ./scripts/release.ps1 all                          # preload all steps in menu
     pwsh ./scripts/release.ps1 -Help
     pwsh ./scripts/release.ps1
     pwsh ./scripts/release.ps1 -LightBackground        # white/light terminal theme
@@ -133,6 +143,8 @@
 
 [CmdletBinding()]
 Param(
+    [Parameter(Position=0)]
+    [string]$Preset = '',
     [switch]$DryRun,
     [switch]$Verify,
     [switch]$NoGh,
@@ -1055,7 +1067,7 @@ function Get-RepoSlug {
 }
 
 # ─── Interactive step menu ────────────────────────────────────────────────────
-function Show-StepMenu([string[]]$planned) {
+function Show-StepMenu([string[]]$planned, [string]$preset = '') {
     # Validate groups cover exactly the steps in $StepOrder — fail fast on drift
     $allGroupedSteps = $StepGroups.Values | ForEach-Object { $_ }
     $inOrderNotGrouped = $StepOrder | Where-Object { $_ -notin $allGroupedSteps }
@@ -1064,7 +1076,29 @@ function Show-StepMenu([string[]]$planned) {
     if ($inGroupNotOrder)   { throw "BUG: steps in `$StepGroups but not in `$StepOrder: $($inGroupNotOrder -join ', ')" }
 
     $selected = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-    # Start with nothing selected — user builds up the run plan explicitly
+    # Pre-populate from command-line -Preset (same token syntax as the interactive prompt)
+    if (-not [string]::IsNullOrWhiteSpace($preset)) {
+        foreach ($pt in ($preset -split ',')) {
+            $pt = $pt.Trim().ToLower()
+            if ([string]::IsNullOrEmpty($pt)) { continue }
+            if ($pt -eq 'all' -or $pt -eq 'a') {
+                foreach ($s in $StepOrder) { [void]$selected.Add($s) }
+            } elseif ($pgKey = $GroupKeywords.Keys |
+                                Where-Object { $_.StartsWith($pt, [System.StringComparison]::OrdinalIgnoreCase) } |
+                                Select-Object -First 1) {
+                foreach ($s in $StepGroups[$GroupKeywords[$pgKey]]) { [void]$selected.Add($s) }
+            } elseif ($pt -match '^(\d+)-(\d+)$') {
+                $lo = [Math]::Max(1, [Math]::Min([int]$Matches[1], [int]$Matches[2]))
+                $hi = [Math]::Min($StepOrder.Count, [Math]::Max([int]$Matches[1], [int]$Matches[2]))
+                for ($n = $lo; $n -le $hi; $n++) { [void]$selected.Add($StepOrder[$n - 1]) }
+            } elseif ($pt -match '^\d+$') {
+                $n = [int]$pt
+                if ($n -ge 1 -and $n -le $StepOrder.Count) { [void]$selected.Add($StepOrder[$n - 1]) }
+            } else {
+                if ($StepOrder -contains $pt) { [void]$selected.Add($pt) }
+            }
+        }
+    }
 
     # Build stable 1-based number lookup
     $stepNums = @{}
@@ -1095,58 +1129,26 @@ function Show-StepMenu([string[]]$planned) {
         Write-Host ""
         Write-Host "  Commands (comma-separate multiple):" -ForegroundColor $C.Yellow
         Write-Host "    1,3,5      toggle steps by number  |  9-14     toggle a range" -ForegroundColor $C.Dim
-        Write-Host "    build      toggle a group          |  all      select all" -ForegroundColor $C.Dim
-        Write-Host "    none/clear deselect all            |  exit     quit" -ForegroundColor $C.Dim
-        Write-Host "    <Enter>  run selected steps" -ForegroundColor $C.Dim
+        Write-Host "    build      toggle a group          |  all/a    select all" -ForegroundColor $C.Dim
+        Write-Host "    none/clear deselect all            |  x/exit   quit" -ForegroundColor $C.Dim
+        Write-Host "    r[un]      execute selected steps  (Enter alone does nothing)" -ForegroundColor $C.Active
         $rawInput = Read-Host '  >'
 
         if ([string]::IsNullOrWhiteSpace($rawInput)) {
-            # Check for missing dependencies before confirming
-            $depWarnings = [System.Collections.Generic.List[string]]::new()
-            foreach ($s in $StepOrder) {
-                if (-not $selected.Contains($s)) { continue }
-                if (-not $StepDeps.ContainsKey($s)) { continue }
-                foreach ($dep in $StepDeps[$s]) {
-                    if (-not $selected.Contains($dep)) {
-                        $depWarnings.Add("  '$s' requires '$dep'")
-                    }
-                }
-            }
-            if ($depWarnings.Count -gt 0) {
-                Write-Host "`n  ⚠ Missing dependencies:" -ForegroundColor $C.Warn
-                foreach ($w in $depWarnings) { Write-Host $w -ForegroundColor $C.Warn }
-                Write-Host "  Auto-add missing steps? [Y/n] " -ForegroundColor $C.Yellow -NoNewline
-                $ans = (Read-Host).Trim().ToLower()
-                if ($ans -eq '' -or $ans -eq 'y') {
-                    # Auto-add transitively via BFS
-                    $bfsQ = [System.Collections.Generic.Queue[string]]::new()
-                    foreach ($s in @($selected)) {
-                        if ($StepDeps.ContainsKey($s)) {
-                            foreach ($dep in $StepDeps[$s]) {
-                                if (-not $selected.Contains($dep)) { [void]$bfsQ.Enqueue($dep) }
-                            }
-                        }
-                    }
-                    while ($bfsQ.Count -gt 0) {
-                        $dep = $bfsQ.Dequeue()
-                        if ($selected.Add($dep) -and $StepDeps.ContainsKey($dep)) {
-                            foreach ($dd in $StepDeps[$dep]) { [void]$bfsQ.Enqueue($dd) }
-                        }
-                    }
-                    continue  # redisplay menu with deps added
-                }
-                # User chose to proceed anyway
-            }
-            break
+            Write-Host "  Type 'r' or 'run' to execute the plan, 'x' to exit." -ForegroundColor $C.Warn
+            continue
         }
 
+        $shouldRun = $false
         foreach ($token in ($rawInput -split ',')) {
             $t = $token.Trim().ToLower()
             if ([string]::IsNullOrEmpty($t)) { continue }
 
-            if ($t -eq 'exit' -or $t -eq 'quit') {
+            if ($t -eq 'exit' -or $t -eq 'quit' -or $t -eq 'x') {
                 exit 0
-            } elseif ($t -eq 'all') {
+            } elseif ($t -eq 'run' -or $t -eq 'r') {
+                $shouldRun = $true
+            } elseif ($t -eq 'all' -or $t -eq 'a') {
                 foreach ($s in $StepOrder) { [void]$selected.Add($s) }
             } elseif ($t -eq 'none' -or $t -eq 'clear') {
                 $selected.Clear()
@@ -1176,6 +1178,44 @@ function Show-StepMenu([string[]]$planned) {
                     else                         { [void]$selected.Add($s)    }
                 }
             }
+        }
+
+        if ($shouldRun) {
+            # Check for missing dependencies before running
+            $depWarnings = [System.Collections.Generic.List[string]]::new()
+            foreach ($s in $StepOrder) {
+                if (-not $selected.Contains($s)) { continue }
+                if (-not $StepDeps.ContainsKey($s)) { continue }
+                foreach ($dep in $StepDeps[$s]) {
+                    if (-not $selected.Contains($dep)) {
+                        $depWarnings.Add("  '$s' requires '$dep'")
+                    }
+                }
+            }
+            if ($depWarnings.Count -gt 0) {
+                Write-Host "`n  ⚠ Missing dependencies:" -ForegroundColor $C.Warn
+                foreach ($w in $depWarnings) { Write-Host $w -ForegroundColor $C.Warn }
+                Write-Host "  Auto-add missing steps? [Y/n] " -ForegroundColor $C.Yellow -NoNewline
+                $ans = (Read-Host).Trim().ToLower()
+                if ($ans -eq '' -or $ans -eq 'y') {
+                    $bfsQ = [System.Collections.Generic.Queue[string]]::new()
+                    foreach ($s in @($selected)) {
+                        if ($StepDeps.ContainsKey($s)) {
+                            foreach ($dep in $StepDeps[$s]) {
+                                if (-not $selected.Contains($dep)) { [void]$bfsQ.Enqueue($dep) }
+                            }
+                        }
+                    }
+                    while ($bfsQ.Count -gt 0) {
+                        $dep = $bfsQ.Dequeue()
+                        if ($selected.Add($dep) -and $StepDeps.ContainsKey($dep)) {
+                            foreach ($dd in $StepDeps[$dep]) { [void]$bfsQ.Enqueue($dd) }
+                        }
+                    }
+                    continue  # redisplay menu with deps added
+                }
+            }
+            break
         }
     }
 
@@ -1279,7 +1319,7 @@ try {
 
     # When running interactively with no explicit step selection, show the menu
     if ($IsInteractive -and -not $Only -and -not $From -and $SkipSet.Count -eq 0) {
-        $stepsToRun = [string[]]@(Show-StepMenu $stepsToRun)
+        $stepsToRun = [string[]]@(Show-StepMenu $stepsToRun $Preset)
     } else {
         Write-Host "`nSteps to run: $($stepsToRun -join ' → ')" -ForegroundColor $C.Cyan
     }
