@@ -17,7 +17,7 @@
                 <MudText Typo="Typo.subtitle2" Class="mb-2">Incoming API Token</MudText>
                 <MudPaper Class="pa-3" Elevation="1">
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                        <MudTextField T="string" @bind-Value="_token" ReadOnly="true" Dense="true" 
+                        <MudTextField T="string" @bind-Value="_token" ReadOnly="true"
                                       Style="flex-grow:1" Variant="Variant.Outlined" />
                         <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" 
                                    OnClick="CopyToken" Disabled="_copying">
@@ -57,9 +57,9 @@
                                     </MudStack>
                                     <div style="display:flex;gap:2px;">
                                         <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary"
-                                                       OnClick="@(() => StartEditing(r))" Title="Edit" />
+                                                       OnClick="@(() => StartEditing(r))" />
                                         <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
-                                                       OnClick="@(() => RemoveRepo(r.Name))" Title="Delete" />
+                                                       OnClick="@(() => RemoveRepo(r.Name))" />
                                     </div>
                                 </div>
                             </MudListItem>
@@ -72,10 +72,10 @@
             <div>
                 <MudText Typo="Typo.subtitle2" Class="mb-2">@(_editingName != null ? $"Edit: {_editingName}" : "Add Remote Repository")</MudText>
                 <MudStack Spacing="2">
-                    <MudTextField T="string" @bind-Value="_newName" Label="Name" Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense" />
-                    <MudTextField T="string" @bind-Value="_newUrl" Label="URL (https://...)" Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense" />
+                    <MudTextField T="string" @bind-Value="_newName" Label="Name" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    <MudTextField T="string" @bind-Value="_newUrl" Label="URL (https://...)" Variant="Variant.Outlined" Margin="Margin.Dense" />
                     <MudTextField T="string" @bind-Value="_newToken" Label="API Token (from target server)"
-                                  Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense" InputType="InputType.Password" />
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" InputType="InputType.Password" />
                     @if (!string.IsNullOrEmpty(_addError))
                     {
                         <MudAlert Severity="Severity.Error" Dense="true">@_addError</MudAlert>
