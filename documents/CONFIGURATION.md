@@ -123,6 +123,19 @@ The settings below represent all supported keys with their defaults. Copy into `
   // Leave empty when served from the root.
   "AllowedPathBase": "",
 
+  // ── Reverse proxy trusted networks ───────────────────────────────────────
+  // When running behind nginx, Traefik, or another reverse proxy, restrict which
+  // sources are allowed to set X-Forwarded-* headers. If both lists are empty,
+  // forwarded headers are trusted from ALL sources (safe only in closed networks).
+  //
+  // Specify your proxy's IP or subnet here for production deployments.
+  // KnownNetworks accepts CIDR notation; KnownProxies accepts individual IPs.
+  // A startup warning is logged in non-Development environments when both are empty.
+  "ReverseProxy": {
+    "KnownNetworks": [],  // e.g. ["10.0.0.0/8"] — your proxy's subnet
+    "KnownProxies": []    // e.g. ["10.0.0.5"] — your proxy's IP
+  },
+
   // ── Remote access API ─────────────────────────────────────────────────────
   "RemoteAccess": {
     // API token for machine-to-machine access (e.g. pstt-sub CLI, remote dashboards).
@@ -326,7 +339,44 @@ Leave empty when served from the root (`/`).
 
 ---
 
-### `RemoteAccess`
+### `ReverseProxy`
+
+Controls which sources are allowed to set `X-Forwarded-For`, `X-Forwarded-Proto`, and `X-Forwarded-Host` headers. These headers are read by the app to determine the client's real IP address, protocol, and host when running behind a reverse proxy.
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `KnownNetworks` | `[]` | CIDR subnets of trusted reverse proxies (e.g. `["10.0.0.0/24"]`) |
+| `KnownProxies` | `[]` | Individual IPs of trusted reverse proxies (e.g. `["10.0.0.5"]`) |
+
+**Behaviour:**
+- **Both empty** (default): forwarded headers are trusted from *any* source. This is safe in fully closed networks or local development. A startup warning is logged in non-Development environments.
+- **Either has entries**: only requests arriving from the listed IPs/subnets are trusted. All other `X-Forwarded-*` headers are ignored.
+
+**Production example — trust only your nginx container:**
+```json
+"ReverseProxy": {
+  "KnownNetworks": [],
+  "KnownProxies": ["172.18.0.2"]
+}
+```
+
+**Production example — trust a private Docker bridge subnet:**
+```json
+"ReverseProxy": {
+  "KnownNetworks": ["172.18.0.0/16"],
+  "KnownProxies": []
+}
+```
+
+> ⚠️ **Do not** add broad RFC1918 ranges (e.g. `10.0.0.0/8`, `192.168.0.0/16`) as catch-all entries unless every host on that network is a trusted proxy. Doing so allows any machine on the network to spoof `X-Forwarded-*` headers.
+
+Environment variable equivalents:
+```
+ReverseProxy__KnownNetworks__0=172.18.0.0/16
+ReverseProxy__KnownProxies__0=172.18.0.2
+```
+
+---
 
 | Key | Default | Description |
 |-----|---------|-------------|
@@ -383,6 +433,8 @@ All keys can be set as environment variables. Replace `:` with `__` (double unde
 | `DiagramStorage:DataDirectory` | `DiagramStorage__DataDirectory` |
 | `ReadOnly` | `ReadOnly` |
 | `ReadOnlyPorts` | `ReadOnlyPorts` |
+| `ReverseProxy:KnownNetworks:0` | `ReverseProxy__KnownNetworks__0` |
+| `ReverseProxy:KnownProxies:0` | `ReverseProxy__KnownProxies__0` |
 | `ASPNETCORE_URLS` | `ASPNETCORE_URLS` *(ASP.NET built-in)* |
 | `ASPNETCORE_ENVIRONMENT` | `ASPNETCORE_ENVIRONMENT` *(ASP.NET built-in)* |
 
