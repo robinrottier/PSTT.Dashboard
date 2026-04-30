@@ -1,6 +1,8 @@
 @using MudBlazor
+@using PSTT.Dashboard.Services
 @inject HttpClient Http
 @inject PSTT.Dashboard.Services.IDashboardService DashboardService
+@inject IStartupSettingsService StartupSettingsService
 
 <MudDialog>
     <DialogContent>
@@ -59,12 +61,9 @@
         // Load current settings
         try
         {
-            var resp = await Http.GetFromJsonAsync<StartupSettingsDto>("/api/settings/startup");
-            if (resp != null)
-            {
-                _mode = resp.Mode;
-                _dashboard = resp.Dashboard ?? string.Empty;
-            }
+            var resp = await StartupSettingsService.GetStartupSettingsAsync();
+            _mode = resp.Mode;
+            _dashboard = resp.Dashboard ?? string.Empty;
         }
         catch { /* ignore — defaults will be used */ }
 
@@ -103,6 +102,4 @@
     }
 
     private void Cancel() => MudDialog.Cancel();
-
-    private record StartupSettingsDto(string Mode, string? Dashboard);
 }

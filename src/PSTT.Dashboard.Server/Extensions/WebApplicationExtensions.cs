@@ -5,10 +5,13 @@ using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using PSTT.Remote.AspNetCore.Extensions;
+using System.Net;
 
 namespace PSTT.Dashboard.Server.Extensions;
 
@@ -84,16 +87,7 @@ public static class WebApplicationExtensions
 
         // Configure forwarded headers support for reverse proxy scenarios (nginx, etc.)
         // This must run early in the pipeline so other middleware sees the correct scheme/host.
-        app.UseForwardedHeaders(new ForwardedHeadersOptions
-        {
-            ForwardedHeaders = ForwardedHeaders.XForwardedFor | 
-                               ForwardedHeaders.XForwardedProto |
-                               ForwardedHeaders.XForwardedHost,
-            // In production behind a trusted reverse proxy, limit to known networks.
-            // For development/testing, accept from any source.
-            KnownNetworks = { }, // Empty = accept from all (configure in production!)
-            KnownProxies = { }   // Empty = accept from all (configure in production!)
-        });
+        app.UseForwardedHeaders(BuildForwardedHeadersOptions(app));
 
         // Configure the HTTP request pipeline
         if (app.Environment.IsDevelopment())
@@ -185,5 +179,51 @@ public static class WebApplicationExtensions
         razorComponentsEndpoint.AddAdditionalAssemblies(typeof(PSTT.Dashboard._Imports).Assembly);
 
         return app;
+    }
+
+    private static ForwardedHeadersOptions BuildForwardedHeadersOptions(WebApplication app)
+    {
+        var options = new ForwardedHeadersOptions
+        {
+            ForwardedHeaders = ForwardedHeaders.XForwardedFor |
+                               ForwardedHeaders.XForwardedProto |
+                               ForwardedHeaders.XForwardedHost,
+        };
+
+        // Clear ASP.NET Core's default (loopback-only) trusted sources before applying config.
+        options.KnownIPNetworks.Clear();
+        options.KnownProxies.Clear();
+
+        var knownNetworksCidr = app.Configuration.GetSection("ReverseProxy:KnownNetworks").Get<string[]>() ?? [];
+        var knownProxiesIp = app.Configuration.GetSection("ReverseProxy:KnownProxies").Get<string[]>() ?? [];
+
+        foreach (var cidr in knownNetworksCidr)
+        {
+            if (System.Net.IPNetwork.TryParse(cidr, out var network))
+                options.KnownIPNetworks.Add(network);
+            else
+                app.Logger.LogWarning("ReverseProxy:KnownNetworks: '{Cidr}' is not valid CIDR notation, skipping", cidr);
+        }
+
+        foreach (var ip in knownProxiesIp)
+        {
+            if (IPAddress.TryParse(ip, out var address))
+                options.KnownProxies.Add(address);
+            else
+                app.Logger.LogWarning("ReverseProxy:KnownProxies: '{Ip}' is not a valid IP address, skipping", ip);
+        }
+
+        // When both collections are empty, ASP.NET Core trusts forwarded headers from all sources.
+        // This is the safe default for local/development use but risky behind a public reverse proxy.
+        if (options.KnownIPNetworks.Count == 0 && options.KnownProxies.Count == 0
+            && !app.Environment.IsDevelopment())
+        {
+            app.Logger.LogWarning(
+                "ReverseProxy: No KnownNetworks or KnownProxies configured — X-Forwarded-* headers " +
+                "are trusted from any source. Set ReverseProxy:KnownNetworks (CIDR) or " +
+                "ReverseProxy:KnownProxies (IP) in appsettings to restrict to your reverse proxy.");
+        }
+
+        return options;
     }
 }

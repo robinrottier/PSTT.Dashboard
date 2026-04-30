@@ -1613,6 +1613,4 @@ public partial class Display : IDisposable
 
         GC.SuppressFinalize(this);
     }
-
-    private record StartupSettingsDto(string Mode, string? Dashboard);
 }

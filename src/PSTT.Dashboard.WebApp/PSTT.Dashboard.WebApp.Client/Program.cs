@@ -26,5 +26,13 @@ builder.Services.AddScoped<IDashboardService, DashboardService>();
 // Add AuthService (needs HttpClient)
 builder.Services.AddScoped<IAuthService, AuthService>();
 
+// Add HTTP-backed service implementations for WASM (server-side uses direct injection)
+builder.Services.AddScoped<IRemoteRepoService, HttpRemoteRepoService>();
+builder.Services.AddScoped<IAppSettingsService, HttpAppSettingsService>();
+builder.Services.AddScoped<ISetupService, HttpSetupService>();
+builder.Services.AddScoped<IUpdateStatusService, HttpUpdateStatusService>();
+builder.Services.AddScoped<IStartupSettingsService, HttpStartupSettingsService>();
+builder.Services.AddScoped<IRemoteAccessService, HttpRemoteAccessService>();
+
 await builder.Build().RunAsync();
 

@@ -7,6 +7,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [v0.1.9] - 2026-04-30
+
+### Added
+- **`pstt-sub --tree` mode**: New flag renders a live ANSI tree of all subscribed topics (current state) in the terminal, updated at 200 ms. Uses Spectre.Console. Replaces the streaming line-per-message output with a compact at-a-glance view.
+- **Configurable reverse proxy trust** (`ReverseProxy:KnownNetworks` / `ReverseProxy:KnownProxies`): Production deployments can now restrict which upstream sources are trusted for `X-Forwarded-*` headers. Logs a startup warning when left unconfigured in non-Development. See `CONFIGURATION.md` for examples.
+- **`release.ps1` interactive menu improvements**: Added `-Preset` positional parameter to pre-select steps from the command line (e.g. `release.ps1 build`). Added `a`/`all`, `x`/`exit` shorthands. Bare Enter no longer accidentally starts a run — must type `r` or `run`.
+
+### Changed
+- **Direct service injection for settings/setup/update APIs**: Server-side Blazor circuits no longer make HTTP loopback calls to read app settings, setup status, update status, startup settings, remote access token, or remote repo list. These are now served directly from in-process services (`IConfiguration`, `UpdateCheckService`, etc.) on the server; WASM circuits still call the REST API. Eliminates a class of connection failures when the app is accessed via a non-localhost address or behind a reverse proxy.
+
 ## [v0.1.8] - 2026-04-29
 
 ### Fixed

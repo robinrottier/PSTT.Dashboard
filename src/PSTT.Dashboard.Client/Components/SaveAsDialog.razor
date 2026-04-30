@@ -7,6 +7,7 @@
 @inject HttpClient Http
 @inject ILogger<SaveAsDialog> Logger
 @inject ILoggerFactory LoggerFactory
+@inject IRemoteRepoService RemoteRepoService
 
 <MudDialog Style="min-width:420px;">
     <TitleContent>
@@ -28,7 +29,7 @@
             }
 
             <!-- Name input -->
-            <MudTextField T="string" @bind-Value="_name" Label="Save As Dashboard Name" Variant="Variant.Outlined" Dense="true"
+            <MudTextField T="string" @bind-Value="_name" Label="Save As Dashboard Name" Variant="Variant.Outlined"
                           FullWidth="true" AutoFocus="true" Margin="Margin.Dense" />
 
             <!-- Existing names — click to populate name field -->
@@ -64,7 +65,7 @@
     protected override async Task OnInitializedAsync()
     {
         _name = InitialName;
-        try { _remoteRepos = await Http.GetFromJsonAsync<List<RemoteRepoInfo>>("/api/settings/remote-repos") ?? []; }
+        try { _remoteRepos = await RemoteRepoService.GetRemoteReposAsync(); }
         catch { _remoteRepos = []; }
         await RefreshExistingNames();
     }
