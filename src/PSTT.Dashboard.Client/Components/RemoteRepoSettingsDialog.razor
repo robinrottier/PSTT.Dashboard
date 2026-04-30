@@ -1,7 +1,10 @@
 @using MudBlazor
 @using PSTT.Dashboard.Models
+@using PSTT.Dashboard.Services
 @inject HttpClient Http
 @inject IDialogService DialogService
+@inject IRemoteRepoService RemoteRepoService
+@inject IRemoteAccessService RemoteAccessService
 
 <MudDialog>
     <TitleContent>
@@ -124,9 +127,9 @@
     {
         try
         {
-            var resp = await Http.GetFromJsonAsync<TokenResponse>("/api/settings/remote-access/token");
-            _token = resp?.Token ?? string.Empty;
-            _authWarning = resp?.Warning;
+            var resp = await RemoteAccessService.GetOrCreateTokenAsync();
+            _token = resp.Token;
+            _authWarning = resp.Warning;
         }
         catch { }
     }
@@ -135,7 +138,7 @@
     {
         try
         {
-            _repos = await Http.GetFromJsonAsync<List<RemoteRepoInfo>>("/api/settings/remote-repos") ?? [];
+            _repos = await RemoteRepoService.GetRemoteReposAsync();
         }
         catch { }
     }
@@ -160,7 +163,7 @@
             var resp = await Http.PostAsJsonAsync("/api/settings/remote-access/token/regenerate", new { });
             if (resp.IsSuccessStatusCode)
             {
-                var content = await resp.Content.ReadFromJsonAsync<TokenResponse>();
+                var content = await resp.Content.ReadFromJsonAsync<RemoteAccessTokenDto>();
                 _token = content?.Token ?? string.Empty;
             }
         }
@@ -270,6 +273,4 @@
     }
 
     private void Cancel() => MudDialog.Cancel();
-
-    private record TokenResponse(string Token, string? Warning);
 }

@@ -7,6 +7,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- **Direct service injection for settings/setup/update APIs**: Server-side Blazor circuits no longer make HTTP loopback calls to read app settings, setup status, update status, startup settings, remote access token, or remote repo list. These are now served directly from in-process services (`IConfiguration`, `UpdateCheckService`, etc.) on the server; WASM circuits still call the REST API. Eliminates a class of connection failures when the app is accessed via a non-localhost address or behind a reverse proxy.
+
 ## [v0.1.8] - 2026-04-29
 
 ### Fixed

@@ -1,6 +1,63 @@
-## 2026-05-XX — Reverse-proxy support & server-side service optimization
+## 2026-04-30 — Full direct service injection for settings/setup/update APIs
 
-### Commit: TBD · 2026-05-XX · branch: develop
+### Commit: TBD · 2026-04-30 15:29 UTC · branch: develop
+
+---
+
+### Item 1 — Extend direct service injection pattern to all server-to-self API reads
+
+**Problem:** Multiple Blazor components running server-side were making HTTP loopback calls to their own API controllers for reads that are immediately available in-process (app settings from `IConfiguration`, setup status, update status, startup settings, remote access token, remote repos list). This was introduced as a partial fix in the previous session (`IRemoteRepoService` + service-locator branch in `DashboardPickerDialog`), but the pattern was inconsistent and incomplete. Other components still used `HttpClient` for the same anti-pattern.
+
+**New service interfaces created** (`src/PSTT.Dashboard.Client/Services/`):
+- `IAppSettingsService` — returns `AppSettingsDto` (auto-save, alternate instances list)
+- `ISetupService` — returns `bool` (whether first-time setup is required)
+- `IUpdateStatusService` — returns `UpdateStatusDto?` (full update/version info)
+- `IStartupSettingsService` — returns `StartupSettingsDto?` (startup mode, dashboard name)
+- `IRemoteAccessService` — returns `RemoteAccessTokenDto?` via `GetOrCreateTokenAsync()` (generates+stores token if absent)
+- `IRemoteRepoService` — already existed; now also has `HttpRemoteRepoService` WASM impl
+
+**HTTP (WASM) implementations created** (`src/PSTT.Dashboard.Client/Services/`):
+- `HttpAppSettingsService`, `HttpSetupService`, `HttpUpdateStatusService`, `HttpStartupSettingsService`, `HttpRemoteAccessService`, `HttpRemoteRepoService` — call the corresponding REST API endpoints via `HttpClient`; used when running in the browser (WASM circuit)
+
+**Server implementations created** (`src/PSTT.Dashboard.Server/Services/`):
+- `ServerAppSettingsService` — reads from `IConfiguration` directly
+- `ServerSetupService` — reads `Authentication:AllowPublicAccess` + `Authentication:Credentials` count from `IConfiguration`
+- `ServerUpdateStatusService` — reads `UpdateCheckService.UpdateInfo` in-process; also reads `IConfiguration`, `IDiagramStorage`, `RuntimeInformation`, `Environment.MachineName`
+- `ServerStartupSettingsService` — reads `StartupSettings` section from `IConfiguration`
+- `ServerRemoteAccessService` — reads token from `IUserSettingsService`; generates+persists a new one (via `RandomNumberGenerator`) if absent
+
+**Registration:**
+- `src/PSTT.Dashboard.Server/Extensions/ServiceCollectionExtensions.cs` — 5 new singleton registrations
+- `src/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp.Client/Program.cs` — 6 new scoped registrations
+
+**Callers updated (HTTP → service injection):**
+- `MainLayout.razor` — app settings (auto-save, alternate instances), setup check: removed `@inject IServiceProvider`, now uses 3 direct `@inject` service fields
+- `ChangePassword.razor` — setup check: removed private `SetupDto` record
+- `Setup.razor` — setup check: removed private `SetupDto` record
+- `StartupSettingsDialog.razor` — startup settings GET: removed private `StartupSettingsDto` record
+- `RemoteRepoSettingsDialog.razor` — token GET + repos GET: removed private `TokenResponse` record
+- `SaveAsDialog.razor` — remote repos GET
+- `DashboardPickerDialog.razor` — remote repos GET: removed service locator pattern (`IServiceProvider.GetService()`) and `!OperatingSystem.IsBrowser()` branch; now just `@inject IRemoteRepoService` directly
+- `AboutDialog.razor` — update status GET: removed private `UpdateStatusDto` record; POST actions (check, download, restart, host-update) still use `HttpClient` (correct — they're mutations/actions)
+- `Display.razor.cs` — removed orphaned `private record StartupSettingsDto` (was defined but never used in that file)
+
+**How it works:**
+- Server-side: DI resolves `Server*` implementations → reads directly from in-process state, no network
+- WASM: DI resolves `Http*` implementations → makes REST API call via `HttpClient` (browser handles routing)
+- `WebAppServerOnly` host gets server impls automatically via `AddDashboard()` → `AddDashboardServerServices()`
+- No `IsBrowser()` checks or service-locator patterns needed in components
+
+**Auth note:** Server implementations bypass controller auth checks (consistent with the existing `IDashboardService`/`ServerDashboardService` pattern). UI components are only accessible to authenticated users; the controllers still enforce auth for direct external API access.
+
+**Caveats:**
+- ⚠️ `ServerRemoteAccessService.GetOrCreateTokenAsync()` has a side-effect (generates+stores a token) — named explicitly to document this
+- ⚠️ Token generation logic is duplicated from `SettingsController.GenerateAndStoreTokenAsync()` — intentional to avoid HTTP, but should be extracted to a shared helper if the generation logic ever changes
+
+---
+
+## 2026-05-XX — Reverse-proxy support & server-side service optimization (partial — initial IRemoteRepoService)
+
+### Commit: 32a4f940 · 2026-04-29 · branch: develop
 
 ---
 
@@ -65,35 +122,6 @@
 **Caveats:**
 - ⚠️ `KnownNetworks` and `KnownProxies` are empty (accept from any source). In production, these should be locked down to trusted proxy IPs.
 - ⚠️ The forwarded headers middleware runs after the path-base middleware; order is intentional (path base should be applied after scheme/host/port are corrected).
-
----
-
-### Item 4 — Add direct service injection for server-side components (Option 1)
-
-**Problem:** Server-side Blazor circuits were making HTTP loopback calls to their own API controllers (e.g., `/api/settings/remote-repos`), adding network overhead and complicating reverse-proxy scenarios. This was inefficient when both the component and the controller run in the same process.
-
-**Files changed:**
-- `src/PSTT.Dashboard.Client/Services/IRemoteRepoService.cs` *(new)* — Interface for remote repository service, shared between Client and Server projects.
-- `src/PSTT.Dashboard.Server/Services/RemoteRepoService.cs` *(new)* — Server-side implementation that reads configuration directly, avoiding HTTP loopback.
-- `src/PSTT.Dashboard.Server/Extensions/ServiceCollectionExtensions.cs` — Registered `IRemoteRepoService` as singleton.
-- `src/PSTT.Dashboard.Client/Components/DashboardPickerDialog.razor` — Updated `OnInitializedAsync()` to detect execution context:
-  - **Server-side** (`!OperatingSystem.IsBrowser()`): directly injects and calls `IRemoteRepoService.GetRemoteReposAsync()` (no HTTP).
-  - **WASM** (`OperatingSystem.IsBrowser()`): uses `HttpClient` to call `/api/settings/remote-repos` as before.
-
-**How it works:**
-1. At startup, `RemoteRepoService` is registered in the DI container.
-2. When `DashboardPickerDialog` initializes, it checks `OperatingSystem.IsBrowser()`.
-3. Server-side: `ServiceProvider.GetService(typeof(IRemoteRepoService))` returns the service, which reads from `IConfiguration` directly.
-4. WASM: falls back to `Http.GetFromJsonAsync<>()` as before.
-
-**Benefits:**
-- Eliminates network round-trip for server-side circuits.
-- Works correctly in reverse-proxy scenarios without requiring complex loopback URL construction.
-- More efficient and simpler to reason about.
-
-**Future work:**
-- Consider applying this pattern to other server-to-self API calls (e.g., dashboard list, auth checks).
-- Abstract the pattern into a reusable helper or convention.
 
 ---
 

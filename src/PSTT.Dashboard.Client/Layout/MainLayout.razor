@@ -7,8 +7,10 @@
 @inject ApplicationState AppState
 @inject IJSRuntime JS
 @inject NavigationManager Nav
-@inject HttpClient Http
 @inject LocalStorageService LocalStorage
+@inject IAppSettingsService AppSettingsService
+@inject ISetupService SetupService
+@inject IUpdateStatusService UpdateStatusService
 <MudThemeProvider Theme="@_theme" IsDarkMode="@ComputedDarkMode" />
 <MudPopoverProvider />
 <MudDialogProvider />
@@ -193,21 +195,17 @@
 
             try
             {
-                var appSettings = await Http.GetFromJsonAsync<AppSettingsResponse>("/api/settings/app");
-                if (appSettings != null)
-                {
-                    AppState.SetAutoSaveOnExitEditMode(appSettings.AutoSaveOnExit);
-                    if (appSettings.AlternateInstances is { Count: > 0 } list)
-                        AppState.SetAlternateInstances(list.Select(x => new AlternateInstance(x.Label, x.Url)).ToList());
-                    StateHasChanged();
-                }
+                var appSettings = await AppSettingsService.GetAppSettingsAsync();
+                AppState.SetAutoSaveOnExitEditMode(appSettings.AutoSaveOnExit);
+                if (appSettings.AlternateInstances is { Count: > 0 } list)
+                    AppState.SetAlternateInstances(list.Select(x => new AlternateInstance(x.Label, x.Url)).ToList());
+                StateHasChanged();
             }
             catch { /* ignore — non-critical */ }
 
             try
             {
-                var resp = await Http.GetFromJsonAsync<SetupNeededResponse>("/api/setup/needed");
-                if (resp?.Needed == true)
+                if (await SetupService.IsSetupNeededAsync())
                 {
                     _setupNeeded = true;
                     StateHasChanged();
@@ -218,7 +216,7 @@
             // Check for available updates
             try
             {
-                var status = await Http.GetFromJsonAsync<UpdateStatusResponse>("/api/update/status");
+                var status = await UpdateStatusService.GetStatusAsync();
                 if (status != null)
                 {
                     AppState.SetUpdateState(status.CurrentVersion, status.LatestVersion,
@@ -260,12 +258,6 @@
     {
         AppState.OnStateChanged -= OnAppStateChanged;
     }
-
-    private record SetupNeededResponse(bool Needed);
-    private record UpdateStatusResponse(string CurrentVersion, string? LatestVersion, bool UpdateAvailable,
-        string DeploymentType, DateTimeOffset? LastChecked, string? ReleaseUrl, string RuntimeIdentifier);
-    private record AlternateInstanceDto(string Label, string Url);
-    private record AppSettingsResponse(bool AutoSaveOnExit, List<AlternateInstanceDto>? AlternateInstances);
 
     private readonly PaletteLight _lightPalette = new()
     {

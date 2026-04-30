@@ -81,6 +81,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<UserSettingsService>();
         services.AddSingleton<LoginTokenStore>();
         services.AddSingleton<IRemoteRepoService, RemoteRepoService>();
+        services.AddSingleton<IAppSettingsService, ServerAppSettingsService>();
+        services.AddSingleton<ISetupService, ServerSetupService>();
+        services.AddSingleton<IUpdateStatusService, ServerUpdateStatusService>();
+        services.AddSingleton<IStartupSettingsService, ServerStartupSettingsService>();
+        services.AddSingleton<IRemoteAccessService, ServerRemoteAccessService>();
         services.AddHttpContextAccessor();
         services.AddScoped<HttpClient>(sp => CreateLoopbackHttpClient(sp));
         services.AddScoped<IDashboardService, ServerDashboardService>();

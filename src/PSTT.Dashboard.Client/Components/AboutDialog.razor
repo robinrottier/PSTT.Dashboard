@@ -6,6 +6,7 @@
 @inject NavigationManager NavManager
 @inject HttpClient Http
 @inject MudBlazor.IDialogService DialogService
+@inject IUpdateStatusService UpdateStatusService
 @implements IDisposable
 
 <MudDialog>
@@ -185,9 +186,6 @@
     [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
 
     private record InfoItem(string Label, string Value);
-    private record UpdateStatusDto(string CurrentVersion, string? LatestVersion, bool UpdateAvailable,
-        string DeploymentType, DateTimeOffset? LastChecked, string? ReleaseUrl, string RuntimeIdentifier,
-        string? MachineName, string? DataDirectory, string? DotNetVersion, string? OsDescription);
     private record DownloadResult(bool Success, string? Instructions, string? Error);
 
     private List<InfoItem> _appInfo = new();
@@ -311,14 +309,13 @@
                 Console.Error.WriteLine($"Update check POST failed: {postEx}");
             }
 
-            // Now request the status. Use GetAsync to surface HTTP status codes.
-            var getResp = await Http.GetAsync("/api/update/status");
-            if (!getResp.IsSuccessStatusCode)
+            // Now request the status via service (avoids loopback HTTP on server-side circuits).
+            _updateStatus = await UpdateStatusService.GetStatusAsync();
+            if (_updateStatus == null)
             {
-                _updateError = $"Could not retrieve update status: {(int)getResp.StatusCode} {getResp.ReasonPhrase}";
+                _updateError = "Could not retrieve update status.";
                 return;
             }
-            _updateStatus = await getResp.Content.ReadFromJsonAsync<UpdateStatusDto>();
         }
         catch (Exception ex)
         {

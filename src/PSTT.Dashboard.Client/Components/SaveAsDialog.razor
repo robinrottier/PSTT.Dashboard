@@ -7,6 +7,7 @@
 @inject HttpClient Http
 @inject ILogger<SaveAsDialog> Logger
 @inject ILoggerFactory LoggerFactory
+@inject IRemoteRepoService RemoteRepoService
 
 <MudDialog Style="min-width:420px;">
     <TitleContent>
@@ -64,7 +65,7 @@
     protected override async Task OnInitializedAsync()
     {
         _name = InitialName;
-        try { _remoteRepos = await Http.GetFromJsonAsync<List<RemoteRepoInfo>>("/api/settings/remote-repos") ?? []; }
+        try { _remoteRepos = await RemoteRepoService.GetRemoteReposAsync(); }
         catch { _remoteRepos = []; }
         await RefreshExistingNames();
     }
