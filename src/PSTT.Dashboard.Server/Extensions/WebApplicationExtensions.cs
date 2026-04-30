@@ -91,7 +91,7 @@ public static class WebApplicationExtensions
                                ForwardedHeaders.XForwardedHost,
             // In production behind a trusted reverse proxy, limit to known networks.
             // For development/testing, accept from any source.
-            KnownNetworks = { }, // Empty = accept from all (configure in production!)
+            KnownIPNetworks = { }, // Empty = accept from all (configure in production!)
             KnownProxies = { }   // Empty = accept from all (configure in production!)
         });
 
