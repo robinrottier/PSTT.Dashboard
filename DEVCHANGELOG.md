@@ -1,3 +1,52 @@
+## 2026-04-30 — pstt-sub --tree mode; configurable reverse proxy trust; pstt-monitor TODO
+
+### Commits: 825b841, bc85697, da1be0a · 2026-04-30 16-17 UTC · branch: develop
+
+---
+
+### Item 1 — pstt-sub `--tree` live display mode
+
+**Problem:** `pstt-sub` only streamed one line per message. No way to see current state of all topics at a glance.
+
+**Solution:** Added `--tree` flag. When set, maintains a `ConcurrentDictionary<string, (string? Value, bool IsActive, string? StatusMsg)>` updated by the subscribe callback. A `AnsiConsole.Live()` loop rebuilds a Spectre.Console `Tree` at 200 ms intervals:
+- Path segments become yellow branch nodes (e.g. `sensors/`)
+- Leaf nodes show `[cyan]segment[/] = [green]value[/]` when active, dim + status when stale/errored
+- "Waiting for data…" placeholder until first message arrives
+- `--timestamp` is silently ignored in tree mode (tree shows current state, not stream)
+- All user-controlled strings passed through `Markup.Escape()` to prevent Spectre injection
+
+**Files changed:**
+- `libs/PSTT/src/PSTT.Remote.Sub/PSTT.Remote.Sub.csproj` — added `Spectre.Console 0.49.1`
+- `libs/PSTT/src/PSTT.Remote.Sub/Program.cs` — `--tree` parsing, `BuildTopicTree()`, `FormatLeaf()`, updated `PrintUsage()`
+
+**Caveats:** Branch nodes that are also direct-value topics won't relabel — acceptable edge case.
+
+---
+
+### Item 2 — Configurable `ReverseProxy:KnownNetworks`/`KnownProxies` for forwarded headers
+
+**Problem:** `UseForwardedHeaders` was configured with empty `KnownIPNetworks`/`KnownProxies`, meaning it trusted headers from _any_ source. This is fine for development but a security risk in production.
+
+**Solution:** Extracted `BuildForwardedHeadersOptions(WebApplication)` in `WebApplicationExtensions.cs`. Reads `ReverseProxy:KnownNetworks` (CIDR strings) and `ReverseProxy:KnownProxies` (IP strings) from configuration. Invalid entries are skipped with a `LogWarning`. If both lists are empty in non-Development, a startup `LogWarning` reminds operators to configure trusted sources.
+
+Uses `System.Net.IPNetwork` (the .NET 8+ type) for `KnownIPNetworks` — fully qualified to avoid ambiguity with the deprecated `Microsoft.AspNetCore.HttpOverrides.IPNetwork`. This also eliminated the pre-existing ASPDEPR005 build warning.
+
+**Files changed:**
+- `src/PSTT.Dashboard.Server/Extensions/WebApplicationExtensions.cs` — `BuildForwardedHeadersOptions()` method; added `using Microsoft.Extensions.Configuration`, `using Microsoft.Extensions.Logging`, `using System.Net`
+- `src/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp/appsettings.json` — added `ReverseProxy` section
+- `src/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebAppServerOnly/appsettings.json` — added `ReverseProxy` section
+- `documents/CONFIGURATION.md` — added `ReverseProxy` reference section with production examples and security warning
+
+**Caveats:** The custom `X-Forwarded-Prefix` middleware runs _before_ `UseForwardedHeaders` and bypasses the trust model — pre-existing issue, not fixed here.
+
+---
+
+### Item 3 — pstt-monitor TODO added
+
+Added a concrete TODO item under FEAT-H in `TODO.md` for a separate `pstt-monitor` TUI exe using Terminal.Gui v2, specifying tree+value panel layout at `libs/PSTT/src/PSTT.Remote.Monitor/`.
+
+---
+
 ## 2026-04-30 — Full direct service injection for settings/setup/update APIs
 
 ### Commit: TBD · 2026-04-30 15:29 UTC · branch: develop
