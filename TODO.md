@@ -11,10 +11,9 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] release.ps1
 	- [ ] if a step is stuck on a command prompt for input can anything be done to detect that and abort or prompt user?
 	- [ ] shouwld accept "a" for "all" to run all steps without prompting for each one
-	- [ ] shoudl accept r and run aswell as just enter to start the run -- maybe enter is dangerous and should be accepted, you have to enter r[un]
-	- [ ] q or x for [Q]uit or e[X]itto preseelct 
-	- [ ] command line -a or --all to preload all steps without prompting (but still be interactive and allow changing)ac	cept any keyword e.g. like "build" 
-	- [ ] OR should command line accept any key like build (or b) to preselect that section
+	- [ ] shoudl accept r and run aswell as just enter to start the run -- maybe enter is dangerous and should not be accepted, you have to enter r[un]
+	- [ ] x for e[X]it
+	- [ ] command line should accept any keyword you can type e.g. like "build" or "all" to preload that setting
 
 - [ ] Node Property dialog - color transition
 	- [ ] Needs a means to drag reordering around the conditions to specify which is first match
@@ -107,8 +106,7 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 ### FEAT-H: Data layer refactor
 - [ ] `PSTT.Remote.Sub` (`pstt-sub`) CLI tool
-	- [ ] are there cli app libraries that would allow easy display f a tre structure on a terminal? rather than streaming update?
-	      ...or maybe thats another console app variation "pstt-monitor" which shows tree view and aloows navigation (like dbus-monitor program)
+	- [ ] **`pstt-monitor`** — interactive TUI using [Terminal.Gui v2](https://github.com/gui-cs/Terminal.Gui): tree of topics on the left panel (keyboard-navigable expand/collapse), live value + history on the right. Similar to `dbus-monitor`. Separate exe in `libs/PSTT/src/PSTT.Remote.Monitor/`.
 - [ ] Create a simple (Windows) app using tree view control to make a request and show content
 	  -- in fact this would be a data explorer app (without buttons and edit mode features)
 
