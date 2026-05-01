@@ -10,6 +10,8 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 - [ ] release.ps1
 	- [ ] if a step is stuck on a command prompt for input can anything be done to detect that and abort or prompt user?
+	- [ ] add 'SubscribeAsync' test helper on RemoteCache/RemoteCacheClient to await initial non-pending delivery (tests only) — avoid timing races on slow CI agents
+	- [ ] add integration test harness helper to wait for server-side cache retention (GetSnapshot/GetCounts) before subscribing, for CI robustness
 
 - [ ] Node Property dialog - color transition
 	- [ ] Needs a means to drag reordering around the conditions to specify which is first match
