@@ -1,6 +1,6 @@
 ## 2025-07-10 — Fix GridSize persistence and link animation
 
-### Commit: TBD · UTC · branch: develop
+### Commit: 23f4eb3 · UTC · branch: develop
 
 ---
 
