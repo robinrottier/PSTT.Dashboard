@@ -6,12 +6,13 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 ## BUGS
 
+- [ ] Dashboard file is not saving saved with grid size property (its a property of a dashboard becuase its to do with layout and that makes sense for a given file)
+- [ ] 
+
 ## 🟡 Minor Enhancements
 
 - [ ] release.ps1
 	- [ ] if a step is stuck on a command prompt for input can anything be done to detect that and abort or prompt user?
-	- [ ] add 'SubscribeAsync' test helper on RemoteCache/RemoteCacheClient to await initial non-pending delivery (tests only) — avoid timing races on slow CI agents
-	- [ ] add integration test harness helper to wait for server-side cache retention (GetSnapshot/GetCounts) before subscribing, for CI robustness
 
 - [ ] Node Property dialog - color transition
 	- [ ] Needs a means to drag reordering around the conditions to specify which is first match
@@ -28,6 +29,10 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] log viewer colum width: column width changeable via mouse drag and saved in properties _(configurable pixel widths per column added; mouse resize still TODO)_
 
 - [ ] IMport and Export dont seem to be able to see Windows clipboard ... is there some permissions to enable it? This was on firefox
+
+- [ ] testing
+	- [ ] add 'SubscribeAsync' test helper on RemoteCache/RemoteCacheClient to await initial non-pending delivery (tests only) — avoid timing races on slow CI agents
+	- [ ] add integration test harness helper to wait for server-side cache retention (GetSnapshot/GetCounts) before subscribing, for CI robustness
 
 
 
@@ -57,7 +62,11 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 	  - fixed columns, with header row of fixed text but with property which is used in data lookup 
 	  - rows vary dependign on what data is available....so topic search is ess1/servers/+/+ and first "+" matches a row, second "+" matches on fixed column entry
 	  OR same as above but invert rows/columns
-	  Configuration could come from an xml or json input for now rather than properties page designer. Likely to include properties like ColTemplate, RowTemplte, Rows, Columns, ColumnHeaders and some means of simple text entry, single value entry or repeated multivalues for rows. 
+	  Configuration could come from an xml or json input for now rather than properties page designer.
+	  Likely to include properties like ColumnTemplate, RowTemplate, Rows, Columns, ColumnHeaders and some means of simple text entry, single value entry or repeated multivalues for rows. 
+- [ ] **Text entry**
+	- [ ] Support text format for entry: string, date, time, datetime, numeric int/float/%age/
+	- [ ] validation: string length, reg ex match, numeric limits etc
 - [ ] **Radio group** — similar to button group but with exclusive selection -- **DONE** ✓
 - [ ] **Checkbox group** — similar to button group but with independent selection -- just a "visualization display" option as logic the same for all these
 - [ ] Anything mudblazor offers for input should be easy to do
