@@ -389,6 +389,8 @@ public class ApplicationState
     {
         DashboardDisplayName = model.Name;
         ShowName = model.ShowName;
+        GridSize = model.GridSize > 0 ? model.GridSize : 20;
+        GridSnapToCenter = model.GridSnapToCenter;
         if (model.MqttSubscriptions != null)
             SubscribedTopics = new HashSet<string>(model.MqttSubscriptions);
         RebuildBridges();
@@ -410,19 +412,9 @@ public class ApplicationState
         };
         if (!readOnly)
         {
-            if (page == null)
-            {
-                options.GridSize = 20;
-                GridSize = 20;
-                GridSnapToCenter = false;
-            }
-            else
-            {
-                options.GridSize = Math.Clamp(page.GridSize == 0 ? 20 : Math.Abs(page.GridSize), 5, 100);
-                GridSize = (int)options.GridSize;
-                GridSnapToCenter = page.GridSnapToCenter;
-            }
+            options.GridSize = Math.Clamp(GridSize > 0 ? GridSize : 20, 5, 100);
             options.GridSnapToCenter = GridSnapToCenter;
+            GridSize = (int)options.GridSize;
         }
 
         // Apply canvas background from page
@@ -526,15 +518,11 @@ public class ApplicationState
         if (_diagram == null)
             return new DashboardPageModel();
 
-        var gridSize = (int)(_diagram.Options.GridSize ?? GridSize);
-
         var panX = _diagram.Pan.X;
         var panY = _diagram.Pan.Y;
 
         var page = new DashboardPageModel
         {
-            GridSize = gridSize,
-            GridSnapToCenter = _diagram.Options.GridSnapToCenter,
             BackgroundColor = string.IsNullOrEmpty(CanvasBackgroundColor) ? null : CanvasBackgroundColor,
         };
 

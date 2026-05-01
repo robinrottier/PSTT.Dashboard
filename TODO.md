@@ -6,9 +6,6 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 ## BUGS
 
-- [ ] Dashboard file is not saving saved with grid size property (its a property of a dashboard becuase its to do with layout and that makes sense for a given file)
-- [ ] 
-
 ## 🟡 Minor Enhancements
 
 - [ ] release.ps1
