@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [v0.1.10] - 2026-05-01
+
 ### Fixed
 - **GridSize saved at dashboard level**: Grid size and snap-to-center are now stored in the root `DashboardModel` (not per-page). Setting is shared across all pages, correctly round-trips through save/load, and persists to the dashboard file.
 - **Link animation restored**: Port alignment strings (`SourcePort`/`TargetPort` in `LinkData`) were incorrectly marked with `[FileId]`, causing them to be remapped to sequential integers on save. On reload the port lookup failed and links fell back to portless mode, silently disabling all link animations. Removed `[FileId]` from those fields so alignment strings are preserved verbatim.
