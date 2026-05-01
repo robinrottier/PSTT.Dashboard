@@ -11,6 +11,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **GridSize saved at dashboard level**: Grid size and snap-to-center are now stored in the root `DashboardModel` (not per-page). Setting is shared across all pages, correctly round-trips through save/load, and persists to the dashboard file.
 - **Link animation restored**: Port alignment strings (`SourcePort`/`TargetPort` in `LinkData`) were incorrectly marked with `[FileId]`, causing them to be remapped to sequential integers on save. On reload the port lookup failed and links fell back to portless mode, silently disabling all link animations. Removed `[FileId]` from those fields so alignment strings are preserved verbatim.
 - **Page ID preservation on save**: `GetPageData()` now copies the current page's `Id` back before replacing `_pageStates[_activePageIndex]`, preventing each save from assigning a new auto-generated page GUID.
+- **Flaky test hardened** (`MultiClient_DisconnectOneDoesNotAffectOther`): Replaced a blind 20-second publish-retry loop with a direct poll on `_upstream.SubscribeCount`. If either client's Subscribe message is lost the test now fails in ≤5 s with a precise diagnosis instead of timing out 20 s later on something that would never succeed.
+- **Serializer test corrected** (`Serialize_LinkSourceTarget_MatchRemappedNodeIds`): Test was asserting that `SourcePort`/`TargetPort` matched remapped port IDs — wrong semantics. These fields store alignment strings (`"Right"`, `"Left"`), not IDs. Test now verifies they pass through verbatim.
 
 ## [v0.1.9] - 2026-04-30
 

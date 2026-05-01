@@ -1,3 +1,27 @@
+## 2026-05-01 — Harden flaky test; fix serializer test for alignment strings
+
+### Commits: develop
+
+---
+
+### Item 1 — Flaky test `MultiClient_DisconnectOneDoesNotAffectOther` hardened
+
+**Root cause of flakiness:** `RemoteCache.AttachUpstream` fires `SubscribeServerTopicAsync` as fire-and-forget. If the TCP send is swallowed by the existing `catch { }` in `SendMessageAsync`, the Subscribe message never reaches the server. The old test then re-published data for 20 seconds — useless, because no publish can fix a missing subscription.
+
+**Fix (`RemoteCacheTests.cs`):** Replaced the 500 ms fixed delay + 20-second publish-retry loop with a tight 5-second poll on `_upstream.SubscribeCount`. `SubscribeCount` is incremented on the server each time a session calls `_upstream.Subscribe()`. After both clients' Subscribe messages are processed it reaches 2. If it doesn't reach 2 in 5 seconds the test fails immediately with a precise message ("only N/2 subscriptions reached the server") rather than hanging for 20 seconds on something that will never succeed. One publish + `WaitForAsync` (3 s) then confirms the data path.
+
+**Also (`RemoteCacheTests.cs` class comment):** Added explicit comment clarifying that xUnit creates a new class instance per `[Fact]`, so `IAsyncLifetime.InitializeAsync/DisposeAsync` run per test and `_upstream`/`_server` are NOT shared between tests. Field was renamed from "Shared server plumbing" to "Per-test server plumbing" to avoid future confusion.
+
+### Item 2 — Serializer test fixed for alignment-string semantics
+
+**File:** `tests/PSTT.Dashboard.Client.Tests/DashboardSerializerTests.cs` — `Serialize_LinkSourceTarget_MatchRemappedNodeIds`
+
+**Root cause:** The test used port IDs (`"port-A"`, `"port-B"`) for `LinkData.SourcePort`/`TargetPort` and asserted they matched the serialized port's `Id` after remapping. But `SourcePort`/`TargetPort` store **port alignment strings** (`"Right"`, `"Left"`), not IDs — `ApplicationState` serializes `alignment.ToString()` and deserializes with `Enum.Parse<PortAlignment>()`. The test was asserting the buggy `[FileId]`-remapping behaviour that was fixed last session.
+
+**Fix:** Changed `SourcePort`/`TargetPort` to alignment strings; assertions now verify alignment strings pass through verbatim (no remapping) and that `Source`/`Target` (node IDs) still cross-reference the serialized nodes correctly. Added inline comment explaining the semantics.
+
+---
+
 ## 2025-07-10 — Fix GridSize persistence and link animation
 
 ### Commit: 23f4eb3 · UTC · branch: develop

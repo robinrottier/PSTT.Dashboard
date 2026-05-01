@@ -108,6 +108,10 @@ public class DashboardSerializerTests
     [Fact]
     public void Serialize_LinkSourceTarget_MatchRemappedNodeIds()
     {
+        // SourcePort / TargetPort store port *alignment* strings ("Right", "Left"),
+        // not port IDs.  ApplicationState saves alignment.ToString() and loads via
+        // Enum.Parse<PortAlignment>().  They must NOT be treated as IDs and must
+        // survive serialization unchanged.  Only Source / Target (node IDs) are remapped.
         var nodeA = new TextNodeData { Id = "guid-A", Ports = [new NodePortData { Id = "port-A", Alignment = "Right" }] };
         var nodeB = new TextNodeData { Id = "guid-B", Ports = [new NodePortData { Id = "port-B", Alignment = "Left" }] };
 
@@ -124,8 +128,8 @@ public class DashboardSerializerTests
                     [
                         new LinkData
                         {
-                            Source = "guid-A", SourcePort = "port-A",
-                            Target = "guid-B", TargetPort = "port-B"
+                            Source = "guid-A", SourcePort = "Right",
+                            Target = "guid-B", TargetPort = "Left"
                         }
                     ]
                 }
@@ -136,15 +140,16 @@ public class DashboardSerializerTests
         var loaded = JsonSerializer.Deserialize<DashboardModel>(json)!;
 
         var page = loaded.Pages[0];
-        var nodeALoaded = page.Nodes[0];
-        var nodeBLoaded = page.Nodes[1];
         var link = page.Links[0];
 
-        // IDs must be internally consistent
-        Assert.Equal(link.Source, nodeALoaded.Id);
-        Assert.Equal(link.Target, nodeBLoaded.Id);
-        Assert.Equal(link.SourcePort, nodeALoaded.Ports![0].Id);
-        Assert.Equal(link.TargetPort, nodeBLoaded.Ports![0].Id);
+        // Source / Target are node IDs — remapped to sequential integers but must
+        // still cross-reference the serialized nodes correctly.
+        Assert.Equal(link.Source, page.Nodes[0].Id);
+        Assert.Equal(link.Target, page.Nodes[1].Id);
+
+        // SourcePort / TargetPort are alignment strings — must pass through verbatim.
+        Assert.Equal("Right", link.SourcePort);
+        Assert.Equal("Left", link.TargetPort);
     }
 
     [Fact]
