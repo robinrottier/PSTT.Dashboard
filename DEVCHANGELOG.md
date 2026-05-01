@@ -1,4 +1,65 @@
-## 2026-04-30 — release.ps1 interactive menu improvements
+## 2026-05-01 — Harden flaky test; fix serializer test for alignment strings
+
+### Commits: develop
+
+---
+
+### Item 1 — Flaky test `MultiClient_DisconnectOneDoesNotAffectOther` hardened
+
+**Root cause of flakiness:** `RemoteCache.AttachUpstream` fires `SubscribeServerTopicAsync` as fire-and-forget. If the TCP send is swallowed by the existing `catch { }` in `SendMessageAsync`, the Subscribe message never reaches the server. The old test then re-published data for 20 seconds — useless, because no publish can fix a missing subscription.
+
+**Fix (`RemoteCacheTests.cs`):** Replaced the 500 ms fixed delay + 20-second publish-retry loop with a tight 5-second poll on `_upstream.SubscribeCount`. `SubscribeCount` is incremented on the server each time a session calls `_upstream.Subscribe()`. After both clients' Subscribe messages are processed it reaches 2. If it doesn't reach 2 in 5 seconds the test fails immediately with a precise message ("only N/2 subscriptions reached the server") rather than hanging for 20 seconds on something that will never succeed. One publish + `WaitForAsync` (3 s) then confirms the data path.
+
+**Also (`RemoteCacheTests.cs` class comment):** Added explicit comment clarifying that xUnit creates a new class instance per `[Fact]`, so `IAsyncLifetime.InitializeAsync/DisposeAsync` run per test and `_upstream`/`_server` are NOT shared between tests. Field was renamed from "Shared server plumbing" to "Per-test server plumbing" to avoid future confusion.
+
+### Item 2 — Serializer test fixed for alignment-string semantics
+
+**File:** `tests/PSTT.Dashboard.Client.Tests/DashboardSerializerTests.cs` — `Serialize_LinkSourceTarget_MatchRemappedNodeIds`
+
+**Root cause:** The test used port IDs (`"port-A"`, `"port-B"`) for `LinkData.SourcePort`/`TargetPort` and asserted they matched the serialized port's `Id` after remapping. But `SourcePort`/`TargetPort` store **port alignment strings** (`"Right"`, `"Left"`), not IDs — `ApplicationState` serializes `alignment.ToString()` and deserializes with `Enum.Parse<PortAlignment>()`. The test was asserting the buggy `[FileId]`-remapping behaviour that was fixed last session.
+
+**Fix:** Changed `SourcePort`/`TargetPort` to alignment strings; assertions now verify alignment strings pass through verbatim (no remapping) and that `Source`/`Target` (node IDs) still cross-reference the serialized nodes correctly. Added inline comment explaining the semantics.
+
+---
+
+## 2025-07-10 — Fix GridSize persistence and link animation
+
+### Commit: 23f4eb3 · UTC · branch: develop
+
+---
+
+### Item 1 — GridSize moved to dashboard level
+
+**Root cause:** `GridSize` and `GridSnapToCenter` were properties of `DashboardPageModel`, but the grid is a dashboard-wide setting. `ApplyDashboardModel()` never read these fields; `CreateDiagramFromPageData()` read from the page; `BuildFullState()` wrote them per-page; but since `GetPageData()` creates a brand-new `DashboardPageModel`, any page that wasn't the active one kept the GridSize from its last load (or zero). In practice the saved file had the correct value for the active page but not for other pages, and a fresh dashboard with no file ignored it entirely.
+
+**Fix:**
+- `DashboardModel.cs`: Removed `GridSize` / `GridSnapToCenter` from `DashboardPageModel`; these already existed on `DashboardModel` (added in prior edit session).
+- `ApplicationState.ApplyDashboardModel()`: Now reads `model.GridSize` / `model.GridSnapToCenter` into `AppState` fields on load.
+- `ApplicationState.CreateDiagramFromPageData()`: Replaced per-page GridSize branching with single read of `AppState.GridSize` / `AppState.GridSnapToCenter`.
+- `ApplicationState.GetPageData()`: Removed `GridSize` / `GridSnapToCenter` from the returned `DashboardPageModel` (fields no longer exist).
+- `Display.razor.cs` `BuildFullState()`: Writes `GridSize = AppState.GridSize, GridSnapToCenter = AppState.GridSnapToCenter` at the `DashboardModel` level; removed per-page copies.
+- `Display.razor.cs` enter-edit-mode block: Reads `AppState.GridSize` / `AppState.GridSnapToCenter` instead of `_pageStates[_activePageIndex].GridSize`.
+- `Display.razor.cs`: Removed `GridSize`/`GridSnapToCenter` from all `new DashboardPageModel { ... }` initializers.
+
+---
+
+### Item 2 — Link animation broken by incorrect `[FileId]` on port alignment fields
+
+**Root cause:** `LinkData.SourcePort` and `LinkData.TargetPort` store the *port alignment* as a string ("Bottom", "Right", etc.), but they were tagged `[FileId]`. The `DashboardSerializer.RemapIds` method therefore remapped these alignment strings to sequential integers (e.g. "Bottom" → "8") on save. On load, `Enum.Parse<PortAlignment>("8")` returned an undefined enum value, `Ports.FirstOrDefault(p => p.Alignment == ...)` returned null, and the link fell back to a `ShapeIntersectionAnchor` (portless). Since `TriggerLinkAnimation` only iterates `Node.Ports → port.Links`, portless links were never animated.
+
+**Fix:** `DashboardModel.cs` `LinkData`: Removed `[FileId]` from `SourcePort` and `TargetPort`. Only `Source` and `Target` (node IDs) need remapping.
+
+⚠️ Dashboard files saved while the bug was present will have integer port alignment values. These will silently fall back to portless links (no crash), which means animation still won't work for those files until they are re-saved with the fixed code.
+
+---
+
+### Item 3 — Page ID lost on every save
+
+**Root cause:** `BuildFullState()` called `GetPageData()` which creates a `new DashboardPageModel()` with a freshly auto-generated `Id`. This replaced `_pageStates[_activePageIndex]` (which had the original page Id), so each save discarded the stable page Id.
+
+**Fix:** `Display.razor.cs` `BuildFullState()`: Added `currentPage.Id = _pageStates[_activePageIndex].Id;` before the assignment.
+
+
 
 ### Commit: 6759d4e · 2026-04-30 17:xx UTC · branch: develop
 

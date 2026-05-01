@@ -256,7 +256,7 @@ public partial class Display : IDisposable
             }
             else
             {
-                _pageStates = [new DashboardPageModel { GridSize = AppState.GridSize > 0 ? AppState.GridSize : 10 }];
+                _pageStates = [new DashboardPageModel()];
                 _diagrams = [null];
                 _activePageIndex = 0;
                 _diagrams[0] = AppState.GetOrCreateDashboard();
@@ -271,8 +271,9 @@ public partial class Display : IDisposable
 
     private DashboardModel BuildFullState()
     {
-        // Capture current page state
+        // Capture current page state and preserve the page Id
         var currentPage = AppState.GetPageData();
+        currentPage.Id = _pageStates[_activePageIndex].Id;
         _pageStates[_activePageIndex] = currentPage;
 
         var fileInfo = new DashboardFileInfo
@@ -285,13 +286,13 @@ public partial class Display : IDisposable
         {
             Name = AppState.DashboardDisplayName,
             ShowName = AppState.ShowName,
+            GridSize = AppState.GridSize,
+            GridSnapToCenter = AppState.GridSnapToCenter,
             MqttSubscriptions = new HashSet<string>(AppState.SubscribedTopics),
             Pages = _pageStates.Select((ps, i) => new DashboardPageModel
             {
                 Id = ps.Id,
                 Name = i < AppState.PageNames.Count ? AppState.PageNames[i] : $"Page {i + 1}",
-                GridSize = ps.GridSize,
-                GridSnapToCenter = ps.GridSnapToCenter,
                 BackgroundColor = ps.BackgroundColor,
                 Nodes = ps.Nodes,
                 Links = ps.Links,
@@ -416,10 +417,9 @@ public partial class Display : IDisposable
                 if (_diagram.Options.GridSize == null)
                 {
                     // Diagram was created read-only (GridSize not set in options).
-                    // Restore from the saved page state.
-                    var savedGs = _pageStates[_activePageIndex].GridSize;
-                    _diagram.Options.GridSize = Math.Clamp(savedGs == 0 ? 20 : Math.Abs(savedGs), 5, 100);
-                    _diagram.Options.GridSnapToCenter = _pageStates[_activePageIndex].GridSnapToCenter;
+                    // Restore from the dashboard-level grid setting.
+                    _diagram.Options.GridSize = Math.Clamp(AppState.GridSize > 0 ? AppState.GridSize : 20, 5, 100);
+                    _diagram.Options.GridSnapToCenter = AppState.GridSnapToCenter;
                 }
                 AppState.SetGridSize(_diagram.Options.GridSize.HasValue ? (int)_diagram.Options.GridSize.Value : 0);
                 _diagram.Options.AllowMultiSelection = true;
@@ -716,7 +716,7 @@ public partial class Display : IDisposable
             AppState.MarkSaved();
             AppState.ClearUndoRedo();
 
-            _pageStates = [new DashboardPageModel { GridSize = AppState.GridSize > 0 ? AppState.GridSize : 10 }];
+            _pageStates = [new DashboardPageModel()];
             _diagrams = [null];
             _activePageIndex = 0;
             AppState.SetPageNames(["Page 1"], 0);
@@ -827,7 +827,7 @@ public partial class Display : IDisposable
     private async Task AddPageAsync()
     {
         var newPageName = $"Page {_pageStates.Count + 1}";
-        var newPageState = new DashboardPageModel { GridSize = AppState.GridSize > 0 ? AppState.GridSize : 10 };
+        var newPageState = new DashboardPageModel();
         _pageStates.Add(newPageState);
         _diagrams.Add(null);
         var newNames = new List<string>(AppState.PageNames) { newPageName };
@@ -1094,8 +1094,6 @@ public partial class Display : IDisposable
             var newPageData = new DashboardPageModel
             {
                 Name = $"Page {_pageStates.Count + 1}",
-                GridSize = Math.Max(5, AppState.GridSize),
-                GridSnapToCenter = AppState.GridSnapToCenter,
                 Nodes = importResult.Nodes,
                 Links = importResult.Links,
             };

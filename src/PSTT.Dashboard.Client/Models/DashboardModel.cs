@@ -9,6 +9,8 @@ public class DashboardModel
 {
     public string Name { get; set; } = string.Empty;
     public bool ShowName { get; set; } = false;
+    public int GridSize { get; set; } = 20;
+    public bool GridSnapToCenter { get; set; } = false;
     public HashSet<string>? MqttSubscriptions { get; set; }
     public List<DashboardPageModel> Pages { get; set; } = new();
     [JsonPropertyOrder(99)] public DashboardFileInfo? FileInfo { get; set; }
@@ -18,8 +20,6 @@ public class DashboardPageModel
 {
     [FileId] public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
     public string Name { get; set; } = "Page 1";
-    public int GridSize { get; set; } = 20;
-    public bool GridSnapToCenter { get; set; } = false;
     public string? BackgroundColor { get; set; }
     public List<NodeData> Nodes { get; set; } = new();
     public List<LinkData> Links { get; set; } = new();
@@ -252,7 +252,7 @@ public class NodePortData
 public class LinkData
 {
     [FileId] public string Source { get; set; } = string.Empty;
-    [FileId] public string? SourcePort { get; set; }
+    public string? SourcePort { get; set; }   // port alignment string — must NOT be remapped
     [FileId] public string Target { get; set; } = string.Empty;
-    [FileId] public string? TargetPort { get; set; }
+    public string? TargetPort { get; set; }   // port alignment string — must NOT be remapped
 }
