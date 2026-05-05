@@ -26,7 +26,11 @@ public sealed record ColumnDef(
     /// Whether the user can drag to resize this column at runtime.
     /// Null/true = resizable (default). False = fixed width.
     /// </summary>
-    bool? Resizable = null);
+    bool? Resizable = null,
+    /// <summary>Background color for cells in this column.</summary>
+    string? Bg = null,
+    /// <summary>Text color for cells in this column.</summary>
+    string? Color = null);
 
 /// <summary>
 /// Defines one row in the table widget.
@@ -38,7 +42,15 @@ public sealed record RowDef(
     /// <summary>Display label shown in the row label column. Defaults to <see cref="Key"/>.</summary>
     string? Label,
     /// <summary>When true this row has no data subscription — cells show static content from CellDefs.</summary>
-    bool IsStatic);
+    bool IsStatic,
+    /// <summary>C# format string applied to all values in this row (column format takes priority).</summary>
+    string? Format = null,
+    /// <summary>CSS text-align for cells in this row (column align takes priority).</summary>
+    string? Align = null,
+    /// <summary>Background color for cells in this row.</summary>
+    string? Bg = null,
+    /// <summary>Text color for cells in this row.</summary>
+    string? Color = null);
 
 /// <summary>
 /// Defines one explicit cell in PerCell data mode.
@@ -70,7 +82,42 @@ public sealed record TableStyleDef(
     /// <summary>Border color for the table.</summary>
     string? BorderColor,
     /// <summary>Default text color for data cells.</summary>
-    string? TextColor);
+    string? TextColor,
+    /// <summary>CSS width of the row-label column e.g. "100px".</summary>
+    string? LabelWidth = null);
+
+/// <summary>
+/// A condition entry used inside <see cref="CellStyleDef.Conditions"/>.
+/// When the cell value matches, its <see cref="Bg"/> and <see cref="Color"/> are applied.
+/// </summary>
+public sealed record CellCondition(
+    /// <summary>Comparison operator: &gt;=, &gt;, &lt;=, &lt;, ==, !=</summary>
+    string? Op,
+    /// <summary>Numeric threshold (used when the raw value can be parsed as a number).</summary>
+    double? Value,
+    /// <summary>String comparison value (used for == / != when the raw value is not numeric).</summary>
+    string? Str,
+    /// <summary>Background color to apply when this condition matches.</summary>
+    string? Bg,
+    /// <summary>Text color to apply when this condition matches.</summary>
+    string? Color);
+
+/// <summary>
+/// Per-cell (or per-row-column wildcard) style override.
+/// Parsed from the <c>CellStyle</c> JSON property.
+/// Row and Col support "*" as a wildcard matching any key.
+/// </summary>
+public sealed record CellStyleDef(
+    /// <summary>Row key to match, or "*" for any row.</summary>
+    string? Row,
+    /// <summary>Column key to match, or "*" for any column.</summary>
+    string? Col,
+    /// <summary>Background color override.</summary>
+    string? Bg,
+    /// <summary>Text color override.</summary>
+    string? Color,
+    /// <summary>Conditional overrides evaluated in order; first match wins.</summary>
+    CellCondition[]? Conditions);
 
 // ── Parser ───────────────────────────────────────────────────────────────────
 
@@ -111,8 +158,10 @@ public static class TableDefsParser
                 var align     = Str(el, "align");
                 var stat      = Str(el, "static");
                 var resizable = BoolN(el, "resizable");
+                var bg        = Str(el, "bg");
+                var color     = Str(el, "color");
                 if (!string.IsNullOrEmpty(key) || !string.IsNullOrEmpty(header))
-                    result.Add(new ColumnDef(key ?? header!, header, format, width, align, stat, resizable));
+                    result.Add(new ColumnDef(key ?? header!, header, format, width, align, stat, resizable, bg, color));
             }
             return result.Count > 0 ? result : null;
         }
@@ -138,8 +187,12 @@ public static class TableDefsParser
                 var key      = Str(el, "key");
                 var label    = Str(el, "label");
                 var isStatic = Bool(el, "static");
+                var format   = Str(el, "format");
+                var align    = Str(el, "align");
+                var bg       = Str(el, "bg");
+                var color    = Str(el, "color");
                 if (!string.IsNullOrEmpty(key) || !string.IsNullOrEmpty(label))
-                    result.Add(new RowDef(key, label, isStatic));
+                    result.Add(new RowDef(key, label, isStatic, format, align, bg, color));
             }
             return result.Count > 0 ? result : null;
         }
@@ -250,12 +303,6 @@ public static class TableDefsParser
             ? (v.ValueKind == JsonValueKind.True ? true : v.ValueKind == JsonValueKind.False ? false : null)
             : null;
 
-    // ── TableStyle ────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Parses a TableStyle JSON object string into a <see cref="TableStyleDef"/>.
-    /// Returns <c>null</c> when the string is empty or invalid.
-    /// </summary>
     public static TableStyleDef? ParseTableStyle(string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) return null;
@@ -267,8 +314,87 @@ public static class TableDefsParser
                 Str(el, "headerColor"),
                 Str(el, "altRowBg"),
                 Str(el, "borderColor"),
-                Str(el, "textColor"));
+                Str(el, "textColor"),
+                Str(el, "labelWidth"));
         }
         catch { return null; }
+    }
+
+    // ── CellStyle ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Parses a CellStyle JSON array into a list of <see cref="CellStyleDef"/> records.
+    /// Returns an empty list when the string is empty or invalid.
+    /// </summary>
+    public static List<CellStyleDef> ParseCellStyleDefs(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try
+        {
+            var arr = JsonSerializer.Deserialize<JsonElement[]>(json, _opts);
+            if (arr == null) return [];
+            var result = new List<CellStyleDef>(arr.Length);
+            foreach (var el in arr)
+            {
+                var row        = Str(el, "row");
+                var col        = Str(el, "col");
+                var bg         = Str(el, "bg");
+                var color      = Str(el, "color");
+                var conditions = ParseConditions(el);
+                result.Add(new CellStyleDef(row, col, bg, color, conditions));
+            }
+            return result;
+        }
+        catch { return []; }
+    }
+
+    private static CellCondition[]? ParseConditions(JsonElement el)
+    {
+        if (!el.TryGetProperty("conditions", out var cArr) || cArr.ValueKind != JsonValueKind.Array)
+            return null;
+        var list = new List<CellCondition>();
+        foreach (var c in cArr.EnumerateArray())
+        {
+            var op = Str(c, "op");
+            double? numVal = null;
+            string? strVal = null;
+            if (c.TryGetProperty("value", out var vEl))
+            {
+                if (vEl.ValueKind == JsonValueKind.Number)
+                    numVal = vEl.GetDouble();
+                else if (vEl.ValueKind == JsonValueKind.String)
+                    strVal = vEl.GetString();
+            }
+            var cbg   = Str(c, "bg");
+            var ccolor = Str(c, "color");
+            if (op != null)
+                list.Add(new CellCondition(op, numVal, strVal, cbg, ccolor));
+        }
+        return list.Count > 0 ? [.. list] : null;
+    }
+
+    /// <summary>
+    /// Evaluates a <see cref="CellStyleDef"/>'s conditions against a raw cell value.
+    /// Returns the first matching <see cref="CellCondition"/>, or <c>null</c> if none match.
+    /// </summary>
+    public static CellCondition? EvaluateCondition(CellStyleDef cellStyle, string? rawValue)
+    {
+        if (cellStyle.Conditions == null || cellStyle.Conditions.Length == 0) return null;
+        var isNum = double.TryParse(rawValue, NumberStyles.Any, CultureInfo.InvariantCulture, out var num);
+        foreach (var cond in cellStyle.Conditions)
+        {
+            var match = cond.Op switch
+            {
+                ">=" => isNum && num >= (cond.Value ?? 0),
+                ">"  => isNum && num >  (cond.Value ?? 0),
+                "<=" => isNum && num <= (cond.Value ?? 0),
+                "<"  => isNum && num <  (cond.Value ?? 0),
+                "==" => isNum ? num == (cond.Value ?? 0) : rawValue == cond.Str,
+                "!=" => isNum ? num != (cond.Value ?? 0) : rawValue != cond.Str,
+                _    => false
+            };
+            if (match) return cond;
+        }
+        return null;
     }
 }

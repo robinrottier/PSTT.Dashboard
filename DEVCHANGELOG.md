@@ -1,8 +1,82 @@
-## 2026-05-05 — Table widget Session 3 — column resize, colgroup widths, TableStyle
+## 2026-05-05 — Table widget Session 3 complete — cell/row/col styling, conditional formatting, flash animation
 
 ### Commit: TBD — feature/table-widget
 
 ---
+
+### Item 1 — Font size reset bug fix
+
+**File:** `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor.cs`
+
+`OnParametersSet()` was being called on every parent re-render (normal Blazor behaviour), resetting the local `FontSize` field while the user was still typing. Fix: added `_lastNode` field; guard at the top of `OnParametersSet` with `if (Node == _lastNode) return;`. The local editable fields (Width, Height, FontSize) are now only reset when the selected node reference actually changes.
+
+---
+
+### Item 2 — Hide Link Animation for Table nodes
+
+**File:** `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor`
+
+Wrapped the Link Animation `<MudSelect>` in `@if (Node is not TableNodeModel)` — same pattern as the existing Data Topics hide. Link Animation depends on a data topic and is not applicable to Table nodes.
+
+---
+
+### Item 3 — RowDef format, align, bg, color; ColumnDef bg, color; TableStyleDef labelWidth
+
+**File:** `src/PSTT.Dashboard.Client/Models/TableDefinitions.cs`
+
+- `RowDef` record: added optional positional params `Format`, `Align`, `Bg`, `Color` (all `string? = null`).
+- `ColumnDef` record: added optional `Bg`, `Color` params after `Resizable`.
+- `TableStyleDef` record: added optional `LabelWidth` param (CSS string e.g. `"120px"`) controlling the row-label column's `<col>` width.
+- `ParseRowDefs`, `ParseColumnDefs`, `ParseTableStyle` updated to read the new fields.
+- Updated `ExampleJson` strings in `TableNodeModel` to show new fields.
+
+---
+
+### Item 4 — CellStyle: per-cell + conditional formatting
+
+**Files:** `src/PSTT.Dashboard.Client/Models/TableDefinitions.cs`, `src/PSTT.Dashboard.Client/Models/TableNodeModel.cs`, `src/PSTT.Dashboard.Client/Models/DashboardModel.cs`
+
+- Added `CellCondition` record: `Op`, `Value` (numeric), `Str` (string), `Bg`, `Color`.
+- Added `CellStyleDef` record: `Row`, `Col` (support `"*"` wildcard), `Bg`, `Color`, `Conditions[]`.
+- Added `ParseCellStyleDefs(json)` and `ParseConditions(array)` helpers.
+- Added `EvaluateCondition(cellStyleDef, rawValue)` public static method — evaluates conditions (numeric or string) and returns the first matching `CellCondition?`.
+- `TableNodeModel`: added `CellStyle` NpJson property (Order=9) with example JSON; updated `ToData()`/`FromData()`.
+- `DashboardModel.TableNodeData`: added `CellStyle` property.
+
+**JSON example:**
+```json
+[
+  { "row": "room1", "col": "temp", "bg": "#ffe0e0", "color": "#c00",
+    "conditions": [{"op": ">=", "value": 30, "bg": "#ff4040", "color": "#fff"}] },
+  { "row": "*",     "col": "status", "conditions": [{"op": "==", "str": "OK", "bg": "#e0ffe0"}] }
+]
+```
+
+---
+
+### Item 5 — Widget rendering — per-cell styles, label column width, flash animation
+
+**Files:** `src/PSTT.Dashboard.Client/Widgets/TableNodeWidget.razor`, `src/PSTT.Dashboard.Client/Widgets/TableNodeWidget.razor.css`
+
+- Added `_cellStyleDefs` field; populated in `SetupWatchers` alongside other defs.
+- Added `_cellFlashSeq: ConcurrentDictionary<string, int>` keyed by `"rowKey\0colKey"`.
+- `StoreCell(row, col, value, triggerFlash)`: when `triggerFlash=true` and value changed, increments the flash seq for that cell key.
+- `SetupPerCellWatchers`: seeds use `triggerFlash=false`; live subscription callbacks use `triggerFlash=true`.
+- `OnTopicValue(topic, value, triggerFlash)`: same seeding/live distinction.
+- `SetupWatchers`: now also checks `Node.CellStyle != _lastCellStyle`; clears `_cellFlashSeq` on config reset.
+- Added helper `GetRowDef(rowKey)`.
+- Added helper `GetCellStyleDef(rowKey, colKey)` with `"*"` wildcard support.
+- Added helper `GetCellRawValue(rowKey, colKey)`.
+- Added `BuildLabelTdStyle(rowKey, rowIdx)`: applies alt-row bg + row Bg/Color to the label cell.
+- `BuildTdStyle(rowKey, col, rowIdx)`: full priority stack — alt-row → col Bg/Color → row Bg/Color → CellStyleDef Bg/Color → matched condition Bg/Color. Align now respects `rowDef.Align` as fallback when column has no align.
+- `GetCellValue`: now uses `col.Format ?? rowDef?.Format` as combined format (column format takes priority over row-level format).
+- `<colgroup>` label `<col>`: applies `style="width:{LabelWidth}"` from `TableStyleDef`.
+- `<tr>` `style` attribute removed (bg moved to per-`<td>`).
+- Data `<td>` now: `@key="(rowKey, col.Key, flashSeq)"` — Blazor recreates the element when seq changes, restarting the CSS animation; `class="cell-flash-anim"` applied when `flashSeq > 0`.
+- CSS: added `@keyframes cell-flash` (amber fade 0→5s) and `.cell-flash-anim { animation: cell-flash 5s ease-out; }`.
+
+---
+
 
 ### Item 1 — Fix duplicate @code block in TableNodeWidget.razor (build blocker)
 

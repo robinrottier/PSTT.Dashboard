@@ -112,7 +112,9 @@
                 </MudItem>
             </MudGrid>
 
-            <!-- Link Animation -->
+            <!-- Link Animation (not shown for table nodes — no single data topic) -->
+            @if (Node is not TableNodeModel)
+            {
             <MudSelect @bind-Value="@Node.LinkAnimation"
                        Label="Link Animation"
                        Variant="Variant.Outlined"
@@ -123,6 +125,7 @@
                 <MudSelectItem Value="@("Forward")">Forward</MudSelectItem>
                 <MudSelectItem Value="@("Reverse")">Reverse</MudSelectItem>
             </MudSelect>
+            }
 
             <!-- MQTT Topics (not shown for table nodes — they use DataPattern/CellDefs instead) -->
             @if (Node is not TableNodeModel)

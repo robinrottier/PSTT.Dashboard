@@ -37,8 +37,8 @@ public class TableNodeModel : TextNodeModel
     /// </summary>
     [NpJson("Column Definitions (JSON)", Category = "Table", Order = 3,
         Lines = 5,
-        ExampleJson = """[{"key":"temp","header":"Temp","format":"{0:F1}°C","width":"80px","align":"right"},{"key":"humidity","header":"Humidity","format":"{0:F0}%","width":"80px"}]""",
-        HelperText = "JSON array of column definitions. Leave empty to auto-discover columns from data.")]
+        ExampleJson = """[{"key":"temp","header":"Temp","format":"{0:F1}°C","width":"80px","align":"right","bg":"","color":""},{"key":"humidity","header":"Humidity","format":"{0:F0}%","width":"80px"}]""",
+        HelperText = "JSON array of column definitions. Leave empty to auto-discover columns from data. Optional: bg, color for column-level styling.")]
     public string? ColumnDefs { get; set; }
 
     /// <summary>
@@ -49,8 +49,8 @@ public class TableNodeModel : TextNodeModel
     /// </summary>
     [NpJson("Row Definitions (JSON)", Category = "Table", Order = 4,
         Lines = 4,
-        ExampleJson = """[{"key":"room1","label":"Room 1"},{"key":"room2","label":"Room 2"}]""",
-        HelperText = "JSON array of row definitions. Leave empty to auto-discover rows from data. Defines display order and labels.")]
+        ExampleJson = """[{"key":"room1","label":"Room 1","format":"{0:F1}","bg":"","color":""},{"key":"room2","label":"Room 2"}]""",
+        HelperText = "JSON array of row definitions. Leave empty to auto-discover rows from data. Optional: format, align, bg, color for row-level styling.")]
     public string? RowDefs { get; set; }
 
     /// <summary>
@@ -78,9 +78,19 @@ public class TableNodeModel : TextNodeModel
     /// </summary>
     [NpJson("Table Style (JSON)", Category = "Table", Order = 8,
         Lines = 4,
-        ExampleJson = """{"headerBg":"#1E293B","headerColor":"#F8FAFC","altRowBg":"rgba(0,0,0,0.07)","borderColor":"rgba(0,0,0,0.12)","textColor":""}""",
-        HelperText = "Optional styling object. All fields are optional CSS color values. Leave empty to use theme defaults.")]
+        ExampleJson = """{"headerBg":"#1E293B","headerColor":"#F8FAFC","altRowBg":"rgba(0,0,0,0.07)","borderColor":"rgba(0,0,0,0.12)","textColor":"","labelWidth":"100px"}""",
+        HelperText = "Optional table-level styling. All color fields are optional CSS values. labelWidth sets the row-label column width.")]
     public string? TableStyle { get; set; }
+
+    /// <summary>
+    /// JSON array of per-cell (or wildcard) style overrides with optional conditional formatting.
+    /// Example: [{"row":"room1","col":"temp","bg":"#fff0f0","conditions":[{"op":">=","value":30,"bg":"#ff0000","color":"white"}]},{"row":"*","col":"status","conditions":[{"op":"==","value":"OFF","bg":"#fee"}]}]
+    /// </summary>
+    [NpJson("Cell Style (JSON)", Category = "Table", Order = 9,
+        Lines = 5,
+        ExampleJson = """[{"row":"room1","col":"temp","bg":"","color":"","conditions":[{"op":">=","value":30,"bg":"#ffe0e0","color":"#c00"},{"op":"<","value":10,"bg":"#e0e8ff","color":"#00c"}]},{"row":"*","col":"status","conditions":[{"op":"==","value":"OFF","bg":"#fee"}]}]""",
+        HelperText = "Per-cell style overrides. 'row'/'col' support '*' as wildcard. 'conditions' are evaluated in order — first match wins. Operators: >=, >, <=, <, ==, !=")]
+    public string? CellStyle { get; set; }
 
     // ── Serialization ──────────────────────────────────────────────────────────
 
@@ -96,6 +106,7 @@ public class TableNodeModel : TextNodeModel
             ShowHeader    = ShowHeader    ? null : false,
             ShowRowLabels = ShowRowLabels ? null : false,
             TableStyle    = TableStyle,
+            CellStyle     = CellStyle,
         };
         FillBaseData(data, panX, panY);
         return data;
@@ -113,6 +124,7 @@ public class TableNodeModel : TextNodeModel
             ShowHeader    = data.ShowHeader    ?? true,
             ShowRowLabels = data.ShowRowLabels ?? true,
             TableStyle    = data.TableStyle,
+            CellStyle     = data.CellStyle,
         };
         return ApplyBaseData(node, data);
     }

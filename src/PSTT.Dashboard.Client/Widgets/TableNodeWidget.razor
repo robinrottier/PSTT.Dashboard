@@ -8,7 +8,6 @@
 @using Microsoft.JSInterop
 @inherits BaseNodeWidget<TableNodeModel>
 @inject IJSRuntime JS
-
 <div style="@ContainerStyle()"
      class=@("default-node table-node" + (Node.Group != null ? " grouped" : "") + (Node.Selected ? " selected" : ""))
      @ondblclick="OnDoubleClick">
@@ -49,7 +48,7 @@
                     <colgroup>
                         @if (Node.ShowRowLabels)
                         {
-                            <col class="col-label" />
+                            <col class="col-label" style="@(_tableStyle?.LabelWidth is { } lw ? $"width:{lw}" : string.Empty)" />
                         }
                         @foreach (var col in cols)
                         {
@@ -96,17 +95,20 @@
                         @{int rowIdx = 0;}
                         @foreach (var (rowKey, rowLabel) in rows)
                         {
-                            var evenRow = rowIdx % 2 == 1;
-                            var rowBg = (evenRow && _tableStyle?.AltRowBg is { } ab) ? $"background:{ab};" : string.Empty;
-                            <tr style="@rowBg">
+                            <tr>
                                 @if (Node.ShowRowLabels)
                                 {
-                                    <td style="font-size:@FontSizeStyle();opacity:0.7;font-weight:500;white-space:nowrap;">@rowLabel</td>
+                                    <td style="@BuildLabelTdStyle(rowKey, rowIdx)">@rowLabel</td>
                                 }
                                 @foreach (var col in cols)
                                 {
-                                    var cellValue = GetCellValue(rowKey, col);
-                                    <td style="font-size:@FontSizeStyle();text-align:@(col.Align ?? "left");">@cellValue</td>
+                                    var cellFlashKey = $"{rowKey}\0{col.Key}";
+                                    _cellFlashSeq.TryGetValue(cellFlashKey, out var flashSeq);
+                                    <td @key="(rowKey, col.Key, flashSeq)"
+                                        class="@(flashSeq > 0 ? "cell-flash-anim" : "")"
+                                        style="@BuildTdStyle(rowKey, col, rowIdx)">
+                                        @GetCellValue(rowKey, col)
+                                    </td>
                                 }
                             </tr>
                             rowIdx++;
@@ -140,6 +142,7 @@
     private List<RowDef>?    _rows;
     private List<CellDef>    _cellDefs = new();
     private TableStyleDef?   _tableStyle;
+    private List<CellStyleDef> _cellStyleDefs = [];
 
     // Per-cell subscriptions (PerCell mode)
     private readonly List<IDisposable> _cellWatchers = new();
@@ -151,12 +154,18 @@
     private string? _lastDataMode;
     private string? _lastDataPattern;
     private string? _lastTableStyle;
+    private string? _lastCellStyle;
 
     // ── Column resize ─────────────────────────────────────────────────────────
     // Runtime pixel widths keyed by column key. Populated from ColumnDef.Width on setup
     // and updated when the user drags resize handles. Not persisted automatically.
     private readonly Dictionary<string, double> _columnWidths = new();
     private DotNetObjectReference<TableNodeWidget>? _dotNetRef;
+
+    // ── Value-change flash animation ──────────────────────────────────────────
+    // Incremented per cell (key = "rowKey\0colKey") whenever the value changes.
+    // The @key on <td> uses the seq so Blazor recreates the element, restarting the CSS animation.
+    private readonly ConcurrentDictionary<string, int> _cellFlashSeq = new();
 
     protected override void OnInitialized()
     {
@@ -183,10 +192,11 @@
         var rowDefsChanged    = Node.RowDefs     != _lastRowDefs;
         var cellDefsChanged   = Node.CellDefs    != _lastCellDefs;
         var styleChanged      = Node.TableStyle  != _lastTableStyle;
+        var cellStyleChanged  = Node.CellStyle   != _lastCellStyle;
         var genChanged        = AppState.BridgedDataCache.BridgeGeneration != _lastBridgeGeneration;
 
         if (!modeChanged && !patternChanged && !columnDefsChanged && !rowDefsChanged
-            && !cellDefsChanged && !styleChanged && !genChanged)
+            && !cellDefsChanged && !styleChanged && !cellStyleChanged && !genChanged)
             return;
 
         _lastDataMode    = Node.DataMode;
@@ -195,6 +205,7 @@
         _lastRowDefs     = Node.RowDefs;
         _lastCellDefs    = Node.CellDefs;
         _lastTableStyle  = Node.TableStyle;
+        _lastCellStyle   = Node.CellStyle;
         _lastBridgeGeneration = AppState.BridgedDataCache.BridgeGeneration;
 
         // Tear down old subscriptions
@@ -204,12 +215,14 @@
         _data.Clear();
         _autoColumns.Clear();
         _autoRows.Clear();
+        _cellFlashSeq.Clear();
 
         // Re-parse definitions
-        _columns    = TableDefsParser.ParseColumnDefs(Node.ColumnDefs);
-        _rows       = TableDefsParser.ParseRowDefs(Node.RowDefs);
-        _cellDefs   = TableDefsParser.ParseCellDefs(Node.CellDefs);
-        _tableStyle = TableDefsParser.ParseTableStyle(Node.TableStyle);
+        _columns       = TableDefsParser.ParseColumnDefs(Node.ColumnDefs);
+        _rows          = TableDefsParser.ParseRowDefs(Node.RowDefs);
+        _cellDefs      = TableDefsParser.ParseCellDefs(Node.CellDefs);
+        _tableStyle    = TableDefsParser.ParseTableStyle(Node.TableStyle);
+        _cellStyleDefs = TableDefsParser.ParseCellStyleDefs(Node.CellStyle);
 
         // Reset runtime widths to reflect updated ColumnDefs
         _columnWidths.Clear();
@@ -230,9 +243,9 @@
         var wildcardTopic = PatternToWildcard(Node.DataPattern);
         if (string.IsNullOrEmpty(wildcardTopic)) return;
 
-        // Seed from cache snapshot
+        // Seed from cache snapshot (no flash — this is initial state, not a change)
         foreach (var kv in AppState.BridgedDataCache.GetSnapshot(wildcardTopic))
-            OnTopicValue(kv.Key, kv.Value);
+            OnTopicValue(kv.Key, kv.Value, triggerFlash: false);
 
         _subscription = AppState.BridgedDataCache.Subscribe(wildcardTopic, async s =>
         {
@@ -240,20 +253,19 @@
             _ = InvokeAsync(() =>
             {
                 if (_disposed) return;
-                OnTopicValue(s.Key, s.Value);
+                OnTopicValue(s.Key, s.Value, triggerFlash: true);
                 StateHasChanged();
             });
             await Task.CompletedTask;
         });
     }
 
-    private void OnTopicValue(string topic, string? value)
+    private void OnTopicValue(string topic, string? value, bool triggerFlash = false)
     {
         if (!TryExtractSegments(Node.DataPattern, topic, out var row, out var col))
             return;
 
-        var rowDict = _data.GetOrAdd(row!, _ => new ConcurrentDictionary<string, string?>());
-        rowDict[col!] = value;
+        StoreCell(row!, col!, value, triggerFlash);
 
         // Track auto-discovered columns and rows in stable arrival order
         if (!_autoColumns.Contains(col!))
@@ -270,10 +282,10 @@
         {
             if (string.IsNullOrEmpty(cell.Topic)) continue;
 
-            // Seed from cache
+            // Seed from cache (no flash)
             var initial = AppState.BridgedDataCache.GetValue(cell.Topic);
             if (initial != null)
-                StoreCell(cell.Row, cell.Col, initial);
+                StoreCell(cell.Row, cell.Col, initial, triggerFlash: false);
 
             var capturedCell = cell;
             var watcher = AppState.BridgedDataCache.Subscribe(cell.Topic, async s =>
@@ -282,7 +294,7 @@
                 _ = InvokeAsync(() =>
                 {
                     if (_disposed) return;
-                    StoreCell(capturedCell.Row, capturedCell.Col, s.Value);
+                    StoreCell(capturedCell.Row, capturedCell.Col, s.Value, triggerFlash: true);
                     StateHasChanged();
                 });
                 await Task.CompletedTask;
@@ -291,9 +303,16 @@
         }
     }
 
-    private void StoreCell(string row, string col, string? value)
+    private void StoreCell(string row, string col, string? value, bool triggerFlash = false)
     {
         var rowDict = _data.GetOrAdd(row, _ => new ConcurrentDictionary<string, string?>());
+        if (triggerFlash)
+        {
+            var flashKey = $"{row}\0{col}";
+            var prevValue = rowDict.TryGetValue(col, out var pv) ? pv : null;
+            if (prevValue != value)
+                _cellFlashSeq.AddOrUpdate(flashKey, 1, (_, old) => old + 1);
+        }
         rowDict[col] = value;
     }
 
@@ -335,23 +354,111 @@
 
     private string GetCellValue(string rowKey, ColumnDef col)
     {
+        var rowDef = GetRowDef(rowKey);
+        // Format priority: column format > row format
+        var format = col.Format ?? rowDef?.Format;
+
         if (Node.DataMode == "PerCell")
         {
             var cellDef = _cellDefs.FirstOrDefault(c => c.Row == rowKey && c.Col == col.Key);
             if (cellDef != null)
             {
                 if (_data.TryGetValue(rowKey, out var rowData) && rowData.TryGetValue(col.Key, out var rawVal))
-                    return TableDefsParser.ApplyFormat(rawVal, cellDef.Format ?? col.Format);
+                    return TableDefsParser.ApplyFormat(rawVal, cellDef.Format ?? format);
                 return cellDef.Static ?? col.Static ?? string.Empty;
             }
         }
 
         if (_data.TryGetValue(rowKey, out var rd) && rd.TryGetValue(col.Key, out var raw))
-            return TableDefsParser.ApplyFormat(raw, col.Format);
+            return TableDefsParser.ApplyFormat(raw, format);
         return col.Static ?? string.Empty;
     }
 
     // ── Style helpers ─────────────────────────────────────────────────────────
+
+    private RowDef? GetRowDef(string rowKey) =>
+        _rows?.FirstOrDefault(r => r.Key == rowKey);
+
+    private CellStyleDef? GetCellStyleDef(string rowKey, string colKey)
+    {
+        // Exact match takes priority over wildcard
+        return _cellStyleDefs.FirstOrDefault(c =>
+                   (c.Row == rowKey || c.Row == "*") &&
+                   (c.Col == colKey || c.Col == "*") &&
+                   c.Row == rowKey && c.Col == colKey)
+            ?? _cellStyleDefs.FirstOrDefault(c =>
+                   (c.Row == rowKey || c.Row == "*") &&
+                   (c.Col == colKey || c.Col == "*"));
+    }
+
+    private string? GetCellRawValue(string rowKey, string colKey) =>
+        _data.TryGetValue(rowKey, out var rd) && rd.TryGetValue(colKey, out var v) ? v : null;
+
+    // Label (first) column cell style
+    private string BuildLabelTdStyle(string rowKey, int rowIdx)
+    {
+        var sb = new StringBuilder();
+        sb.Append($"font-size:{FontSizeStyle()};opacity:0.7;font-weight:500;white-space:nowrap;");
+
+        var rowDef = GetRowDef(rowKey);
+        var evenRow = rowIdx % 2 == 1;
+
+        if (evenRow && _tableStyle?.AltRowBg is { } ab)
+            sb.Append($"background:{ab};");
+
+        if (rowDef?.Bg is { } rbg)
+            sb.Append($"background:{rbg};");
+        if (rowDef?.Color is { } rc)
+            sb.Append($"color:{rc};");
+
+        return sb.ToString();
+    }
+
+    // Data cell style — priority stack: AltRow < Col < Row < CellStyle < Condition
+    private string BuildTdStyle(string rowKey, ColumnDef col, int rowIdx)
+    {
+        var sb = new StringBuilder();
+        var evenRow = rowIdx % 2 == 1;
+
+        // Base font + align
+        var rowDef = GetRowDef(rowKey);
+        var align = col.Align ?? rowDef?.Align ?? "left";
+        sb.Append($"font-size:{FontSizeStyle()};text-align:{align};");
+
+        // 1) Alt row bg
+        string? bg = evenRow && _tableStyle?.AltRowBg is { } ab ? ab : null;
+        string? color = null;
+
+        // 2) Column bg/color
+        if (col.Bg is { } cb)   bg    = cb;
+        if (col.Color is { } cc) color = cc;
+
+        // 3) Row bg/color
+        if (rowDef?.Bg is { } rb)    bg    = rb;
+        if (rowDef?.Color is { } rco) color = rco;
+
+        // 4) CellStyleDef bg/color
+        var csdef = GetCellStyleDef(rowKey, col.Key);
+        if (csdef?.Bg is { } csb)    bg    = csb;
+        if (csdef?.Color is { } csc) color = csc;
+
+        // 5) Conditional formatting (first matching wins)
+        if (csdef is not null)
+        {
+            var rawVal = GetCellRawValue(rowKey, col.Key);
+            var matchedCond = TableDefsParser.EvaluateCondition(csdef, rawVal);
+            if (matchedCond is not null)
+            {
+                if (matchedCond.Bg    is { } condbg)  bg    = condbg;
+                if (matchedCond.Color is { } condc)   color = condc;
+            }
+        }
+
+        if (bg    is not null) sb.Append($"background:{bg};");
+        if (color is not null) sb.Append($"color:{color};");
+
+        return sb.ToString();
+    }
 
     private string BuildTableMudStyle()
     {

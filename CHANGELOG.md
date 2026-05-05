@@ -8,15 +8,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
-- **Table widget (MVP + Session 2)**: New dashboard node type displaying structured MQTT data in a table. Configure a data pattern (`sensors/{row}/{col}`) for auto-discovered rows/columns, or define explicit `RowDefs`/`ColumnDefs`/`CellDefs` via JSON. Supports PerTable (wildcard subscription) and PerCell (explicit per-cell topics) data modes. Static text cells, value format strings (`{0:F1}°C`), column widths/alignment, and row labels all configurable.
-- **`JsonEditorField` component**: Reusable JSON textarea with live validation, pretty-print button, and collapsible example panel. Used by the Table widget property editor; available for all future complex-config widgets.
-- **Table widget — runtime column resize**: Drag the right edge of any column header to resize it interactively. Uses a JS interop helper (`tableResize.js`) with `DotNetObjectReference` callbacks. Per-column `resizable: false` in `ColumnDefs` disables the handle for that column.
-- **Table widget — `TableStyle` JSON property**: Table-level visual style (header background/color, alternating-row background, border color, text color) configurable via JSON in the property editor.
+- **Table widget — cell/row/column styling**: `CellStyle` JSON property on the Table node supports per-cell background and text colour, with row/column wildcard (`"*"`) support. Style priority: alt-row → column → row → cell → conditional.
+- **Table widget — conditional formatting**: `CellStyle` entries accept a `conditions` array. Each condition specifies an operator (`>=`, `<=`, `==`, `!=`, etc.) plus numeric or string value to compare against the live cell value, and a `bg`/`color` to apply when matched.
+- **Table widget — RowDef enhancements**: `RowDef` JSON now supports `format`, `align`, `bg`, `color` — enabling row-level formatting and colour as a baseline that column/cell styles can override.
+- **Table widget — ColumnDef enhancements**: `ColumnDef` JSON now supports `bg` and `color` for column-level default background and text colour.
+- **Table widget — label column width**: `TableStyle.labelWidth` CSS value (e.g. `"120px"`) controls the row-label `<col>` width via `<colgroup>`.
+- **Table widget — value-change flash animation**: When a cell receives a new MQTT value that differs from the previous value, the cell flashes amber for 5 seconds (CSS animation). Seeding from cache on initial load does not trigger the flash.
+
+### Fixed
+- **Property editor — font size reset**: Typing in the Font Size field no longer gets reset mid-input. The local editable fields are now only synchronised when the selected node actually changes, not on every parent re-render.
 
 ### Changed
-- **Table widget property editor**: MQTT Topics and Text body sections are now hidden when editing a Table node (they are not used by that widget type).
-- **Table widget property editor**: "Fill from live data" discovery buttons appear when `DataPattern` is set but `ColumnDefs`/`RowDefs` are empty — clicking queries the current data cache and populates editable JSON stubs, making initial configuration much easier.
-- **Table widget**: Column widths now use `<colgroup>/<col>` (proper HTML mechanism) instead of inline `width:` styles on `<td>`. `table-layout: fixed` is applied when column widths are active.
+- **Table widget property editor**: "Link Animation" is now hidden for Table nodes (same as Data Topics — not applicable without a single data topic).
+- **Table widget**: Row background colour moved from `<tr style>` to per-`<td>` style, enabling per-cell colour overrides to work correctly.
+
 
 ## [v0.1.10] - 2026-05-01
 

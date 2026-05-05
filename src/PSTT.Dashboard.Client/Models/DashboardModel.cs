@@ -203,6 +203,7 @@ public class TableNodeData : NodeData
     public bool? ShowHeader { get; set; }
     public bool? ShowRowLabels { get; set; }
     public string? TableStyle { get; set; }
+    public string? CellStyle { get; set; }
 }
 
 // ── Shared nested value types ─────────────────────────────────────────────────

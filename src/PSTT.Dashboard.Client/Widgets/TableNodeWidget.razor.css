@@ -47,3 +47,13 @@
     max-width: calc(100% - 10px);
     vertical-align: middle;
 }
+
+/* Value-change flash animation */
+@keyframes cell-flash {
+    0%   { background-color: rgba(255, 193, 7, 0.55); }
+    100% { background-color: rgba(255, 193, 7, 0); }
+}
+
+.cell-flash-anim {
+    animation: cell-flash 5s ease-out;
+}

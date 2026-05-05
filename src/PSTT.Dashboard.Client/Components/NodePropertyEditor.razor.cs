@@ -27,9 +27,14 @@ public partial class NodePropertyEditor
     private double _savedHeight;
     private int? _savedFontSize;
 
+    // Guard: only reset local fields when the node reference actually changes (not on every parent re-render)
+    private TextNodeModel? _lastNode;
+
     protected override void OnParametersSet()
     {
-        // Re-initialise whenever the node changes (panel switched to a different node)
+        if (Node == _lastNode) return;
+        _lastNode = Node;
+
         Width    = Node.Size?.Width  ?? 120;
         Height   = Node.Size?.Height ?? 90;
         FontSize = Node.FontSize;
