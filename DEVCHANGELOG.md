@@ -1,4 +1,82 @@
-## 2026-05-01 — Harden flaky test; fix serializer test for alignment strings
+## 2025-07-11 — Table widget MVP (Session 1)
+
+### Commit: ff5d067 — feature/table-widget
+
+---
+
+### Item 1 — TableNodeModel
+
+**Files:** `src/PSTT.Dashboard.Client/Models/TableNodeModel.cs`, `Models/DashboardModel.cs`
+
+New model inheriting `TextNodeModel` with `NodeType = "Table"`. Properties:
+
+- `DataMode` — `"PerTable"` (default) or `"PerCell"`
+- `DataPattern` — e.g. `sensors/{row}/{col}`
+- `ColumnDefs` — JSON column definitions (key, header, format, width, align, static)
+- `CellDefs` — JSON cell definitions for PerCell mode
+- `ShowHeader` / `ShowRowLabels` — both default `true`, stored as `null` in JSON to save space
+
+`ToData()` / `FromData()` implement round-trip persistence. `TableNodeData` added to `DashboardModel.cs` with `[JsonDerivedType(typeof(TableNodeData), "Table")]`.
+
+---
+
+### Item 2 — TableTopicParser helper
+
+**Files:** `src/PSTT.Dashboard.Client/Helpers/TableTopicParser.cs`
+
+Extracted pattern parsing into a public static class so unit tests can cover it directly, without needing the Blazor component infrastructure:
+
+- `PatternToWildcard(pattern)` — converts `sensors/{row}/{col}` → `sensors/+/+` for `BridgedDataCache.Subscribe()`
+- `TryExtractSegments(pattern, topic, out row, out col)` — matches a live MQTT key against the pattern, extracts `{row}` and `{col}` placeholder values. Returns `false` on segment-count mismatch or literal-segment mismatch.
+
+---
+
+### Item 3 — TableNodeWidget
+
+**Files:** `src/PSTT.Dashboard.Client/Widgets/TableNodeWidget.razor`, `.razor.css`
+
+Inherits `BaseNodeWidget<TableNodeModel>` (manual subscriptions, same as TreeView). Key behaviour:
+
+**PerTable mode:**
+- Converts `DataPattern` → wildcard via `TableTopicParser.PatternToWildcard()`
+- Calls `BridgedDataCache.GetSnapshot()` for initial seed, then `Subscribe()` for live updates
+- Parses each topic key via `TryExtractSegments()` to extract row/col
+- Stores data as `ConcurrentDictionary<string, ConcurrentDictionary<string, string?>>` (row → col → value)
+- Auto-discovers column order; columns can be fixed via `ColumnDefs` JSON
+- Subscribes to `AppState.BridgeScopeChanged` to re-subscribe when bridge patterns change
+
+**PerCell mode:**
+- Parses `CellDefs` JSON; each cell with a `topic` gets its own `Subscribe()` call
+- Static-text cells (no topic) show `static` value immediately
+
+**Rendering:** MudSimpleTable with `ShowHeader` and `ShowRowLabels` support. Placeholder messages: "Set a Data Pattern…" and "Waiting for data…".
+
+Widget state changes are guarded by `_disposed` and always dispatched via `InvokeAsync()`.
+
+---
+
+### Item 4 — Registration and wiring
+
+- `ApplicationState.cs` — `diagram.RegisterComponent<TableNodeModel, TableNodeWidget>()` and `TableNodeData` deserialization case
+- `AddNodePanelContent.razor` — added "Table" with `Icons.Material.Filled.TableChart` to `_nodeTypes[]`
+- `Display.razor.cs` — added `"Table" => new TableNodeModel(...)` case
+
+> ⚠️ **NodePropertyEditor.razor** not yet updated — Table properties render via the existing attribute-based `NodePropertyRenderer` (`[NpText]`, `[NpCheckbox]`, `[NpSelect]` on model), which covers all current MVP properties. The generic MQTT Topics section is irrelevant for PerTable mode (DataTopics is unused) but is not hidden. This is acceptable for MVP.
+
+---
+
+### Item 5 — Unit tests
+
+**File:** `tests/PSTT.Dashboard.Client.Tests/TableTopicParserTests.cs`
+
+16 new tests covering:
+- `PatternToWildcard`: row+col, row-only, no placeholders, null/empty
+- `TryExtractSegments`: row+col extraction, row-only, `{column}` alias, segment-count mismatch, literal mismatch, null pattern, deep multi-segment path, unknown placeholder ignored
+- `TableNodeModel` serialization round-trips: defaults stored as null, non-defaults serialized, `FromData` restores defaults
+
+All 45 client tests pass; 0 errors, 0 warnings.
+
+
 
 ### Commits: develop
 

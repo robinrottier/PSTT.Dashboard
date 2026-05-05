@@ -7,6 +7,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **Table widget (MVP)**: New dashboard node type that displays structured MQTT data in a table. Configure a data pattern (e.g. `sensors/{row}/{col}`) and the widget auto-discovers rows and columns from live data. Supports PerTable wildcard subscription and PerCell explicit per-cell topic subscriptions. Column definitions are configurable via JSON (key, header, format, width, align, static fallback). Static text cells are also supported.
+
 ## [v0.1.10] - 2026-05-01
 
 ### Fixed

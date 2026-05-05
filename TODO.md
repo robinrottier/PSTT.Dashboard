@@ -51,16 +51,12 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 	- [ ] needs alternatives such as full circle, 90 or 270 .... maybe thats all the 
 		  option is, how much of a circle is drawn and properties to control orientation
 	- [ ] options to draw "needle" also from some center point to the guage ...	  
-- [ ] **Grid** — tabular display of multiple topic values (e.g. all sensors in a room), or same sensor from alternate locations
-      options to do with how grid data is populated:
-	  - fixed rows & columns and fixed text or formatted topic data in each one.
-	  OR single topic (wildcarded) for whole table and data looked up based on rows/column meta data e.g. row has key "HUB-3" and a column has key "grid" and cell then gets ess1/servers/HUB-3/grid withouth having to spcify that in each indiv cell (perhaps indiv cell could override?)
-	  OR dynamic...
-	  - fixed columns, with header row of fixed text but with property which is used in data lookup 
-	  - rows vary dependign on what data is available....so topic search is ess1/servers/+/+ and first "+" matches a row, second "+" matches on fixed column entry
-	  OR same as above but invert rows/columns
-	  Configuration could come from an xml or json input for now rather than properties page designer.
-	  Likely to include properties like ColumnTemplate, RowTemplate, Rows, Columns, ColumnHeaders and some means of simple text entry, single value entry or repeated multivalues for rows. 
+- [x] **Grid/Table node** — ✓ MVP complete (Session 1). Remaining sessions:
+      - Session 2: JsonEditorField reusable component; full ColumnDefs/RowDefs/CellDefs with formatting; PerCell improvements
+      - Session 3: Hierarchical styles + conditional cell formatting
+      - Session 4: PerRow mode, Invert, responsive card-stack layout
+      - Session 5: Nested widget cells (Button, Switch, TextEntry) via DynamicComponent with {row}/{col} substitution
+
 - [ ] **Text entry**
 	- [ ] Support text format for entry: string, date, time, datetime, numeric int/float/%age/
 	- [ ] validation: string length, reg ex match, numeric limits etc
