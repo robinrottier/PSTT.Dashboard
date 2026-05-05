@@ -1,0 +1,93 @@
+@using PSTT.Dashboard.Models
+@using MudBlazor
+
+@* Reusable JSON textarea with live validation, pretty-print, and collapsible example. *@
+
+<div>
+    <MudTextField T="string"
+                  @ref="_field"
+                  Value="@Value"
+                  ValueChanged="OnValueChanged"
+                  Label="@Label"
+                  Lines="@Lines"
+                  Variant="Variant.Outlined"
+                  Margin="Margin.Dense"
+                  Error="@(_error != null)"
+                  ErrorText="@_error"
+                  HelperText="@(string.IsNullOrEmpty(_error) ? HelperText : null)"
+                  Class="json-editor-field"
+                  Style="font-family:monospace;font-size:0.75rem;" />
+
+    <MudStack Row="true" Spacing="1" Class="mt-1">
+        <MudTooltip Text="Format JSON">
+            <MudIconButton Icon="@Icons.Material.Filled.AutoAwesome"
+                           Size="MudBlazor.Size.Small"
+                           Variant="Variant.Outlined"
+                           Disabled="@(_error != null || string.IsNullOrWhiteSpace(Value))"
+                           OnClick="FormatJson" />
+        </MudTooltip>
+        @if (!string.IsNullOrEmpty(ExampleJson))
+        {
+            <MudButton Size="MudBlazor.Size.Small"
+                       Variant="Variant.Text"
+                       OnClick="ToggleExample"
+                       StartIcon="@(_showExample ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)">
+                Example
+            </MudButton>
+        }
+    </MudStack>
+
+    @if (_showExample && !string.IsNullOrEmpty(ExampleJson))
+    {
+        <MudPaper Elevation="0" Class="pa-2 mt-1" Style="background:var(--mud-palette-background-grey);border-radius:4px;">
+            <MudText Typo="Typo.caption" Style="opacity:0.7;margin-bottom:4px;display:block;">Example:</MudText>
+            <pre style="font-size:0.7rem;margin:0;white-space:pre-wrap;word-break:break-all;">@ExampleJson</pre>
+            <MudButton Size="MudBlazor.Size.Small"
+                       Variant="Variant.Text"
+                       StartIcon="@Icons.Material.Filled.ContentCopy"
+                       OnClick="CopyExample"
+                       Class="mt-1">
+                Use this example
+            </MudButton>
+        </MudPaper>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+
+    [Parameter] public string Label { get; set; } = "JSON";
+    [Parameter] public string? HelperText { get; set; }
+    [Parameter] public string? ExampleJson { get; set; }
+    [Parameter] public int Lines { get; set; } = 6;
+
+    private MudTextField<string>? _field;
+    private string? _error;
+    private bool _showExample;
+
+    private async Task OnValueChanged(string? newValue)
+    {
+        _error = TableDefsParser.Validate(newValue);
+        await ValueChanged.InvokeAsync(newValue);
+    }
+
+    private async Task FormatJson()
+    {
+        if (string.IsNullOrWhiteSpace(Value)) return;
+        var pretty = TableDefsParser.PrettyPrint(Value);
+        _error = TableDefsParser.Validate(pretty);
+        await ValueChanged.InvokeAsync(pretty);
+    }
+
+    private void ToggleExample() => _showExample = !_showExample;
+
+    private async Task CopyExample()
+    {
+        if (string.IsNullOrEmpty(ExampleJson)) return;
+        var pretty = TableDefsParser.PrettyPrint(ExampleJson);
+        _error = TableDefsParser.Validate(pretty);
+        _showExample = false;
+        await ValueChanged.InvokeAsync(pretty);
+    }
+}

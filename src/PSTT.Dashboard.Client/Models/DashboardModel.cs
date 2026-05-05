@@ -198,6 +198,7 @@ public class TableNodeData : NodeData
     public string? DataMode { get; set; }
     public string? DataPattern { get; set; }
     public string? ColumnDefs { get; set; }
+    public string? RowDefs { get; set; }
     public string? CellDefs { get; set; }
     public bool? ShowHeader { get; set; }
     public bool? ShowRowLabels { get; set; }

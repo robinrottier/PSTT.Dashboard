@@ -4,7 +4,6 @@
 @using Blazor.Diagrams.Components.Renderers
 @using PSTT.Data
 @using System.Collections.Concurrent
-@using System.Text.Json
 @inherits BaseNodeWidget<TableNodeModel>
 
 <div style="@ContainerStyle()"
@@ -69,16 +68,16 @@
                                 </td>
                             </tr>
                         }
-                        @foreach (var row in rows)
+                        @foreach (var (rowKey, rowLabel) in rows)
                         {
                             <tr>
                                 @if (Node.ShowRowLabels)
                                 {
-                                    <td style="font-size:@FontSizeStyle();opacity:0.7;font-weight:500;white-space:nowrap;">@row</td>
+                                    <td style="font-size:@FontSizeStyle();opacity:0.7;font-weight:500;white-space:nowrap;">@rowLabel</td>
                                 }
                                 @foreach (var col in cols)
                                 {
-                                    var cellValue = GetCellValue(row, col);
+                                    var cellValue = GetCellValue(rowKey, col);
                                     <td style="font-size:@FontSizeStyle();@ColWidthStyle(col.Width)text-align:@(col.Align ?? "left");">
                                         @cellValue
                                     </td>
@@ -102,22 +101,22 @@
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, string?>> _data = new();
     // ordered column keys discovered from data (PerTable auto-discovery)
     private readonly List<string> _autoColumns = new();
+    // ordered row keys discovered from data (PerTable auto-discovery)
+    private readonly List<string> _autoRows = new();
 
     private IDisposable? _subscription;
     private int _lastBridgeGeneration = -1;
     private bool _disposed;
 
-    private record ColumnDef(string Key, string? Header, string? Format, string? Width, string? Align, string? Static);
-    private record CellDef(string Row, string Col, string? Topic, string? Format, string? Static);
-
-    // Parsed column definitions (null = use auto-discovery)
+    // Parsed definitions (null = use auto-discovery)
     private List<ColumnDef>? _columns;
-    // Parsed cell definitions for PerCell mode
-    private List<CellDef> _cellDefs = new();
+    private List<RowDef>?    _rows;
+    private List<CellDef>    _cellDefs = new();
     // Per-cell subscriptions (PerCell mode)
     private readonly List<IDisposable> _cellWatchers = new();
     // Track last parsed JSON to avoid re-parsing on every render
     private string? _lastColumnDefs;
+    private string? _lastRowDefs;
     private string? _lastCellDefs;
     private string? _lastDataMode;
     private string? _lastDataPattern;
@@ -140,18 +139,20 @@
 
     private void SetupWatchers()
     {
-        var modeChanged     = Node.DataMode    != _lastDataMode;
-        var patternChanged  = Node.DataPattern != _lastDataPattern;
-        var columnDefsChanged = Node.ColumnDefs != _lastColumnDefs;
-        var cellDefsChanged   = Node.CellDefs   != _lastCellDefs;
-        var genChanged      = AppState.BridgedDataCache.BridgeGeneration != _lastBridgeGeneration;
+        var modeChanged       = Node.DataMode    != _lastDataMode;
+        var patternChanged    = Node.DataPattern != _lastDataPattern;
+        var columnDefsChanged = Node.ColumnDefs  != _lastColumnDefs;
+        var rowDefsChanged    = Node.RowDefs     != _lastRowDefs;
+        var cellDefsChanged   = Node.CellDefs    != _lastCellDefs;
+        var genChanged        = AppState.BridgedDataCache.BridgeGeneration != _lastBridgeGeneration;
 
-        if (!modeChanged && !patternChanged && !columnDefsChanged && !cellDefsChanged && !genChanged)
+        if (!modeChanged && !patternChanged && !columnDefsChanged && !rowDefsChanged && !cellDefsChanged && !genChanged)
             return;
 
         _lastDataMode    = Node.DataMode;
         _lastDataPattern = Node.DataPattern;
         _lastColumnDefs  = Node.ColumnDefs;
+        _lastRowDefs     = Node.RowDefs;
         _lastCellDefs    = Node.CellDefs;
         _lastBridgeGeneration = AppState.BridgedDataCache.BridgeGeneration;
 
@@ -161,10 +162,12 @@
         _cellWatchers.Clear();
         _data.Clear();
         _autoColumns.Clear();
+        _autoRows.Clear();
 
         // Re-parse definitions
-        _columns = ParseColumnDefs(Node.ColumnDefs);
-        _cellDefs = ParseCellDefs(Node.CellDefs);
+        _columns  = TableDefsParser.ParseColumnDefs(Node.ColumnDefs);
+        _rows     = TableDefsParser.ParseRowDefs(Node.RowDefs);
+        _cellDefs = TableDefsParser.ParseCellDefs(Node.CellDefs);
 
         if (Node.DataMode == "PerTable")
             SetupPerTableWatchers();
@@ -206,9 +209,11 @@
         var rowDict = _data.GetOrAdd(row!, _ => new ConcurrentDictionary<string, string?>());
         rowDict[col!] = value;
 
-        // Track auto-discovered columns in stable order
+        // Track auto-discovered columns and rows in stable arrival order
         if (!_autoColumns.Contains(col!))
             _autoColumns.Add(col!);
+        if (!_autoRows.Contains(row!))
+            _autoRows.Add(row!);
     }
 
     // ── PerCell mode ──────────────────────────────────────────────────────────
@@ -254,58 +259,50 @@
 
         if (Node.DataMode == "PerCell")
         {
-            // Derive columns from cell defs
             var keys = _cellDefs.Select(c => c.Col).Distinct().ToList();
             return keys.Select(k => new ColumnDef(k, k, null, null, null, null)).ToList();
         }
 
-        // Auto-discovered columns from PerTable data
         return _autoColumns.Select(k => new ColumnDef(k, k, null, null, null, null)).ToList();
     }
 
-    private List<string> GetDisplayRows()
+    private List<(string Key, string Label)> GetDisplayRows()
     {
         if (Node.DataMode == "PerCell")
         {
-            // Fixed row order from cell defs
-            return _cellDefs.Select(c => c.Row).Distinct().ToList();
+            return _cellDefs.Select(c => c.Row).Distinct()
+                .Select(r => (r, r)).ToList();
         }
-        return _data.Keys.OrderBy(k => k).ToList();
+
+        // If RowDefs specified, use them (fixed order, with labels); filter to rows with data
+        if (_rows != null && _rows.Count > 0)
+        {
+            return _rows
+                .Where(rd => rd.Key == null || _data.ContainsKey(rd.Key))
+                .Select(rd => (rd.Key ?? rd.Label ?? string.Empty, rd.Label ?? rd.Key ?? string.Empty))
+                .ToList();
+        }
+
+        // Auto-discovered: stable arrival order (not alphabetical)
+        return _autoRows.Select(k => (k, k)).ToList();
     }
 
-    private string GetCellValue(string row, ColumnDef col)
+    private string GetCellValue(string rowKey, ColumnDef col)
     {
-        // For PerCell mode, check if there's a static value for this cell
         if (Node.DataMode == "PerCell")
         {
-            var cellDef = _cellDefs.FirstOrDefault(c => c.Row == row && c.Col == col.Key);
+            var cellDef = _cellDefs.FirstOrDefault(c => c.Row == rowKey && c.Col == col.Key);
             if (cellDef != null)
             {
-                if (_data.TryGetValue(row, out var rowData) && rowData.TryGetValue(col.Key, out var rawVal))
-                    return ApplyFormat(rawVal, cellDef.Format ?? col.Format);
+                if (_data.TryGetValue(rowKey, out var rowData) && rowData.TryGetValue(col.Key, out var rawVal))
+                    return TableDefsParser.ApplyFormat(rawVal, cellDef.Format ?? col.Format);
                 return cellDef.Static ?? col.Static ?? string.Empty;
             }
         }
 
-        // PerTable mode
-        if (_data.TryGetValue(row, out var rd) && rd.TryGetValue(col.Key, out var raw))
-            return ApplyFormat(raw, col.Format);
+        if (_data.TryGetValue(rowKey, out var rd) && rd.TryGetValue(col.Key, out var raw))
+            return TableDefsParser.ApplyFormat(raw, col.Format);
         return col.Static ?? string.Empty;
-    }
-
-    private static string ApplyFormat(string? raw, string? format)
-    {
-        if (raw == null) return string.Empty;
-        if (string.IsNullOrEmpty(format)) return raw;
-        try
-        {
-            // Try numeric formatting
-            if (double.TryParse(raw, System.Globalization.NumberStyles.Any,
-                System.Globalization.CultureInfo.InvariantCulture, out var d))
-                return string.Format(format, d);
-            return string.Format(format, raw);
-        }
-        catch { return raw; }
     }
 
     private string TableStyle()
@@ -321,62 +318,12 @@
         string.IsNullOrEmpty(width) ? string.Empty : $"width:{width};";
 
     // ── Pattern parsing ───────────────────────────────────────────────────────
-    // Delegates to TableTopicParser (shared static class, separately unit-tested).
 
     private static string PatternToWildcard(string? pattern)
         => TableTopicParser.PatternToWildcard(pattern);
 
     private static bool TryExtractSegments(string? pattern, string topic, out string? row, out string? col)
         => TableTopicParser.TryExtractSegments(pattern, topic, out row, out col);
-
-    // ── JSON parsers ──────────────────────────────────────────────────────────
-
-    private static List<ColumnDef>? ParseColumnDefs(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json)) return null;
-        try
-        {
-            var arr = JsonSerializer.Deserialize<JsonElement[]>(json);
-            if (arr == null) return null;
-            var result = new List<ColumnDef>();
-            foreach (var el in arr)
-            {
-                var key    = el.TryGetProperty("key",    out var k)  ? k.GetString() : null;
-                var header = el.TryGetProperty("header", out var h)  ? h.GetString() : null;
-                var format = el.TryGetProperty("format", out var f)  ? f.GetString() : null;
-                var width  = el.TryGetProperty("width",  out var w)  ? w.GetString() : null;
-                var align  = el.TryGetProperty("align",  out var a)  ? a.GetString() : null;
-                var stat   = el.TryGetProperty("static", out var s)  ? s.GetString() : null;
-                if (!string.IsNullOrEmpty(key) || !string.IsNullOrEmpty(header))
-                    result.Add(new ColumnDef(key ?? header!, header, format, width, align, stat));
-            }
-            return result.Count > 0 ? result : null;
-        }
-        catch { return null; }
-    }
-
-    private static List<CellDef> ParseCellDefs(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json)) return new();
-        try
-        {
-            var arr = JsonSerializer.Deserialize<JsonElement[]>(json);
-            if (arr == null) return new();
-            var result = new List<CellDef>();
-            foreach (var el in arr)
-            {
-                var row    = el.TryGetProperty("row",    out var r) ? r.GetString() : null;
-                var col    = el.TryGetProperty("col",    out var c) ? c.GetString() : null;
-                var topic  = el.TryGetProperty("topic",  out var t) ? t.GetString() : null;
-                var format = el.TryGetProperty("format", out var f) ? f.GetString() : null;
-                var stat   = el.TryGetProperty("static", out var s) ? s.GetString() : null;
-                if (!string.IsNullOrEmpty(row) && !string.IsNullOrEmpty(col))
-                    result.Add(new CellDef(row!, col!, topic, format, stat));
-            }
-            return result;
-        }
-        catch { return new(); }
-    }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 

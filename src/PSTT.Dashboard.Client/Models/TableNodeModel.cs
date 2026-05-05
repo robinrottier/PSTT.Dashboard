@@ -32,38 +32,44 @@ public class TableNodeModel : TextNodeModel
 
     /// <summary>
     /// JSON array defining columns: [{key, header, format, width, align, static}].
-    /// "key" matches the {col} segment of incoming topics.
-    /// "header" is the column header label (static text).
-    /// "format" is a C# format string applied to the live value, e.g. "{0:F1}°C".
-    /// "static" is fixed text shown when no live data is present.
-    /// "width" is a CSS width, e.g. "80px".
-    /// "align" is text-align: left, right, or center.
+    /// See <see cref="TableDefsParser.ParseColumnDefs"/> for the schema.
     /// If omitted in PerTable mode, columns are auto-discovered from arriving data.
     /// </summary>
-    [NpText("Column Definitions (JSON)", Category = "Table", Order = 3,
-        Lines = 6,
-        Placeholder = "[{\"key\":\"temp\",\"header\":\"Temp\",\"format\":\"{0:F1}°C\",\"width\":\"80px\",\"align\":\"right\"},{\"key\":\"humidity\",\"header\":\"Humidity\",\"format\":\"{0:F0}%\"}]",
+    [NpJson("Column Definitions (JSON)", Category = "Table", Order = 3,
+        Lines = 5,
+        ExampleJson = """[{"key":"temp","header":"Temp","format":"{0:F1}°C","width":"80px","align":"right"},{"key":"humidity","header":"Humidity","format":"{0:F0}%","width":"80px"}]""",
         HelperText = "JSON array of column definitions. Leave empty to auto-discover columns from data.")]
     public string? ColumnDefs { get; set; }
 
     /// <summary>
+    /// JSON array defining fixed rows: [{key, label}].
+    /// "key" matches the {row} segment of the incoming topic.
+    /// "label" is the display text shown in the row label column.
+    /// If omitted, rows are auto-discovered from arriving data (PerTable mode).
+    /// </summary>
+    [NpJson("Row Definitions (JSON)", Category = "Table", Order = 4,
+        Lines = 4,
+        ExampleJson = """[{"key":"room1","label":"Room 1"},{"key":"room2","label":"Room 2"}]""",
+        HelperText = "JSON array of row definitions. Leave empty to auto-discover rows from data. Defines display order and labels.")]
+    public string? RowDefs { get; set; }
+
+    /// <summary>
     /// JSON array of explicit cell definitions for PerCell mode:
     /// [{row, col, topic, format, static}].
-    /// "row"/"col" are display keys. "topic" is the MQTT topic to subscribe to.
-    /// "static" is fixed text (used when no topic, or as placeholder until data arrives).
+    /// See <see cref="TableDefsParser.ParseCellDefs"/> for the schema.
     /// </summary>
-    [NpText("Cell Definitions (JSON)", Category = "Table", Order = 4,
-        Lines = 8,
-        Placeholder = "[{\"row\":\"Room 1\",\"col\":\"Temp\",\"topic\":\"sensors/room1/temp\",\"format\":\"{0:F1}°C\"},{\"row\":\"Room 1\",\"col\":\"Humidity\",\"topic\":\"sensors/room1/humidity\",\"format\":\"{0:F0}%\"}]",
+    [NpJson("Cell Definitions (JSON)", Category = "Table", Order = 5,
+        Lines = 6,
+        ExampleJson = """[{"row":"Room 1","col":"Temp","topic":"sensors/room1/temp","format":"{0:F1}°C"},{"row":"Room 1","col":"Humidity","topic":"sensors/room1/humidity","format":"{0:F0}%"},{"row":"Units","col":"Temp","static":"°C"}]""",
         HelperText = "JSON array of cell definitions for PerCell mode. Each cell can have a topic and/or static text.")]
     public string? CellDefs { get; set; }
 
     /// <summary>Show the header row (default true).</summary>
-    [NpCheckbox("Show Header Row", Category = "Table", Order = 5)]
+    [NpCheckbox("Show Header Row", Category = "Table", Order = 6)]
     public bool ShowHeader { get; set; } = true;
 
     /// <summary>Show the row label in the first column (default true).</summary>
-    [NpCheckbox("Show Row Labels", Category = "Table", Order = 6)]
+    [NpCheckbox("Show Row Labels", Category = "Table", Order = 7)]
     public bool ShowRowLabels { get; set; } = true;
 
     // ── Serialization ──────────────────────────────────────────────────────────
@@ -72,12 +78,13 @@ public class TableNodeModel : TextNodeModel
     {
         var data = new TableNodeData
         {
-            DataMode     = DataMode != "PerTable" ? DataMode : null,
-            DataPattern  = DataPattern,
-            ColumnDefs   = ColumnDefs,
-            CellDefs     = CellDefs,
-            ShowHeader   = ShowHeader   ? null : false,   // default true; only store when false
-            ShowRowLabels = ShowRowLabels ? null : false,  // default true; only store when false
+            DataMode      = DataMode != "PerTable" ? DataMode : null,
+            DataPattern   = DataPattern,
+            ColumnDefs    = ColumnDefs,
+            RowDefs       = RowDefs,
+            CellDefs      = CellDefs,
+            ShowHeader    = ShowHeader    ? null : false,
+            ShowRowLabels = ShowRowLabels ? null : false,
         };
         FillBaseData(data, panX, panY);
         return data;
@@ -90,6 +97,7 @@ public class TableNodeModel : TextNodeModel
             DataMode      = data.DataMode ?? "PerTable",
             DataPattern   = data.DataPattern,
             ColumnDefs    = data.ColumnDefs,
+            RowDefs       = data.RowDefs,
             CellDefs      = data.CellDefs,
             ShowHeader    = data.ShowHeader    ?? true,
             ShowRowLabels = data.ShowRowLabels ?? true,
