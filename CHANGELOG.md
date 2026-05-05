@@ -8,7 +8,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
-- **Table widget (MVP)**: New dashboard node type that displays structured MQTT data in a table. Configure a data pattern (e.g. `sensors/{row}/{col}`) and the widget auto-discovers rows and columns from live data. Supports PerTable wildcard subscription and PerCell explicit per-cell topic subscriptions. Column definitions are configurable via JSON (key, header, format, width, align, static fallback). Static text cells are also supported.
+- **Table widget (MVP + Session 2)**: New dashboard node type displaying structured MQTT data in a table. Configure a data pattern (`sensors/{row}/{col}`) for auto-discovered rows/columns, or define explicit `RowDefs`/`ColumnDefs`/`CellDefs` via JSON. Supports PerTable (wildcard subscription) and PerCell (explicit per-cell topics) data modes. Static text cells, value format strings (`{0:F1}°C`), column widths/alignment, and row labels all configurable.
+- **`JsonEditorField` component**: Reusable JSON textarea with live validation, pretty-print button, and collapsible example panel. Used by the Table widget property editor; available for all future complex-config widgets.
 
 ## [v0.1.10] - 2026-05-01
 

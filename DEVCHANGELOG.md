@@ -1,3 +1,70 @@
+## 2026-05-05 — Table widget Session 2
+
+### Commit: a4ca7f9 — feature/table-widget
+
+---
+
+### Item 1 — TableDefinitions.cs (Models)
+
+**File:** `src/PSTT.Dashboard.Client/Models/TableDefinitions.cs`
+
+New file consolidating all table-specific data types and parsing logic:
+
+- **`ColumnDef`** record: `Key`, `Header`, `Format`, `Width`, `Align`, `Static`
+- **`RowDef`** record: `Key`, `Label`, `IsStatic`
+- **`CellDef`** record: `Row`, `Col`, `Topic`, `Format`, `Static`
+- **`TableDefsParser`** static class:
+  - `ParseColumnDefs(string?)` → `List<ColumnDef>?` (null = auto-discover)
+  - `ParseRowDefs(string?)` → `List<RowDef>?` (null = auto-discover)
+  - `ParseCellDefs(string?)` → `List<CellDef>` (empty on invalid)
+  - `ApplyFormat(string?, string?)` → `string` — numeric-aware C# format string
+  - `Validate(string?)` → `string?` — null on valid JSON, error message on failure
+  - `PrettyPrint(string)` → pretty-printed JSON, unchanged on error
+
+All parsers use `AllowTrailingCommas` and `CommentHandling.Skip` for user-friendly input tolerance.
+
+---
+
+### Item 2 — JsonEditorField.razor (Components)
+
+**File:** `src/PSTT.Dashboard.Client/Components/JsonEditorField.razor`
+
+Reusable JSON textarea component. Parameters: `Value`, `ValueChanged`, `Label`, `HelperText`, `ExampleJson`, `Lines`.
+
+- Live validation on each keystroke — red error border + message
+- "Format JSON" button — pretty-prints if JSON is currently valid
+- Collapsible "Example" section — "Use this example" button copies into field
+- Monospace font for readability. Reusable across all widget types.
+
+---
+
+### Item 3 — NpJsonAttribute + NodePropertyRenderer
+
+**Files:** `Models/NodePropertyAttributes.cs`, `Components/NodePropertyRenderer.razor`
+
+Added `[NpJson]` attribute with `Lines` and `ExampleJson`. `NodePropertyRenderer` renders it as `<JsonEditorField>` with full `Value`/`ValueChanged` binding via reflection.
+
+---
+
+### Item 4 — TableNodeModel: RowDefs + NpJson
+
+- Added `RowDefs` (`[NpJson]`) — JSON `{key, label}` array for fixed row order and display labels
+- `ColumnDefs` and `CellDefs` now use `[NpJson]` with `ExampleJson`; serialization includes `RowDefs`
+
+---
+
+### Item 5 — TableNodeWidget: RowDefs rendering, cleanup
+
+- `_autoRows` tracks row arrival order (insertion-stable)
+- `GetDisplayRows()` returns `(Key, Label)` tuples — labels from `RowDefs` or key as fallback
+- All inline JSON parsers and `ApplyFormat` removed; delegated to `TableDefsParser`
+
+---
+
+### Item 6 — Unit tests
+
+25 new tests in `TableDefsParserTests.cs`. 70 total client tests passing, 0 errors, 0 warnings.
+
 ## 2025-07-11 — Table widget MVP (Session 1)
 
 ### Commit: ff5d067 — feature/table-widget
