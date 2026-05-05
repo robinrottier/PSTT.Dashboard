@@ -21,7 +21,12 @@ public sealed record ColumnDef(
     /// <summary>CSS text-align: left | right | center.</summary>
     string? Align,
     /// <summary>Fixed text shown when no live data is present.</summary>
-    string? Static);
+    string? Static,
+    /// <summary>
+    /// Whether the user can drag to resize this column at runtime.
+    /// Null/true = resizable (default). False = fixed width.
+    /// </summary>
+    bool? Resizable = null);
 
 /// <summary>
 /// Defines one row in the table widget.
@@ -50,6 +55,22 @@ public sealed record CellDef(
     string? Format,
     /// <summary>Fixed text shown when no live data is present, or always when no topic is set.</summary>
     string? Static);
+
+/// <summary>
+/// Table-level appearance settings. Parsed from the <c>TableStyle</c> JSON property.
+/// All fields are optional CSS values (colors, etc.).
+/// </summary>
+public sealed record TableStyleDef(
+    /// <summary>Background color for the header row.</summary>
+    string? HeaderBg,
+    /// <summary>Text color for the header row.</summary>
+    string? HeaderColor,
+    /// <summary>Background color applied to alternating (even-index) data rows.</summary>
+    string? AltRowBg,
+    /// <summary>Border color for the table.</summary>
+    string? BorderColor,
+    /// <summary>Default text color for data cells.</summary>
+    string? TextColor);
 
 // ── Parser ───────────────────────────────────────────────────────────────────
 
@@ -83,14 +104,15 @@ public static class TableDefsParser
             var result = new List<ColumnDef>(arr.Length);
             foreach (var el in arr)
             {
-                var key    = Str(el, "key");
-                var header = Str(el, "header");
-                var format = Str(el, "format");
-                var width  = Str(el, "width");
-                var align  = Str(el, "align");
-                var stat   = Str(el, "static");
+                var key       = Str(el, "key");
+                var header    = Str(el, "header");
+                var format    = Str(el, "format");
+                var width     = Str(el, "width");
+                var align     = Str(el, "align");
+                var stat      = Str(el, "static");
+                var resizable = BoolN(el, "resizable");
                 if (!string.IsNullOrEmpty(key) || !string.IsNullOrEmpty(header))
-                    result.Add(new ColumnDef(key ?? header!, header, format, width, align, stat));
+                    result.Add(new ColumnDef(key ?? header!, header, format, width, align, stat, resizable));
             }
             return result.Count > 0 ? result : null;
         }
@@ -222,4 +244,31 @@ public static class TableDefsParser
 
     private static bool Bool(JsonElement el, string name) =>
         el.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.True;
+
+    private static bool? BoolN(JsonElement el, string name) =>
+        el.TryGetProperty(name, out var v)
+            ? (v.ValueKind == JsonValueKind.True ? true : v.ValueKind == JsonValueKind.False ? false : null)
+            : null;
+
+    // ── TableStyle ────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Parses a TableStyle JSON object string into a <see cref="TableStyleDef"/>.
+    /// Returns <c>null</c> when the string is empty or invalid.
+    /// </summary>
+    public static TableStyleDef? ParseTableStyle(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            var el = JsonSerializer.Deserialize<JsonElement>(json, _opts);
+            return new TableStyleDef(
+                Str(el, "headerBg"),
+                Str(el, "headerColor"),
+                Str(el, "altRowBg"),
+                Str(el, "borderColor"),
+                Str(el, "textColor"));
+        }
+        catch { return null; }
+    }
 }

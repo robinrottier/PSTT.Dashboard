@@ -1,3 +1,95 @@
+## 2026-05-05 — Table widget Session 3 — column resize, colgroup widths, TableStyle
+
+### Commit: TBD — feature/table-widget
+
+---
+
+### Item 1 — Fix duplicate @code block in TableNodeWidget.razor (build blocker)
+
+**File:** `src/PSTT.Dashboard.Client/Widgets/TableNodeWidget.razor`
+
+A prior edit prepended the new template+code without removing the old `@code` block, leaving
+30 duplicate-member errors. Fixed by truncating the file at the correct line boundary (after
+the new `Dispose` method's closing `}`), removing the orphaned old template and `@code` block.
+
+---
+
+### Item 2 — Runtime column drag-resize
+
+**Files:**
+- `src/PSTT.Dashboard.Client/wwwroot/tableResize.js` — NEW
+- `src/PSTT.Dashboard.Client/App.razor` — `<script>` tag added
+- `src/PSTT.Dashboard.Client/Widgets/TableNodeWidget.razor`
+- `src/PSTT.Dashboard.Client/Widgets/TableNodeWidget.razor.css`
+- `src/PSTT.Dashboard.Client/Models/TableDefinitions.cs`
+
+**What:** Users can drag the right edge of any column header to resize it at runtime. A 6px
+resize handle appears on hover at the right edge of each `<th>`. Dragging updates a
+`_columnWidths` dictionary (string key → double px) via `[JSInvokable]` callbacks. The
+`<colgroup>` is re-rendered on each `StateHasChanged()`, enforcing the new width.
+
+**How it works:**
+1. JS (`tableResize.js`): on mousedown, reads `th[data-colkey="…"].offsetWidth` as the start
+   width, attaches document-level `mousemove`/`mouseup` handlers, and calls
+   `invokeMethodAsync('OnColResizeBegin', colKey, offsetWidth)` immediately. On each
+   `mousemove`, calls `'OnColResizeDelta'` with the pixel delta. On `mouseup`, calls
+   `'OnColResizeEnd'` and removes document listeners.
+2. C# (`[JSInvokable]`): `OnColResizeBegin` stores the actual rendered width;
+   `OnColResizeDelta` updates `_columnWidths[colKey]` (clamped to ≥30px) and calls
+   `StateHasChanged()`; `OnColResizeEnd` does final repaint.
+3. `DotNetObjectReference<TableNodeWidget>` is created in `OnInitialized` and disposed in
+   `Dispose`.
+
+**Per-column resizable flag:** `ColumnDef` gains an optional `bool? Resizable` field (7th
+positional param, default `null`). When `false`, the resize handle is not rendered for that
+column. `null` or `true` = resizable. Existing call-sites are unaffected.
+
+**Runtime widths NOT auto-persisted** to `Node.ColumnDefs`. Permanent widths should be set
+via the `"width"` field in `ColumnDefs` JSON. This is intentional.
+
+---
+
+### Item 3 — `<colgroup>` for proper column width control
+
+**File:** `src/PSTT.Dashboard.Client/Widgets/TableNodeWidget.razor`
+
+Replaced the old `width:…` inline style on `<td>` with a `<colgroup>/<col>` block rendered
+above `<thead>`. This is the correct HTML mechanism for column widths.
+
+- `table-layout: fixed` is applied when `_columnWidths.Count > 0` (user has started
+  dragging), otherwise `auto`.
+- `GetColWidthStyle(colKey, defWidth)` checks `_columnWidths` first (runtime drag override),
+  then falls back to `ColumnDef.Width` (JSON-configured).
+- `InitColumnWidths()` pre-populates `_columnWidths` from `ColumnDef.Width` values at setup
+  time so that initial rendering uses `table-layout:fixed` when widths are defined.
+- `ParsePx("80px")` extracts the numeric part of a CSS px string for `_columnWidths`.
+
+---
+
+### Item 4 — `TableStyle` JSON property for table-level appearance
+
+**Files:**
+- `src/PSTT.Dashboard.Client/Models/TableDefinitions.cs` — `TableStyleDef` record + `ParseTableStyle`
+- `src/PSTT.Dashboard.Client/Models/TableNodeModel.cs` — `TableStyle` property (NpJson, Order=8)
+- `src/PSTT.Dashboard.Client/Models/DashboardModel.cs` — `TableStyle` added to `TableNodeData`
+- `src/PSTT.Dashboard.Client/Widgets/TableNodeWidget.razor`
+
+`TableStyleDef` record: `HeaderBg`, `HeaderColor`, `AltRowBg`, `BorderColor`, `TextColor`
+(all `string?`).
+
+**Widget behaviour:**
+- `Striped` on `<MudSimpleTable>` is set to `false` when `AltRowBg` is defined (we handle
+  alt-row manually via inline styles).
+- `BuildTableMudStyle()` returns the table's outer CSS including `font-size`, `width:100%`,
+  `border-color`, and `color`.
+- `BuildHeaderStyle()` returns `background:HeaderBg;color:HeaderColor` for the `<thead>` row.
+- `BuildThStyle(col)` returns the `<th>` style including `font-size`, `text-align`, and
+  `position:relative` (needed for the resize handle overlay).
+- Alt-row bg: tracked via `int rowIdx` in the `@foreach` over rows; every odd row (0-indexed)
+  gets `background:AltRowBg`.
+
+---
+
 ## 2026-05-05 — Table widget property editor polish
 
 ### Commit: TBD — feature/table-widget

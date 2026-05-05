@@ -10,10 +10,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - **Table widget (MVP + Session 2)**: New dashboard node type displaying structured MQTT data in a table. Configure a data pattern (`sensors/{row}/{col}`) for auto-discovered rows/columns, or define explicit `RowDefs`/`ColumnDefs`/`CellDefs` via JSON. Supports PerTable (wildcard subscription) and PerCell (explicit per-cell topics) data modes. Static text cells, value format strings (`{0:F1}°C`), column widths/alignment, and row labels all configurable.
 - **`JsonEditorField` component**: Reusable JSON textarea with live validation, pretty-print button, and collapsible example panel. Used by the Table widget property editor; available for all future complex-config widgets.
+- **Table widget — runtime column resize**: Drag the right edge of any column header to resize it interactively. Uses a JS interop helper (`tableResize.js`) with `DotNetObjectReference` callbacks. Per-column `resizable: false` in `ColumnDefs` disables the handle for that column.
+- **Table widget — `TableStyle` JSON property**: Table-level visual style (header background/color, alternating-row background, border color, text color) configurable via JSON in the property editor.
 
 ### Changed
 - **Table widget property editor**: MQTT Topics and Text body sections are now hidden when editing a Table node (they are not used by that widget type).
 - **Table widget property editor**: "Fill from live data" discovery buttons appear when `DataPattern` is set but `ColumnDefs`/`RowDefs` are empty — clicking queries the current data cache and populates editable JSON stubs, making initial configuration much easier.
+- **Table widget**: Column widths now use `<colgroup>/<col>` (proper HTML mechanism) instead of inline `width:` styles on `<td>`. `table-layout: fixed` is applied when column widths are active.
 
 ## [v0.1.10] - 2026-05-01
 

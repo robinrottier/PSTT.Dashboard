@@ -72,6 +72,16 @@ public class TableNodeModel : TextNodeModel
     [NpCheckbox("Show Row Labels", Category = "Table", Order = 7)]
     public bool ShowRowLabels { get; set; } = true;
 
+    /// <summary>
+    /// Optional JSON object to style the table appearance.
+    /// Supported fields: headerBg, headerColor, altRowBg, borderColor, textColor.
+    /// </summary>
+    [NpJson("Table Style (JSON)", Category = "Table", Order = 8,
+        Lines = 4,
+        ExampleJson = """{"headerBg":"#1E293B","headerColor":"#F8FAFC","altRowBg":"rgba(0,0,0,0.07)","borderColor":"rgba(0,0,0,0.12)","textColor":""}""",
+        HelperText = "Optional styling object. All fields are optional CSS color values. Leave empty to use theme defaults.")]
+    public string? TableStyle { get; set; }
+
     // ── Serialization ──────────────────────────────────────────────────────────
 
     public override NodeData ToData(double panX = 0, double panY = 0)
@@ -85,6 +95,7 @@ public class TableNodeModel : TextNodeModel
             CellDefs      = CellDefs,
             ShowHeader    = ShowHeader    ? null : false,
             ShowRowLabels = ShowRowLabels ? null : false,
+            TableStyle    = TableStyle,
         };
         FillBaseData(data, panX, panY);
         return data;
@@ -101,6 +112,7 @@ public class TableNodeModel : TextNodeModel
             CellDefs      = data.CellDefs,
             ShowHeader    = data.ShowHeader    ?? true,
             ShowRowLabels = data.ShowRowLabels ?? true,
+            TableStyle    = data.TableStyle,
         };
         return ApplyBaseData(node, data);
     }

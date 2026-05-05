@@ -9,6 +9,7 @@
 .table-node th {
     white-space: nowrap;
     padding: 2px 6px;
+    position: relative; /* needed for absolute resize handle */
 }
 
 .table-node td {
@@ -17,4 +18,32 @@
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 0;
+}
+
+/* Resize handle sits at the right edge of each <th> */
+.col-resize-handle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 6px;
+    cursor: col-resize;
+    z-index: 1;
+    border-right: 2px solid transparent;
+    transition: border-color 0.15s;
+}
+
+.col-resize-handle:hover,
+.col-resize-handle:active {
+    border-right-color: var(--mud-palette-primary);
+}
+
+/* Prevent header text from running under the handle */
+.col-header-text {
+    display: inline-block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: calc(100% - 10px);
+    vertical-align: middle;
 }

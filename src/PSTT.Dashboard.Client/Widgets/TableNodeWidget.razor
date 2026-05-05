@@ -4,7 +4,10 @@
 @using Blazor.Diagrams.Components.Renderers
 @using PSTT.Data
 @using System.Collections.Concurrent
+@using System.Text
+@using Microsoft.JSInterop
 @inherits BaseNodeWidget<TableNodeModel>
+@inject IJSRuntime JS
 
 <div style="@ContainerStyle()"
      class=@("default-node table-node" + (Node.Group != null ? " grouped" : "") + (Node.Selected ? " selected" : ""))
@@ -38,21 +41,43 @@
             var rows = GetDisplayRows();
 
             <div style="flex:1;overflow:auto;min-height:0;min-width:0;">
-                <MudSimpleTable Dense="true" Hover="true" Striped="true" Bordered="false"
-                                Style="@TableStyle()"
+                <MudSimpleTable Dense="true" Hover="true" Striped="@(_tableStyle?.AltRowBg == null)"
+                                Bordered="false"
+                                Style="@BuildTableMudStyle()"
                                 Class="pa-0">
+                    @* colgroup controls column widths; used for both initial sizing and drag-resize *@
+                    <colgroup>
+                        @if (Node.ShowRowLabels)
+                        {
+                            <col class="col-label" />
+                        }
+                        @foreach (var col in cols)
+                        {
+                            var w = GetColWidthStyle(col.Key, col.Width);
+                            <col style="@w" />
+                        }
+                    </colgroup>
+
                     @if (Node.ShowHeader && cols.Any())
                     {
                         <thead>
-                            <tr>
+                            <tr style="@BuildHeaderStyle()">
                                 @if (Node.ShowRowLabels)
                                 {
-                                    <th style="font-size:@FontSizeStyle();opacity:0.7;white-space:nowrap;"></th>
+                                    <th style="@BuildThStyle(null)" class="col-label-th"></th>
                                 }
                                 @foreach (var col in cols)
                                 {
-                                    <th style="font-size:@FontSizeStyle();@ColWidthStyle(col.Width)text-align:@(col.Align ?? "left");">
-                                        @(col.Header ?? col.Key)
+                                    <th data-colkey="@col.Key"
+                                        style="@BuildThStyle(col)">
+                                        <span class="col-header-text">@(col.Header ?? col.Key)</span>
+                                        @if (col.Resizable != false)
+                                        {
+                                            <div class="col-resize-handle"
+                                                 @onmousedown="@(e => OnResizeHandleMouseDown(e, col.Key))"
+                                                 @onmousedown:stopPropagation="true"
+                                                 @onmousedown:preventDefault="true"></div>
+                                        }
                                     </th>
                                 }
                             </tr>
@@ -68,9 +93,12 @@
                                 </td>
                             </tr>
                         }
+                        @{int rowIdx = 0;}
                         @foreach (var (rowKey, rowLabel) in rows)
                         {
-                            <tr>
+                            var evenRow = rowIdx % 2 == 1;
+                            var rowBg = (evenRow && _tableStyle?.AltRowBg is { } ab) ? $"background:{ab};" : string.Empty;
+                            <tr style="@rowBg">
                                 @if (Node.ShowRowLabels)
                                 {
                                     <td style="font-size:@FontSizeStyle();opacity:0.7;font-weight:500;white-space:nowrap;">@rowLabel</td>
@@ -78,11 +106,10 @@
                                 @foreach (var col in cols)
                                 {
                                     var cellValue = GetCellValue(rowKey, col);
-                                    <td style="font-size:@FontSizeStyle();@ColWidthStyle(col.Width)text-align:@(col.Align ?? "left");">
-                                        @cellValue
-                                    </td>
+                                    <td style="font-size:@FontSizeStyle();text-align:@(col.Align ?? "left");">@cellValue</td>
                                 }
                             </tr>
+                            rowIdx++;
                         }
                     </tbody>
                 </MudSimpleTable>
@@ -112,20 +139,31 @@
     private List<ColumnDef>? _columns;
     private List<RowDef>?    _rows;
     private List<CellDef>    _cellDefs = new();
+    private TableStyleDef?   _tableStyle;
+
     // Per-cell subscriptions (PerCell mode)
     private readonly List<IDisposable> _cellWatchers = new();
+
     // Track last parsed JSON to avoid re-parsing on every render
     private string? _lastColumnDefs;
     private string? _lastRowDefs;
     private string? _lastCellDefs;
     private string? _lastDataMode;
     private string? _lastDataPattern;
+    private string? _lastTableStyle;
+
+    // ── Column resize ─────────────────────────────────────────────────────────
+    // Runtime pixel widths keyed by column key. Populated from ColumnDef.Width on setup
+    // and updated when the user drags resize handles. Not persisted automatically.
+    private readonly Dictionary<string, double> _columnWidths = new();
+    private DotNetObjectReference<TableNodeWidget>? _dotNetRef;
 
     protected override void OnInitialized()
     {
         Node.MinimumDimensions = new(140, 80);
         if (Node.Size == null || Node.Size.Width < 140 || Node.Size.Height < 80)
             Node.Size = new(280, 180);
+        _dotNetRef = DotNetObjectReference.Create(this);
         base.OnInitialized();
         AppState.BridgeScopeChanged += OnBridgeScopeChanged;
         SetupWatchers();
@@ -144,9 +182,11 @@
         var columnDefsChanged = Node.ColumnDefs  != _lastColumnDefs;
         var rowDefsChanged    = Node.RowDefs     != _lastRowDefs;
         var cellDefsChanged   = Node.CellDefs    != _lastCellDefs;
+        var styleChanged      = Node.TableStyle  != _lastTableStyle;
         var genChanged        = AppState.BridgedDataCache.BridgeGeneration != _lastBridgeGeneration;
 
-        if (!modeChanged && !patternChanged && !columnDefsChanged && !rowDefsChanged && !cellDefsChanged && !genChanged)
+        if (!modeChanged && !patternChanged && !columnDefsChanged && !rowDefsChanged
+            && !cellDefsChanged && !styleChanged && !genChanged)
             return;
 
         _lastDataMode    = Node.DataMode;
@@ -154,6 +194,7 @@
         _lastColumnDefs  = Node.ColumnDefs;
         _lastRowDefs     = Node.RowDefs;
         _lastCellDefs    = Node.CellDefs;
+        _lastTableStyle  = Node.TableStyle;
         _lastBridgeGeneration = AppState.BridgedDataCache.BridgeGeneration;
 
         // Tear down old subscriptions
@@ -165,9 +206,14 @@
         _autoRows.Clear();
 
         // Re-parse definitions
-        _columns  = TableDefsParser.ParseColumnDefs(Node.ColumnDefs);
-        _rows     = TableDefsParser.ParseRowDefs(Node.RowDefs);
-        _cellDefs = TableDefsParser.ParseCellDefs(Node.CellDefs);
+        _columns    = TableDefsParser.ParseColumnDefs(Node.ColumnDefs);
+        _rows       = TableDefsParser.ParseRowDefs(Node.RowDefs);
+        _cellDefs   = TableDefsParser.ParseCellDefs(Node.CellDefs);
+        _tableStyle = TableDefsParser.ParseTableStyle(Node.TableStyle);
+
+        // Reset runtime widths to reflect updated ColumnDefs
+        _columnWidths.Clear();
+        InitColumnWidths();
 
         if (Node.DataMode == "PerTable")
             SetupPerTableWatchers();
@@ -305,17 +351,106 @@
         return col.Static ?? string.Empty;
     }
 
-    private string TableStyle()
+    // ── Style helpers ─────────────────────────────────────────────────────────
+
+    private string BuildTableMudStyle()
     {
-        var fs = Node.FontSize.HasValue ? $"font-size:{Node.FontSize}px;" : "font-size:0.75rem;";
-        return $"{fs}width:100%;";
+        var sb = new StringBuilder("width:100%;");
+
+        if (_columnWidths.Count > 0)
+            sb.Append("table-layout:fixed;");
+
+        if (Node.FontSize.HasValue)
+            sb.Append($"font-size:{Node.FontSize}px;");
+        else
+            sb.Append("font-size:0.75rem;");
+
+        if (!string.IsNullOrEmpty(_tableStyle?.BorderColor))
+            sb.Append($"border-color:{_tableStyle.BorderColor};");
+
+        if (!string.IsNullOrEmpty(_tableStyle?.TextColor))
+            sb.Append($"color:{_tableStyle.TextColor};");
+
+        return sb.ToString();
+    }
+
+    private string BuildHeaderStyle()
+    {
+        var sb = new StringBuilder();
+        if (!string.IsNullOrEmpty(_tableStyle?.HeaderBg))
+            sb.Append($"background:{_tableStyle.HeaderBg};");
+        if (!string.IsNullOrEmpty(_tableStyle?.HeaderColor))
+            sb.Append($"color:{_tableStyle.HeaderColor};");
+        return sb.ToString();
+    }
+
+    private string BuildThStyle(ColumnDef? col)
+    {
+        var align = col?.Align ?? "left";
+        return $"font-size:{FontSizeStyle()};position:relative;text-align:{align};padding-right:14px;";
     }
 
     private string FontSizeStyle() =>
         Node.FontSize.HasValue ? $"{Node.FontSize}px" : "0.75rem";
 
-    private static string ColWidthStyle(string? width) =>
-        string.IsNullOrEmpty(width) ? string.Empty : $"width:{width};";
+    // ── Column widths ─────────────────────────────────────────────────────────
+
+    private void InitColumnWidths()
+    {
+        if (_columns == null) return;
+        foreach (var col in _columns)
+        {
+            var px = ParsePx(col.Width);
+            if (px > 0)
+                _columnWidths[col.Key] = px;
+        }
+    }
+
+    private string GetColWidthStyle(string key, string? defWidth)
+    {
+        if (_columnWidths.TryGetValue(key, out var px))
+            return $"width:{px:F0}px";
+        if (!string.IsNullOrEmpty(defWidth))
+            return $"width:{defWidth}";
+        return string.Empty;
+    }
+
+    private static double ParsePx(string? width)
+    {
+        if (string.IsNullOrEmpty(width) || !width.EndsWith("px")) return 0;
+        return double.TryParse(width[..^2], out var px) ? px : 0;
+    }
+
+    // ── Column resize JS interop ──────────────────────────────────────────────
+
+    private async Task OnResizeHandleMouseDown(MouseEventArgs e, string colKey)
+    {
+        if (_dotNetRef == null) return;
+        await JS.InvokeVoidAsync("TableResize.startColumnResize", _dotNetRef, colKey, e.ClientX);
+    }
+
+    [JSInvokable]
+    public void OnColResizeBegin(string colKey, double renderedWidth)
+    {
+        // JS measured the actual <th> offsetWidth; store it so subsequent deltas are applied correctly.
+        _columnWidths[colKey] = Math.Max(30, renderedWidth);
+    }
+
+    [JSInvokable]
+    public void OnColResizeDelta(string colKey, double deltaX)
+    {
+        _columnWidths.TryGetValue(colKey, out var current);
+        _columnWidths[colKey] = Math.Max(30, current + deltaX);
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public void OnColResizeEnd(string colKey)
+    {
+        // Width is already stored in _columnWidths. No auto-persist to ColumnDefs JSON here —
+        // user can use the property editor to set permanent widths.
+        InvokeAsync(StateHasChanged);
+    }
 
     // ── Pattern parsing ───────────────────────────────────────────────────────
 
@@ -345,6 +480,7 @@
         _subscription?.Dispose(); _subscription = null;
         foreach (var w in _cellWatchers) w.Dispose();
         _cellWatchers.Clear();
+        _dotNetRef?.Dispose();
         base.Dispose();
     }
 }
