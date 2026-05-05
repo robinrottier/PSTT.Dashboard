@@ -1,0 +1,403 @@
+@using PSTT.Dashboard.Models
+@using PSTT.Dashboard.Services
+@using PSTT.Dashboard.Helpers
+@using Blazor.Diagrams.Components.Renderers
+@using PSTT.Data
+@using System.Collections.Concurrent
+@using System.Text.Json
+@inherits BaseNodeWidget<TableNodeModel>
+
+<div style="@ContainerStyle()"
+     class=@("default-node table-node" + (Node.Group != null ? " grouped" : "") + (Node.Selected ? " selected" : ""))
+     @ondblclick="OnDoubleClick">
+
+    <div style="display:flex;flex-direction:column;height:100%;width:100%;overflow:hidden;min-width:0;">
+
+        @if (!string.IsNullOrEmpty(Node.Title))
+        {
+            <div style="font-size:0.75rem;font-weight:500;padding:2px 4px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                @Node.Title
+            </div>
+        }
+
+        @if (string.IsNullOrEmpty(Node.DataPattern) && Node.DataMode == "PerTable")
+        {
+            <div style="opacity:0.5;font-size:0.75rem;padding:4px;flex:1;">
+                Set a Data Pattern in properties.<br />
+                <span style="font-size:0.65rem;">E.g. sensors/{row}/{col}</span>
+            </div>
+        }
+        else if ((_columns == null || _columns.Count == 0) && _data.Count == 0 && Node.DataMode == "PerTable")
+        {
+            <div style="opacity:0.5;font-size:0.75rem;padding:4px;flex:1;font-style:italic;">
+                Waiting for data…
+            </div>
+        }
+        else
+        {
+            var cols = GetDisplayColumns();
+            var rows = GetDisplayRows();
+
+            <div style="flex:1;overflow:auto;min-height:0;min-width:0;">
+                <MudSimpleTable Dense="true" Hover="true" Striped="true" Bordered="false"
+                                Style="@TableStyle()"
+                                Class="pa-0">
+                    @if (Node.ShowHeader && cols.Any())
+                    {
+                        <thead>
+                            <tr>
+                                @if (Node.ShowRowLabels)
+                                {
+                                    <th style="font-size:@FontSizeStyle();opacity:0.7;white-space:nowrap;"></th>
+                                }
+                                @foreach (var col in cols)
+                                {
+                                    <th style="font-size:@FontSizeStyle();@ColWidthStyle(col.Width)text-align:@(col.Align ?? "left");">
+                                        @(col.Header ?? col.Key)
+                                    </th>
+                                }
+                            </tr>
+                        </thead>
+                    }
+                    <tbody>
+                        @if (!rows.Any())
+                        {
+                            <tr>
+                                <td colspan="@Math.Max(1, cols.Count + (Node.ShowRowLabels ? 1 : 0))"
+                                    style="opacity:0.5;font-style:italic;font-size:@FontSizeStyle()">
+                                    No data yet…
+                                </td>
+                            </tr>
+                        }
+                        @foreach (var row in rows)
+                        {
+                            <tr>
+                                @if (Node.ShowRowLabels)
+                                {
+                                    <td style="font-size:@FontSizeStyle();opacity:0.7;font-weight:500;white-space:nowrap;">@row</td>
+                                }
+                                @foreach (var col in cols)
+                                {
+                                    var cellValue = GetCellValue(row, col);
+                                    <td style="font-size:@FontSizeStyle();@ColWidthStyle(col.Width)text-align:@(col.Align ?? "left");">
+                                        @cellValue
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            </div>
+        }
+    </div>
+
+    @foreach (var port in Node.Ports)
+    {
+        <PortRenderer @key="port" Port="port" Style="@PortStyle(port as NodePortModel)" />
+    }
+</div>
+
+@code {
+    // row → col → raw value string
+    private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, string?>> _data = new();
+    // ordered column keys discovered from data (PerTable auto-discovery)
+    private readonly List<string> _autoColumns = new();
+
+    private IDisposable? _subscription;
+    private int _lastBridgeGeneration = -1;
+    private bool _disposed;
+
+    private record ColumnDef(string Key, string? Header, string? Format, string? Width, string? Align, string? Static);
+    private record CellDef(string Row, string Col, string? Topic, string? Format, string? Static);
+
+    // Parsed column definitions (null = use auto-discovery)
+    private List<ColumnDef>? _columns;
+    // Parsed cell definitions for PerCell mode
+    private List<CellDef> _cellDefs = new();
+    // Per-cell subscriptions (PerCell mode)
+    private readonly List<IDisposable> _cellWatchers = new();
+    // Track last parsed JSON to avoid re-parsing on every render
+    private string? _lastColumnDefs;
+    private string? _lastCellDefs;
+    private string? _lastDataMode;
+    private string? _lastDataPattern;
+
+    protected override void OnInitialized()
+    {
+        Node.MinimumDimensions = new(140, 80);
+        if (Node.Size == null || Node.Size.Width < 140 || Node.Size.Height < 80)
+            Node.Size = new(280, 180);
+        base.OnInitialized();
+        AppState.BridgeScopeChanged += OnBridgeScopeChanged;
+        SetupWatchers();
+    }
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        SetupWatchers();
+    }
+
+    private void SetupWatchers()
+    {
+        var modeChanged     = Node.DataMode    != _lastDataMode;
+        var patternChanged  = Node.DataPattern != _lastDataPattern;
+        var columnDefsChanged = Node.ColumnDefs != _lastColumnDefs;
+        var cellDefsChanged   = Node.CellDefs   != _lastCellDefs;
+        var genChanged      = AppState.BridgedDataCache.BridgeGeneration != _lastBridgeGeneration;
+
+        if (!modeChanged && !patternChanged && !columnDefsChanged && !cellDefsChanged && !genChanged)
+            return;
+
+        _lastDataMode    = Node.DataMode;
+        _lastDataPattern = Node.DataPattern;
+        _lastColumnDefs  = Node.ColumnDefs;
+        _lastCellDefs    = Node.CellDefs;
+        _lastBridgeGeneration = AppState.BridgedDataCache.BridgeGeneration;
+
+        // Tear down old subscriptions
+        _subscription?.Dispose(); _subscription = null;
+        foreach (var w in _cellWatchers) w.Dispose();
+        _cellWatchers.Clear();
+        _data.Clear();
+        _autoColumns.Clear();
+
+        // Re-parse definitions
+        _columns = ParseColumnDefs(Node.ColumnDefs);
+        _cellDefs = ParseCellDefs(Node.CellDefs);
+
+        if (Node.DataMode == "PerTable")
+            SetupPerTableWatchers();
+        else if (Node.DataMode == "PerCell")
+            SetupPerCellWatchers();
+    }
+
+    // ── PerTable mode ─────────────────────────────────────────────────────────
+
+    private void SetupPerTableWatchers()
+    {
+        if (string.IsNullOrEmpty(Node.DataPattern)) return;
+
+        var wildcardTopic = PatternToWildcard(Node.DataPattern);
+        if (string.IsNullOrEmpty(wildcardTopic)) return;
+
+        // Seed from cache snapshot
+        foreach (var kv in AppState.BridgedDataCache.GetSnapshot(wildcardTopic))
+            OnTopicValue(kv.Key, kv.Value);
+
+        _subscription = AppState.BridgedDataCache.Subscribe(wildcardTopic, async s =>
+        {
+            if (s.Status.IsPending || _disposed) return;
+            _ = InvokeAsync(() =>
+            {
+                if (_disposed) return;
+                OnTopicValue(s.Key, s.Value);
+                StateHasChanged();
+            });
+            await Task.CompletedTask;
+        });
+    }
+
+    private void OnTopicValue(string topic, string? value)
+    {
+        if (!TryExtractSegments(Node.DataPattern, topic, out var row, out var col))
+            return;
+
+        var rowDict = _data.GetOrAdd(row!, _ => new ConcurrentDictionary<string, string?>());
+        rowDict[col!] = value;
+
+        // Track auto-discovered columns in stable order
+        if (!_autoColumns.Contains(col!))
+            _autoColumns.Add(col!);
+    }
+
+    // ── PerCell mode ──────────────────────────────────────────────────────────
+
+    private void SetupPerCellWatchers()
+    {
+        foreach (var cell in _cellDefs)
+        {
+            if (string.IsNullOrEmpty(cell.Topic)) continue;
+
+            // Seed from cache
+            var initial = AppState.BridgedDataCache.GetValue(cell.Topic);
+            if (initial != null)
+                StoreCell(cell.Row, cell.Col, initial);
+
+            var capturedCell = cell;
+            var watcher = AppState.BridgedDataCache.Subscribe(cell.Topic, async s =>
+            {
+                if (s.Status.IsPending || _disposed) return;
+                _ = InvokeAsync(() =>
+                {
+                    if (_disposed) return;
+                    StoreCell(capturedCell.Row, capturedCell.Col, s.Value);
+                    StateHasChanged();
+                });
+                await Task.CompletedTask;
+            });
+            _cellWatchers.Add(watcher);
+        }
+    }
+
+    private void StoreCell(string row, string col, string? value)
+    {
+        var rowDict = _data.GetOrAdd(row, _ => new ConcurrentDictionary<string, string?>());
+        rowDict[col] = value;
+    }
+
+    // ── Rendering helpers ─────────────────────────────────────────────────────
+
+    private List<ColumnDef> GetDisplayColumns()
+    {
+        if (_columns != null && _columns.Count > 0) return _columns;
+
+        if (Node.DataMode == "PerCell")
+        {
+            // Derive columns from cell defs
+            var keys = _cellDefs.Select(c => c.Col).Distinct().ToList();
+            return keys.Select(k => new ColumnDef(k, k, null, null, null, null)).ToList();
+        }
+
+        // Auto-discovered columns from PerTable data
+        return _autoColumns.Select(k => new ColumnDef(k, k, null, null, null, null)).ToList();
+    }
+
+    private List<string> GetDisplayRows()
+    {
+        if (Node.DataMode == "PerCell")
+        {
+            // Fixed row order from cell defs
+            return _cellDefs.Select(c => c.Row).Distinct().ToList();
+        }
+        return _data.Keys.OrderBy(k => k).ToList();
+    }
+
+    private string GetCellValue(string row, ColumnDef col)
+    {
+        // For PerCell mode, check if there's a static value for this cell
+        if (Node.DataMode == "PerCell")
+        {
+            var cellDef = _cellDefs.FirstOrDefault(c => c.Row == row && c.Col == col.Key);
+            if (cellDef != null)
+            {
+                if (_data.TryGetValue(row, out var rowData) && rowData.TryGetValue(col.Key, out var rawVal))
+                    return ApplyFormat(rawVal, cellDef.Format ?? col.Format);
+                return cellDef.Static ?? col.Static ?? string.Empty;
+            }
+        }
+
+        // PerTable mode
+        if (_data.TryGetValue(row, out var rd) && rd.TryGetValue(col.Key, out var raw))
+            return ApplyFormat(raw, col.Format);
+        return col.Static ?? string.Empty;
+    }
+
+    private static string ApplyFormat(string? raw, string? format)
+    {
+        if (raw == null) return string.Empty;
+        if (string.IsNullOrEmpty(format)) return raw;
+        try
+        {
+            // Try numeric formatting
+            if (double.TryParse(raw, System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var d))
+                return string.Format(format, d);
+            return string.Format(format, raw);
+        }
+        catch { return raw; }
+    }
+
+    private string TableStyle()
+    {
+        var fs = Node.FontSize.HasValue ? $"font-size:{Node.FontSize}px;" : "font-size:0.75rem;";
+        return $"{fs}width:100%;";
+    }
+
+    private string FontSizeStyle() =>
+        Node.FontSize.HasValue ? $"{Node.FontSize}px" : "0.75rem";
+
+    private static string ColWidthStyle(string? width) =>
+        string.IsNullOrEmpty(width) ? string.Empty : $"width:{width};";
+
+    // ── Pattern parsing ───────────────────────────────────────────────────────
+    // Delegates to TableTopicParser (shared static class, separately unit-tested).
+
+    private static string PatternToWildcard(string? pattern)
+        => TableTopicParser.PatternToWildcard(pattern);
+
+    private static bool TryExtractSegments(string? pattern, string topic, out string? row, out string? col)
+        => TableTopicParser.TryExtractSegments(pattern, topic, out row, out col);
+
+    // ── JSON parsers ──────────────────────────────────────────────────────────
+
+    private static List<ColumnDef>? ParseColumnDefs(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            var arr = JsonSerializer.Deserialize<JsonElement[]>(json);
+            if (arr == null) return null;
+            var result = new List<ColumnDef>();
+            foreach (var el in arr)
+            {
+                var key    = el.TryGetProperty("key",    out var k)  ? k.GetString() : null;
+                var header = el.TryGetProperty("header", out var h)  ? h.GetString() : null;
+                var format = el.TryGetProperty("format", out var f)  ? f.GetString() : null;
+                var width  = el.TryGetProperty("width",  out var w)  ? w.GetString() : null;
+                var align  = el.TryGetProperty("align",  out var a)  ? a.GetString() : null;
+                var stat   = el.TryGetProperty("static", out var s)  ? s.GetString() : null;
+                if (!string.IsNullOrEmpty(key) || !string.IsNullOrEmpty(header))
+                    result.Add(new ColumnDef(key ?? header!, header, format, width, align, stat));
+            }
+            return result.Count > 0 ? result : null;
+        }
+        catch { return null; }
+    }
+
+    private static List<CellDef> ParseCellDefs(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return new();
+        try
+        {
+            var arr = JsonSerializer.Deserialize<JsonElement[]>(json);
+            if (arr == null) return new();
+            var result = new List<CellDef>();
+            foreach (var el in arr)
+            {
+                var row    = el.TryGetProperty("row",    out var r) ? r.GetString() : null;
+                var col    = el.TryGetProperty("col",    out var c) ? c.GetString() : null;
+                var topic  = el.TryGetProperty("topic",  out var t) ? t.GetString() : null;
+                var format = el.TryGetProperty("format", out var f) ? f.GetString() : null;
+                var stat   = el.TryGetProperty("static", out var s) ? s.GetString() : null;
+                if (!string.IsNullOrEmpty(row) && !string.IsNullOrEmpty(col))
+                    result.Add(new CellDef(row!, col!, topic, format, stat));
+            }
+            return result;
+        }
+        catch { return new(); }
+    }
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
+
+    private void OnBridgeScopeChanged()
+    {
+        _ = InvokeAsync(() =>
+        {
+            _subscription?.Dispose(); _subscription = null;
+            _lastBridgeGeneration = -1; // force re-subscribe
+            SetupWatchers();
+            StateHasChanged();
+        });
+    }
+
+    public override void Dispose()
+    {
+        _disposed = true;
+        AppState.BridgeScopeChanged -= OnBridgeScopeChanged;
+        _subscription?.Dispose(); _subscription = null;
+        foreach (var w in _cellWatchers) w.Dispose();
+        _cellWatchers.Clear();
+        base.Dispose();
+    }
+}

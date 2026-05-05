@@ -51,6 +51,7 @@ public class DashboardFileInfo
 [JsonDerivedType(typeof(MarkdownNodeData),    "Markdown")]
 [JsonDerivedType(typeof(ButtonGroupNodeData), "ButtonGroup")]
 [JsonDerivedType(typeof(RadioGroupNodeData),  "RadioGroup")]
+[JsonDerivedType(typeof(TableNodeData),       "Table")]
 public abstract class NodeData
 {
     [FileId] public string Id { get; set; } = string.Empty;
@@ -190,6 +191,16 @@ public class RadioGroupNodeData : NodeData
     public bool IsReadOnly { get; set; } = false;
     public bool Retain { get; set; } = false;
     public bool PublishGlobally { get; set; } = true;
+}
+
+public class TableNodeData : NodeData
+{
+    public string? DataMode { get; set; }
+    public string? DataPattern { get; set; }
+    public string? ColumnDefs { get; set; }
+    public string? CellDefs { get; set; }
+    public bool? ShowHeader { get; set; }
+    public bool? ShowRowLabels { get; set; }
 }
 
 // ── Shared nested value types ─────────────────────────────────────────────────
