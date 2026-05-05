@@ -1,4 +1,38 @@
-## 2026-05-05 — Table widget Session 2
+## 2026-05-05 — Table widget property editor polish
+
+### Commit: TBD — feature/table-widget
+
+---
+
+### Item 1 — Hide irrelevant sections for Table nodes
+
+**File:** `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor`
+
+**What changed:** Wrapped the "MQTT Topics" section and the "Text body" section in `@if (Node is not TableNodeModel)` guards.
+
+**Why:** The Table widget uses `DataPattern`/`CellDefs` for data subscriptions rather than the base `DataTopics` list. Showing those sections just confused users configuring a Table node.
+
+**How it works:** Simple Blazor conditional rendering — the sections are fully excluded from the DOM when editing a Table node.
+
+---
+
+### Item 2 — "Fill from live data" discovery buttons for ColumnDefs/RowDefs
+
+**Files:**
+- `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor` — new Table-specific block with discovery buttons
+- `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor.cs` — injected `ApplicationState`; added `FillColumnDefsFromData`, `FillRowDefsFromData`, `GetPatternSnapshot` methods
+
+**What changed:** When editing a Table node with a non-empty `DataPattern` but empty `ColumnDefs` or `RowDefs`, a new "Discover from live data" section appears below the property fields. It shows up to two buttons:
+- **Fill Column Defs** — queries `AppState.BridgedDataCache.GetSnapshot(wildcard)`, extracts unique `{col}` values via `TableTopicParser.TryExtractSegments`, generates a minimal ColumnDefs JSON array (`[{key, header}]`).
+- **Fill Row Defs** — same but for `{row}` values, generates `[{key, label}]`.
+
+**Why:** The ColumnDefs/RowDefs fields previously said "leave blank to auto-discover" — but blank means the user gets no visual feedback about what was discovered. Now they can click a button to get an editable JSON starting point based on the actual data currently flowing through the cache. This is much easier than authoring JSON from scratch.
+
+**Caveat:** Discovery only sees data that has already arrived in the cache. If the MQTT broker hasn't sent matching messages yet, the generated JSON will be empty and no defs are written.
+
+---
+
+
 
 ### Commit: a4ca7f9 — feature/table-widget
 
