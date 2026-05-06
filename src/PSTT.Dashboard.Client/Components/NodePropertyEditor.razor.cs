@@ -1,7 +1,11 @@
 using PSTT.Dashboard.Models;
+using PSTT.Dashboard.Helpers;
+using PSTT.Dashboard.Services;
 using MudBlazor;
 using Microsoft.AspNetCore.Components;
 using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace PSTT.Dashboard.Components;
 
@@ -11,6 +15,7 @@ public partial class NodePropertyEditor
     [Parameter] public EventCallback OnSaved { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
     [Inject] private IDialogService DialogService { get; set; } = default!;
+    [Inject] private ApplicationState AppState { get; set; } = default!;
 
     private double Width { get; set; }
     private double Height { get; set; }
@@ -22,9 +27,14 @@ public partial class NodePropertyEditor
     private double _savedHeight;
     private int? _savedFontSize;
 
+    // Guard: only reset local fields when the node reference actually changes (not on every parent re-render)
+    private TextNodeModel? _lastNode;
+
     protected override void OnParametersSet()
     {
-        // Re-initialise whenever the node changes (panel switched to a different node)
+        if (Node == _lastNode) return;
+        _lastNode = Node;
+
         Width    = Node.Size?.Width  ?? 120;
         Height   = Node.Size?.Height ?? 90;
         FontSize = Node.FontSize;
@@ -131,4 +141,66 @@ public partial class NodePropertyEditor
             .Select(p => p.GetCustomAttribute<NodePropertyAttribute>()?.Category)
             .Where(c => !string.IsNullOrEmpty(c))
             .Distinct()!;
+
+    // ── Table widget: discover defs from live data ────────────────────────────
+
+    private static readonly JsonSerializerOptions _prettyJson = new()
+    {
+        WriteIndented = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
+
+    /// <summary>
+    /// Queries the current data cache for all topics matching the node's DataPattern,
+    /// extracts unique column keys, and fills ColumnDefs with a minimal JSON array.
+    /// </summary>
+    private void FillColumnDefsFromData(TableNodeModel node)
+    {
+        var snapshot = GetPatternSnapshot(node.DataPattern);
+        if (snapshot == null) return;
+
+        var cols = new List<string>();
+        foreach (var key in snapshot.Keys)
+        {
+            if (TableTopicParser.TryExtractSegments(node.DataPattern, key, out _, out var col)
+                && col != null && !cols.Contains(col))
+                cols.Add(col);
+        }
+        if (cols.Count == 0) return;
+
+        var defs = cols.Select(c => new { key = c, header = c }).ToList();
+        node.ColumnDefs = JsonSerializer.Serialize(defs, _prettyJson);
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Queries the current data cache for all topics matching the node's DataPattern,
+    /// extracts unique row keys, and fills RowDefs with a minimal JSON array.
+    /// </summary>
+    private void FillRowDefsFromData(TableNodeModel node)
+    {
+        var snapshot = GetPatternSnapshot(node.DataPattern);
+        if (snapshot == null) return;
+
+        var rows = new List<string>();
+        foreach (var key in snapshot.Keys)
+        {
+            if (TableTopicParser.TryExtractSegments(node.DataPattern, key, out var row, out _)
+                && row != null && !rows.Contains(row))
+                rows.Add(row);
+        }
+        if (rows.Count == 0) return;
+
+        var defs = rows.Select(r => new { key = r, label = r }).ToList();
+        node.RowDefs = JsonSerializer.Serialize(defs, _prettyJson);
+        StateHasChanged();
+    }
+
+    private IReadOnlyDictionary<string, string>? GetPatternSnapshot(string? pattern)
+    {
+        if (string.IsNullOrWhiteSpace(pattern)) return null;
+        var wildcard = TableTopicParser.PatternToWildcard(pattern);
+        if (string.IsNullOrEmpty(wildcard)) return null;
+        return AppState.BridgedDataCache.GetSnapshot(wildcard);
+    }
 }

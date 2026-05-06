@@ -36,6 +36,7 @@
         ("ButtonGroup",  Icons.Material.Filled.ViewModule,       "Button Group",  "Multiple buttons sharing a topic"),
         ("RadioGroup",   Icons.Material.Filled.RadioButtonChecked, "Radio Group", "Exclusive selection, publishes on change"),
         ("Markdown",     Icons.Material.Filled.Description,      "Markdown",      "Static Markdown content"),
+        ("Table",        Icons.Material.Filled.TableChart,        "Table",         "Tabular MQTT data display"),
     ];
 
     private async Task Select(string nodeType) => await OnNodeTypeSelected.InvokeAsync(nodeType);

@@ -31,6 +31,15 @@
     {
         @RenderSelectField(entry.Prop, (NpSelectAttribute)entry.Attr)
     }
+    else if (entry.Attr is NpJsonAttribute jsonAttr)
+    {
+        <JsonEditorField Value="@((string?)entry.Prop.GetValue(Node))"
+                         ValueChanged="@((string? v) => entry.Prop.SetValue(Node, v))"
+                         Label="@jsonAttr.DisplayName"
+                         HelperText="@jsonAttr.HelperText"
+                         ExampleJson="@jsonAttr.ExampleJson"
+                         Lines="@jsonAttr.Lines" />
+    }
     else if (entry.Attr is NpCustomAttribute custAttr)
     {
         <DynamicComponent Type="custAttr.ComponentType"

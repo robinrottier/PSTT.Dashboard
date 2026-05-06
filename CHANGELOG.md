@@ -7,6 +7,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [v0.1.11] - 2026-05-06
+
+### Added
+- **Table widget — cell/row/column styling**: `CellStyle` JSON property on the Table node supports per-cell background and text colour, with row/column wildcard (`"*"`) support. Style priority: alt-row → column → row → cell → conditional.
+- **Table widget — conditional formatting**: `CellStyle` entries accept a `conditions` array. Each condition specifies an operator (`>=`, `<=`, `==`, `!=`, etc.) plus numeric or string value to compare against the live cell value, and a `bg`/`color` to apply when matched.
+- **Table widget — RowDef enhancements**: `RowDef` JSON now supports `format`, `align`, `bg`, `color` — enabling row-level formatting and colour as a baseline that column/cell styles can override.
+- **Table widget — ColumnDef enhancements**: `ColumnDef` JSON now supports `bg` and `color` for column-level default background and text colour.
+- **Table widget — label column width**: `TableStyle.labelWidth` CSS value (e.g. `"120px"`) controls the row-label `<col>` width via `<colgroup>`.
+- **Table widget — value-change flash animation**: When a cell receives a new MQTT value that differs from the previous value, the cell flashes amber for 5 seconds (CSS animation). Seeding from cache on initial load does not trigger the flash.
+
+### Fixed
+- **Property editor — font size reset**: Typing in the Font Size field no longer gets reset mid-input. The local editable fields are now only synchronised when the selected node actually changes, not on every parent re-render.
+
+### Changed
+- **Table widget property editor**: "Link Animation" is now hidden for Table nodes (same as Data Topics — not applicable without a single data topic).
+- **Table widget**: Row background colour moved from `<tr style>` to per-`<td>` style, enabling per-cell colour overrides to work correctly.
+
+
 ## [v0.1.10] - 2026-05-01
 
 ### Fixed

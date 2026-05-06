@@ -51,7 +51,20 @@ public sealed class NpSelectAttribute(string displayName, params string[] option
 }
 
 /// <summary>
-/// Delegates rendering to a custom Blazor component <paramref name="componentType"/>.
+/// JSON textarea with live validation, pretty-print button, and collapsible example.
+/// Rendered as <c>JsonEditorField</c> inside <c>NodePropertyRenderer</c>.
+/// </summary>
+public sealed class NpJsonAttribute(string displayName) : NodePropertyAttribute(displayName)
+{
+    /// <summary>Number of visible lines in the textarea (default 6).</summary>
+    public int Lines { get; set; } = 6;
+
+    /// <summary>
+    /// Optional example JSON shown in a collapsible "Show example" panel.
+    /// If omitted, no example panel is rendered.
+    /// </summary>
+    public string? ExampleJson { get; set; }
+}
 /// The component must declare:
 /// <code>
 ///   [Parameter] public TextNodeModel Node { get; set; }   // owning node

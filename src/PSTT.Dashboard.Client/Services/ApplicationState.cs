@@ -437,6 +437,7 @@ public class ApplicationState
         diagram.RegisterComponent<MarkdownNodeModel, MarkdownNodeWidget>();
         diagram.RegisterComponent<ButtonGroupNodeModel, ButtonGroupNodeWidget>();
         diagram.RegisterComponent<RadioGroupNodeModel, RadioGroupNodeWidget>();
+        diagram.RegisterComponent<TableNodeModel, TableNodeWidget>();
 
         if (page != null)
         {
@@ -459,6 +460,7 @@ public class ApplicationState
                     MarkdownNodeData d   => MarkdownNodeModel.FromData(d),
                     ButtonGroupNodeData d => ButtonGroupNodeModel.FromData(d),
                     RadioGroupNodeData d  => RadioGroupNodeModel.FromData(d),
+                    TableNodeData d       => TableNodeModel.FromData(d),
                     _                    => TextNodeModel.FromData(nodeData),
                 };
 
