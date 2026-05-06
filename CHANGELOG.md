@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [v0.1.11] - 2026-05-06
+
 ### Added
 - **Table widget — cell/row/column styling**: `CellStyle` JSON property on the Table node supports per-cell background and text colour, with row/column wildcard (`"*"`) support. Style priority: alt-row → column → row → cell → conditional.
 - **Table widget — conditional formatting**: `CellStyle` entries accept a `conditions` array. Each condition specifies an operator (`>=`, `<=`, `==`, `!=`, etc.) plus numeric or string value to compare against the live cell value, and a `bg`/`color` to apply when matched.
