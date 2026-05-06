@@ -1,7 +1,12 @@
 .table-node {
     overflow: hidden;
-    /* Override MudBlazor's default table cell padding (was 6px 16px) */
-    --mud-table-cell-padding: 3px 8px;
+}
+
+/* Override MudBlazor dense table padding. The Dense="true" rule has specificity (0,2,2);
+   this ::deep rule generates (0,4,2) and wins regardless of load order. */
+.table-node ::deep .mud-simple-table.mud-table-dense tr td,
+.table-node ::deep .mud-simple-table.mud-table-dense tr th {
+    padding: 3px 8px;
 }
 
 .table-node .mud-simple-table {
