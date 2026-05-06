@@ -112,7 +112,9 @@
                 </MudItem>
             </MudGrid>
 
-            <!-- Link Animation -->
+            <!-- Link Animation (not shown for table nodes — no single data topic) -->
+            @if (Node is not TableNodeModel)
+            {
             <MudSelect @bind-Value="@Node.LinkAnimation"
                        Label="Link Animation"
                        Variant="Variant.Outlined"
@@ -123,8 +125,11 @@
                 <MudSelectItem Value="@("Forward")">Forward</MudSelectItem>
                 <MudSelectItem Value="@("Reverse")">Reverse</MudSelectItem>
             </MudSelect>
+            }
 
-            <!-- MQTT Topics -->
+            <!-- MQTT Topics (not shown for table nodes — they use DataPattern/CellDefs instead) -->
+            @if (Node is not TableNodeModel)
+            {
             <MudDivider Class="my-2" />
             <MudText Typo="Typo.subtitle2">MQTT Topics</MudText>
             @for (int i = 0; i < Node.DataTopics.Count; i++)
@@ -140,8 +145,11 @@
             }
             <MudButton StartIcon="@Icons.Material.Filled.Add" Size="Size.Small"
                        OnClick="@(() => Node.DataTopics.Add(string.Empty))">Add Topic</MudButton>
+            }
 
-            <!-- Text body -->
+            <!-- Text body (not shown for table nodes) -->
+            @if (Node is not TableNodeModel)
+            {
             <MudDivider Class="my-2" />
             <MudTextField @bind-Value="@Node.Text"
                           Label="Text"
@@ -150,6 +158,7 @@
                           Lines="4"
                           Placeholder="e.g. Temp: {0:F2}°C&#10;Humidity: {1:F1}%"
                           HelperText="HTML tags in the template are rendered (e.g. &lt;b&gt;{0}&lt;/b&gt;); data values are HTML-encoded automatically. Supports C# format specs, e.g. {0:F2}." />
+            }
 
             <!-- Node-type-specific settings (driven by [NpXxx] attributes on the model) -->
             @foreach (var category in GetNodeSpecificCategories())
@@ -157,6 +166,39 @@
                 <MudDivider Class="my-2" />
                 <MudText Typo="Typo.caption" Class="mb-1">@category</MudText>
                 <NodePropertyRenderer Node="Node" Category="@category" />
+            }
+
+            <!-- Table: Fill defs from live data (shown when pattern is set but defs are empty) -->
+            @if (Node is TableNodeModel tableNode && !string.IsNullOrWhiteSpace(tableNode.DataPattern))
+            {
+                var showColDiscover = string.IsNullOrWhiteSpace(tableNode.ColumnDefs);
+                var showRowDiscover = string.IsNullOrWhiteSpace(tableNode.RowDefs);
+                @if (showColDiscover || showRowDiscover)
+                {
+                    <MudDivider Class="my-2" />
+                    <MudText Typo="Typo.caption" Class="mb-1">Discover from live data</MudText>
+                    <MudText Typo="Typo.body2" Class="mb-2" Style="color:var(--mud-palette-text-secondary)">
+                        Fill in the definition fields below from data currently seen in the cache. You can then edit and refine the generated JSON.
+                    </MudText>
+                    <MudStack Row="true" Spacing="1">
+                        @if (showColDiscover)
+                        {
+                            <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                                       StartIcon="@Icons.Material.Filled.TableChart"
+                                       OnClick="@(() => FillColumnDefsFromData(tableNode))">
+                                Fill Column Defs
+                            </MudButton>
+                        }
+                        @if (showRowDiscover)
+                        {
+                            <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                                       StartIcon="@Icons.Material.Filled.ViewList"
+                                       OnClick="@(() => FillRowDefsFromData(tableNode))">
+                                Fill Row Defs
+                            </MudButton>
+                        }
+                    </MudStack>
+                }
             }
 
             <!-- Custom Metadata -->

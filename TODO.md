@@ -44,23 +44,21 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] Option: "virtual topics" defined at dashboard level, computed from raw MQTT values, reusable across nodes
 - [ ] Option to write calculated values back to the MQTT broker
 
-### FEAT-C: Additional node types and display improvements
+### FEAT-C: Additional node types and dashboard improvements
 - [ ] **Text node** - different node shapes (circle, diamond, etc.) Perhaps the "shapre" applies to all derived
       nodes too e.g. a guage inside a triangle or circle. Or maybe shape is just a property of the base node.
 - [ ] **Guage**
 	- [ ] needs alternatives such as full circle, 90 or 270 .... maybe thats all the 
 		  option is, how much of a circle is drawn and properties to control orientation
 	- [ ] options to draw "needle" also from some center point to the guage ...	  
-- [ ] **Grid** — tabular display of multiple topic values (e.g. all sensors in a room), or same sensor from alternate locations
-      options to do with how grid data is populated:
-	  - fixed rows & columns and fixed text or formatted topic data in each one.
-	  OR single topic (wildcarded) for whole table and data looked up based on rows/column meta data e.g. row has key "HUB-3" and a column has key "grid" and cell then gets ess1/servers/HUB-3/grid withouth having to spcify that in each indiv cell (perhaps indiv cell could override?)
-	  OR dynamic...
-	  - fixed columns, with header row of fixed text but with property which is used in data lookup 
-	  - rows vary dependign on what data is available....so topic search is ess1/servers/+/+ and first "+" matches a row, second "+" matches on fixed column entry
-	  OR same as above but invert rows/columns
-	  Configuration could come from an xml or json input for now rather than properties page designer.
-	  Likely to include properties like ColumnTemplate, RowTemplate, Rows, Columns, ColumnHeaders and some means of simple text entry, single value entry or repeated multivalues for rows. 
+- [x] **Grid/Table node** — ✓ MVP complete (Session 1). Remaining sessions:
+      - Session 2: JsonEditorField reusable component; full ColumnDefs/RowDefs/CellDefs with formatting; PerCell improvements
+      - Session 3: Hierarchical styles + conditional cell formatting
+      - Session 4: PerRow mode, Invert, responsive card-stack layout
+      - Session 5: Nested widget cells (Button, Switch, TextEntry) via DynamicComponent with {row}/{col} substitution
+	  - Current highlighing implementatin needs to be optional and configurable
+	  - Rows (and Col) definition need a template or something to set optional defaults for each actual item
+
 - [ ] **Text entry**
 	- [ ] Support text format for entry: string, date, time, datetime, numeric int/float/%age/
 	- [ ] validation: string length, reg ex match, numeric limits etc
@@ -73,6 +71,12 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
       - Self collected easy to do but little application if looses it every refresh.
 
 - [ ] Widget libraries- What libraries or packages are availble (FOSS) that would enhance the package?? Are there any emerging standards or widely used packages?
+- [ ] Generic property handling for data value transition:
+- [ ] Any widget property should be able to have a data transition appliled to it in some generic way
+      rather than present where just fixed (typlically color) property has data vaue transition built in only
+	  - other use cases would be whole widget visibility based on a data vaue (e.g. hide if 0)
+	  - speed of animation of line based on data vaue
+	  - 
 
 ### FEAT-D: Multiple dashboard pages _(basic multi-page done — see CHANGELOG)_
 - [ ] Page tab overflow handling (scrolling/dropdown when many pages)
@@ -82,23 +86,39 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 ### FEAT-E: Editing improvements
 - [ ] View zoom/unzoom option and scroll bars for panning view.
-- [ ] Add node panel
-	- [ ] drag onto the canvas and positioned without loosing the dialog
 - [ ] Keyboard funcionality:
 	- [ ] arrows to move selcted nodes
+
+- [ ] Add node panel
+	- [ ] drag onto the canvas and positioned without loosing the dialog
 - [ ] Data explorer panel
 	- [ ] drag a data item to an existing node to add it to that node
-- [ ] all the edit mode panels could be a tabbed super panel with a tab for each of these functions (add node, edit node, data explorer, page properties, dashboard properties, etc)
+
+- [ ] all the edit mode panels could be combined into a tabbed super panel with a tab for each of these functions (add node, edit node, data explorer, page properties, dashboard properties, etc)
 	- [ ] similar to current floating panels but also could be "docked" to right hand side of screen
 	- [ ] that is resizeable (and saves size and position and dock state i,e. floating or ocked)
 	- [ ] and when in edit mode this panel is shown by default but can be hidden to give more canvas space, and then shown again when needed
 	- [ ] whole thing is shown/hidden via single button
 	- [ ] thing becomes very extendable
+	- [ ] contained panels:
+		- [ ] nodeproperties panel is simple list of all properties and a simple editing value
+		- [ ] second propeties panel (ie. current dialog) would be for specialized node properties with the layout and cusom dialog as present
+		- [ ] dashboard oroperties and page properties another panel - again have linear list or ghioh value custom dialog
+		- [ ] add node
+		- [ ] data explorer
+		- [ ] ...so maybe tool bar olong top to choose which panel (node, page, table, data, add node) but also for some panel type a binary choice of list or custom
+	- [ ] rather like the node-red editing page with slide out panel on the right side
 
 ### FEAT-F: Link improvements
 - [ ] Links as proper model objects with a properties editor: color, thickness, dash style
-- [ ] Arrow heads to show flow direction
-- [ ] Data-driven link styling — color/intensity driven by a topic value
+	- [ ] Data-driven link styling — color/intensity driven by a topic value
+	- [ ] remove link animation from current widget joined to the link and build it into the link itself 
+- [ ] POrt options:
+	- [ ] Arrow heads to show flow direction
+	- [ ] Not at all or single ended - or much finer than current black blob.
+	- [ ] Diffenent view in edit mode as has to be visible
+- [ ] Link port to centre of widget aswell as edge ports (blozor diagrams supports this).
+- [ ] Mutiple edge ports per side spaced properly or on top of each other? (implement in blazor diagrams)
 - [ ] Draggable Bezier control points
 - [ ] Fork/junction points between links
 
@@ -142,9 +162,8 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 ### FEAT-L: Deployment enhancements
 - [ ] Admin interface: runtime monitoring, logs, connected clients, dashboard file management
 - [ ] We've lost the "restart" button ...might want to do a restart for other reasosns
-- [ ] More automation to speed release process
-	- [ ] Local script to run tests, do a final commit, and push, create PR, let the various actions run, merge the PR to main and kick patch-release. Then kick deployment to test server
-	      release.ps1 now covers this flow, including automated submodule branch management
+- [ ] Backend (docker) deployment of a new version shoul dbe detected by front end and a prompt to restart/reload offered
+- [ ] If backend has become incompatible (version change etc) then restart coul dbe forced
 
 ### FEAT-M: Settings persistence _(done — settings now in data directory)_
 

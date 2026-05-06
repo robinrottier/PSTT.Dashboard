@@ -15,6 +15,7 @@
     <File Path="CHANGELOG.md" />
     <File Path="CONTRIBUTING.md" />
     <File Path="documents/deployment-modes.md" />
+    <File Path="Table plan.md" />
   </Folder>
   <Folder Name="/solution items/scripts/">
     <File Path="scripts/clean_and_build.bat" />
@@ -44,11 +45,11 @@
   </Folder>
   <Folder Name="/libs/PSTT/">
     <File Path="libs/PSTT/src/Directory.Build.props" />
-    <Project Path="libs/PSTT/src/PSTT.Remote.Sub/PSTT.Remote.Sub.csproj" />
-    <Project Path="libs/PSTT/src/PSTT.Remote.Pub/PSTT.Remote.Pub.csproj" />
     <Project Path="libs/PSTT/src/PSTT.Data/PSTT.Data.csproj" />
     <Project Path="libs/PSTT/src/PSTT.Mqtt/PSTT.Mqtt.csproj" />
     <Project Path="libs/PSTT/src/PSTT.Remote.AspNetCore/PSTT.Remote.AspNetCore.csproj" />
+    <Project Path="libs/PSTT/src/PSTT.Remote.Pub/PSTT.Remote.Pub.csproj" />
+    <Project Path="libs/PSTT/src/PSTT.Remote.Sub/PSTT.Remote.Sub.csproj" />
     <Project Path="libs/PSTT/src/PSTT.Remote/PSTT.Remote.csproj" />
   </Folder>
   <Folder Name="/tests/">

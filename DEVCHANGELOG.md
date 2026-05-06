@@ -1,4 +1,349 @@
-## 2026-05-01 — Harden flaky test; fix serializer test for alignment strings
+## 2026-05-05 — Table widget Session 3 complete — cell/row/col styling, conditional formatting, flash animation
+
+### Commit: TBD — feature/table-widget
+
+---
+
+### Item 1 — Font size reset bug fix
+
+**File:** `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor.cs`
+
+`OnParametersSet()` was being called on every parent re-render (normal Blazor behaviour), resetting the local `FontSize` field while the user was still typing. Fix: added `_lastNode` field; guard at the top of `OnParametersSet` with `if (Node == _lastNode) return;`. The local editable fields (Width, Height, FontSize) are now only reset when the selected node reference actually changes.
+
+---
+
+### Item 2 — Hide Link Animation for Table nodes
+
+**File:** `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor`
+
+Wrapped the Link Animation `<MudSelect>` in `@if (Node is not TableNodeModel)` — same pattern as the existing Data Topics hide. Link Animation depends on a data topic and is not applicable to Table nodes.
+
+---
+
+### Item 3 — RowDef format, align, bg, color; ColumnDef bg, color; TableStyleDef labelWidth
+
+**File:** `src/PSTT.Dashboard.Client/Models/TableDefinitions.cs`
+
+- `RowDef` record: added optional positional params `Format`, `Align`, `Bg`, `Color` (all `string? = null`).
+- `ColumnDef` record: added optional `Bg`, `Color` params after `Resizable`.
+- `TableStyleDef` record: added optional `LabelWidth` param (CSS string e.g. `"120px"`) controlling the row-label column's `<col>` width.
+- `ParseRowDefs`, `ParseColumnDefs`, `ParseTableStyle` updated to read the new fields.
+- Updated `ExampleJson` strings in `TableNodeModel` to show new fields.
+
+---
+
+### Item 4 — CellStyle: per-cell + conditional formatting
+
+**Files:** `src/PSTT.Dashboard.Client/Models/TableDefinitions.cs`, `src/PSTT.Dashboard.Client/Models/TableNodeModel.cs`, `src/PSTT.Dashboard.Client/Models/DashboardModel.cs`
+
+- Added `CellCondition` record: `Op`, `Value` (numeric), `Str` (string), `Bg`, `Color`.
+- Added `CellStyleDef` record: `Row`, `Col` (support `"*"` wildcard), `Bg`, `Color`, `Conditions[]`.
+- Added `ParseCellStyleDefs(json)` and `ParseConditions(array)` helpers.
+- Added `EvaluateCondition(cellStyleDef, rawValue)` public static method — evaluates conditions (numeric or string) and returns the first matching `CellCondition?`.
+- `TableNodeModel`: added `CellStyle` NpJson property (Order=9) with example JSON; updated `ToData()`/`FromData()`.
+- `DashboardModel.TableNodeData`: added `CellStyle` property.
+
+**JSON example:**
+```json
+[
+  { "row": "room1", "col": "temp", "bg": "#ffe0e0", "color": "#c00",
+    "conditions": [{"op": ">=", "value": 30, "bg": "#ff4040", "color": "#fff"}] },
+  { "row": "*",     "col": "status", "conditions": [{"op": "==", "str": "OK", "bg": "#e0ffe0"}] }
+]
+```
+
+---
+
+### Item 5 — Widget rendering — per-cell styles, label column width, flash animation
+
+**Files:** `src/PSTT.Dashboard.Client/Widgets/TableNodeWidget.razor`, `src/PSTT.Dashboard.Client/Widgets/TableNodeWidget.razor.css`
+
+- Added `_cellStyleDefs` field; populated in `SetupWatchers` alongside other defs.
+- Added `_cellFlashSeq: ConcurrentDictionary<string, int>` keyed by `"rowKey\0colKey"`.
+- `StoreCell(row, col, value, triggerFlash)`: when `triggerFlash=true` and value changed, increments the flash seq for that cell key.
+- `SetupPerCellWatchers`: seeds use `triggerFlash=false`; live subscription callbacks use `triggerFlash=true`.
+- `OnTopicValue(topic, value, triggerFlash)`: same seeding/live distinction.
+- `SetupWatchers`: now also checks `Node.CellStyle != _lastCellStyle`; clears `_cellFlashSeq` on config reset.
+- Added helper `GetRowDef(rowKey)`.
+- Added helper `GetCellStyleDef(rowKey, colKey)` with `"*"` wildcard support.
+- Added helper `GetCellRawValue(rowKey, colKey)`.
+- Added `BuildLabelTdStyle(rowKey, rowIdx)`: applies alt-row bg + row Bg/Color to the label cell.
+- `BuildTdStyle(rowKey, col, rowIdx)`: full priority stack — alt-row → col Bg/Color → row Bg/Color → CellStyleDef Bg/Color → matched condition Bg/Color. Align now respects `rowDef.Align` as fallback when column has no align.
+- `GetCellValue`: now uses `col.Format ?? rowDef?.Format` as combined format (column format takes priority over row-level format).
+- `<colgroup>` label `<col>`: applies `style="width:{LabelWidth}"` from `TableStyleDef`.
+- `<tr>` `style` attribute removed (bg moved to per-`<td>`).
+- Data `<td>` now: `@key="(rowKey, col.Key, flashSeq)"` — Blazor recreates the element when seq changes, restarting the CSS animation; `class="cell-flash-anim"` applied when `flashSeq > 0`.
+- CSS: added `@keyframes cell-flash` (amber fade 0→5s) and `.cell-flash-anim { animation: cell-flash 5s ease-out; }`.
+
+---
+
+
+### Item 1 — Fix duplicate @code block in TableNodeWidget.razor (build blocker)
+
+**File:** `src/PSTT.Dashboard.Client/Widgets/TableNodeWidget.razor`
+
+A prior edit prepended the new template+code without removing the old `@code` block, leaving
+30 duplicate-member errors. Fixed by truncating the file at the correct line boundary (after
+the new `Dispose` method's closing `}`), removing the orphaned old template and `@code` block.
+
+---
+
+### Item 2 — Runtime column drag-resize
+
+**Files:**
+- `src/PSTT.Dashboard.Client/wwwroot/tableResize.js` — NEW
+- `src/PSTT.Dashboard.Client/App.razor` — `<script>` tag added
+- `src/PSTT.Dashboard.Client/Widgets/TableNodeWidget.razor`
+- `src/PSTT.Dashboard.Client/Widgets/TableNodeWidget.razor.css`
+- `src/PSTT.Dashboard.Client/Models/TableDefinitions.cs`
+
+**What:** Users can drag the right edge of any column header to resize it at runtime. A 6px
+resize handle appears on hover at the right edge of each `<th>`. Dragging updates a
+`_columnWidths` dictionary (string key → double px) via `[JSInvokable]` callbacks. The
+`<colgroup>` is re-rendered on each `StateHasChanged()`, enforcing the new width.
+
+**How it works:**
+1. JS (`tableResize.js`): on mousedown, reads `th[data-colkey="…"].offsetWidth` as the start
+   width, attaches document-level `mousemove`/`mouseup` handlers, and calls
+   `invokeMethodAsync('OnColResizeBegin', colKey, offsetWidth)` immediately. On each
+   `mousemove`, calls `'OnColResizeDelta'` with the pixel delta. On `mouseup`, calls
+   `'OnColResizeEnd'` and removes document listeners.
+2. C# (`[JSInvokable]`): `OnColResizeBegin` stores the actual rendered width;
+   `OnColResizeDelta` updates `_columnWidths[colKey]` (clamped to ≥30px) and calls
+   `StateHasChanged()`; `OnColResizeEnd` does final repaint.
+3. `DotNetObjectReference<TableNodeWidget>` is created in `OnInitialized` and disposed in
+   `Dispose`.
+
+**Per-column resizable flag:** `ColumnDef` gains an optional `bool? Resizable` field (7th
+positional param, default `null`). When `false`, the resize handle is not rendered for that
+column. `null` or `true` = resizable. Existing call-sites are unaffected.
+
+**Runtime widths NOT auto-persisted** to `Node.ColumnDefs`. Permanent widths should be set
+via the `"width"` field in `ColumnDefs` JSON. This is intentional.
+
+---
+
+### Item 3 — `<colgroup>` for proper column width control
+
+**File:** `src/PSTT.Dashboard.Client/Widgets/TableNodeWidget.razor`
+
+Replaced the old `width:…` inline style on `<td>` with a `<colgroup>/<col>` block rendered
+above `<thead>`. This is the correct HTML mechanism for column widths.
+
+- `table-layout: fixed` is applied when `_columnWidths.Count > 0` (user has started
+  dragging), otherwise `auto`.
+- `GetColWidthStyle(colKey, defWidth)` checks `_columnWidths` first (runtime drag override),
+  then falls back to `ColumnDef.Width` (JSON-configured).
+- `InitColumnWidths()` pre-populates `_columnWidths` from `ColumnDef.Width` values at setup
+  time so that initial rendering uses `table-layout:fixed` when widths are defined.
+- `ParsePx("80px")` extracts the numeric part of a CSS px string for `_columnWidths`.
+
+---
+
+### Item 4 — `TableStyle` JSON property for table-level appearance
+
+**Files:**
+- `src/PSTT.Dashboard.Client/Models/TableDefinitions.cs` — `TableStyleDef` record + `ParseTableStyle`
+- `src/PSTT.Dashboard.Client/Models/TableNodeModel.cs` — `TableStyle` property (NpJson, Order=8)
+- `src/PSTT.Dashboard.Client/Models/DashboardModel.cs` — `TableStyle` added to `TableNodeData`
+- `src/PSTT.Dashboard.Client/Widgets/TableNodeWidget.razor`
+
+`TableStyleDef` record: `HeaderBg`, `HeaderColor`, `AltRowBg`, `BorderColor`, `TextColor`
+(all `string?`).
+
+**Widget behaviour:**
+- `Striped` on `<MudSimpleTable>` is set to `false` when `AltRowBg` is defined (we handle
+  alt-row manually via inline styles).
+- `BuildTableMudStyle()` returns the table's outer CSS including `font-size`, `width:100%`,
+  `border-color`, and `color`.
+- `BuildHeaderStyle()` returns `background:HeaderBg;color:HeaderColor` for the `<thead>` row.
+- `BuildThStyle(col)` returns the `<th>` style including `font-size`, `text-align`, and
+  `position:relative` (needed for the resize handle overlay).
+- Alt-row bg: tracked via `int rowIdx` in the `@foreach` over rows; every odd row (0-indexed)
+  gets `background:AltRowBg`.
+
+---
+
+## 2026-05-05 — Table widget property editor polish
+
+### Commit: TBD — feature/table-widget
+
+---
+
+### Item 1 — Hide irrelevant sections for Table nodes
+
+**File:** `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor`
+
+**What changed:** Wrapped the "MQTT Topics" section and the "Text body" section in `@if (Node is not TableNodeModel)` guards.
+
+**Why:** The Table widget uses `DataPattern`/`CellDefs` for data subscriptions rather than the base `DataTopics` list. Showing those sections just confused users configuring a Table node.
+
+**How it works:** Simple Blazor conditional rendering — the sections are fully excluded from the DOM when editing a Table node.
+
+---
+
+### Item 2 — "Fill from live data" discovery buttons for ColumnDefs/RowDefs
+
+**Files:**
+- `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor` — new Table-specific block with discovery buttons
+- `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor.cs` — injected `ApplicationState`; added `FillColumnDefsFromData`, `FillRowDefsFromData`, `GetPatternSnapshot` methods
+
+**What changed:** When editing a Table node with a non-empty `DataPattern` but empty `ColumnDefs` or `RowDefs`, a new "Discover from live data" section appears below the property fields. It shows up to two buttons:
+- **Fill Column Defs** — queries `AppState.BridgedDataCache.GetSnapshot(wildcard)`, extracts unique `{col}` values via `TableTopicParser.TryExtractSegments`, generates a minimal ColumnDefs JSON array (`[{key, header}]`).
+- **Fill Row Defs** — same but for `{row}` values, generates `[{key, label}]`.
+
+**Why:** The ColumnDefs/RowDefs fields previously said "leave blank to auto-discover" — but blank means the user gets no visual feedback about what was discovered. Now they can click a button to get an editable JSON starting point based on the actual data currently flowing through the cache. This is much easier than authoring JSON from scratch.
+
+**Caveat:** Discovery only sees data that has already arrived in the cache. If the MQTT broker hasn't sent matching messages yet, the generated JSON will be empty and no defs are written.
+
+---
+
+
+
+### Commit: a4ca7f9 — feature/table-widget
+
+---
+
+### Item 1 — TableDefinitions.cs (Models)
+
+**File:** `src/PSTT.Dashboard.Client/Models/TableDefinitions.cs`
+
+New file consolidating all table-specific data types and parsing logic:
+
+- **`ColumnDef`** record: `Key`, `Header`, `Format`, `Width`, `Align`, `Static`
+- **`RowDef`** record: `Key`, `Label`, `IsStatic`
+- **`CellDef`** record: `Row`, `Col`, `Topic`, `Format`, `Static`
+- **`TableDefsParser`** static class:
+  - `ParseColumnDefs(string?)` → `List<ColumnDef>?` (null = auto-discover)
+  - `ParseRowDefs(string?)` → `List<RowDef>?` (null = auto-discover)
+  - `ParseCellDefs(string?)` → `List<CellDef>` (empty on invalid)
+  - `ApplyFormat(string?, string?)` → `string` — numeric-aware C# format string
+  - `Validate(string?)` → `string?` — null on valid JSON, error message on failure
+  - `PrettyPrint(string)` → pretty-printed JSON, unchanged on error
+
+All parsers use `AllowTrailingCommas` and `CommentHandling.Skip` for user-friendly input tolerance.
+
+---
+
+### Item 2 — JsonEditorField.razor (Components)
+
+**File:** `src/PSTT.Dashboard.Client/Components/JsonEditorField.razor`
+
+Reusable JSON textarea component. Parameters: `Value`, `ValueChanged`, `Label`, `HelperText`, `ExampleJson`, `Lines`.
+
+- Live validation on each keystroke — red error border + message
+- "Format JSON" button — pretty-prints if JSON is currently valid
+- Collapsible "Example" section — "Use this example" button copies into field
+- Monospace font for readability. Reusable across all widget types.
+
+---
+
+### Item 3 — NpJsonAttribute + NodePropertyRenderer
+
+**Files:** `Models/NodePropertyAttributes.cs`, `Components/NodePropertyRenderer.razor`
+
+Added `[NpJson]` attribute with `Lines` and `ExampleJson`. `NodePropertyRenderer` renders it as `<JsonEditorField>` with full `Value`/`ValueChanged` binding via reflection.
+
+---
+
+### Item 4 — TableNodeModel: RowDefs + NpJson
+
+- Added `RowDefs` (`[NpJson]`) — JSON `{key, label}` array for fixed row order and display labels
+- `ColumnDefs` and `CellDefs` now use `[NpJson]` with `ExampleJson`; serialization includes `RowDefs`
+
+---
+
+### Item 5 — TableNodeWidget: RowDefs rendering, cleanup
+
+- `_autoRows` tracks row arrival order (insertion-stable)
+- `GetDisplayRows()` returns `(Key, Label)` tuples — labels from `RowDefs` or key as fallback
+- All inline JSON parsers and `ApplyFormat` removed; delegated to `TableDefsParser`
+
+---
+
+### Item 6 — Unit tests
+
+25 new tests in `TableDefsParserTests.cs`. 70 total client tests passing, 0 errors, 0 warnings.
+
+## 2025-07-11 — Table widget MVP (Session 1)
+
+### Commit: ff5d067 — feature/table-widget
+
+---
+
+### Item 1 — TableNodeModel
+
+**Files:** `src/PSTT.Dashboard.Client/Models/TableNodeModel.cs`, `Models/DashboardModel.cs`
+
+New model inheriting `TextNodeModel` with `NodeType = "Table"`. Properties:
+
+- `DataMode` — `"PerTable"` (default) or `"PerCell"`
+- `DataPattern` — e.g. `sensors/{row}/{col}`
+- `ColumnDefs` — JSON column definitions (key, header, format, width, align, static)
+- `CellDefs` — JSON cell definitions for PerCell mode
+- `ShowHeader` / `ShowRowLabels` — both default `true`, stored as `null` in JSON to save space
+
+`ToData()` / `FromData()` implement round-trip persistence. `TableNodeData` added to `DashboardModel.cs` with `[JsonDerivedType(typeof(TableNodeData), "Table")]`.
+
+---
+
+### Item 2 — TableTopicParser helper
+
+**Files:** `src/PSTT.Dashboard.Client/Helpers/TableTopicParser.cs`
+
+Extracted pattern parsing into a public static class so unit tests can cover it directly, without needing the Blazor component infrastructure:
+
+- `PatternToWildcard(pattern)` — converts `sensors/{row}/{col}` → `sensors/+/+` for `BridgedDataCache.Subscribe()`
+- `TryExtractSegments(pattern, topic, out row, out col)` — matches a live MQTT key against the pattern, extracts `{row}` and `{col}` placeholder values. Returns `false` on segment-count mismatch or literal-segment mismatch.
+
+---
+
+### Item 3 — TableNodeWidget
+
+**Files:** `src/PSTT.Dashboard.Client/Widgets/TableNodeWidget.razor`, `.razor.css`
+
+Inherits `BaseNodeWidget<TableNodeModel>` (manual subscriptions, same as TreeView). Key behaviour:
+
+**PerTable mode:**
+- Converts `DataPattern` → wildcard via `TableTopicParser.PatternToWildcard()`
+- Calls `BridgedDataCache.GetSnapshot()` for initial seed, then `Subscribe()` for live updates
+- Parses each topic key via `TryExtractSegments()` to extract row/col
+- Stores data as `ConcurrentDictionary<string, ConcurrentDictionary<string, string?>>` (row → col → value)
+- Auto-discovers column order; columns can be fixed via `ColumnDefs` JSON
+- Subscribes to `AppState.BridgeScopeChanged` to re-subscribe when bridge patterns change
+
+**PerCell mode:**
+- Parses `CellDefs` JSON; each cell with a `topic` gets its own `Subscribe()` call
+- Static-text cells (no topic) show `static` value immediately
+
+**Rendering:** MudSimpleTable with `ShowHeader` and `ShowRowLabels` support. Placeholder messages: "Set a Data Pattern…" and "Waiting for data…".
+
+Widget state changes are guarded by `_disposed` and always dispatched via `InvokeAsync()`.
+
+---
+
+### Item 4 — Registration and wiring
+
+- `ApplicationState.cs` — `diagram.RegisterComponent<TableNodeModel, TableNodeWidget>()` and `TableNodeData` deserialization case
+- `AddNodePanelContent.razor` — added "Table" with `Icons.Material.Filled.TableChart` to `_nodeTypes[]`
+- `Display.razor.cs` — added `"Table" => new TableNodeModel(...)` case
+
+> ⚠️ **NodePropertyEditor.razor** not yet updated — Table properties render via the existing attribute-based `NodePropertyRenderer` (`[NpText]`, `[NpCheckbox]`, `[NpSelect]` on model), which covers all current MVP properties. The generic MQTT Topics section is irrelevant for PerTable mode (DataTopics is unused) but is not hidden. This is acceptable for MVP.
+
+---
+
+### Item 5 — Unit tests
+
+**File:** `tests/PSTT.Dashboard.Client.Tests/TableTopicParserTests.cs`
+
+16 new tests covering:
+- `PatternToWildcard`: row+col, row-only, no placeholders, null/empty
+- `TryExtractSegments`: row+col extraction, row-only, `{column}` alias, segment-count mismatch, literal mismatch, null pattern, deep multi-segment path, unknown placeholder ignored
+- `TableNodeModel` serialization round-trips: defaults stored as null, non-defaults serialized, `FromData` restores defaults
+
+All 45 client tests pass; 0 errors, 0 warnings.
+
+
 
 ### Commits: develop
 
