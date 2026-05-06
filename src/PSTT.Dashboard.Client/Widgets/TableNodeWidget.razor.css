@@ -1,5 +1,7 @@
 .table-node {
     overflow: hidden;
+    /* Override MudBlazor's default table cell padding (was 6px 16px) */
+    --mud-table-cell-padding: 3px 8px;
 }
 
 .table-node .mud-simple-table {
@@ -8,12 +10,12 @@
 
 .table-node th {
     white-space: nowrap;
-    padding: 2px 6px;
+    padding: 3px 8px;
     position: relative; /* needed for absolute resize handle */
 }
 
 .table-node td {
-    padding: 2px 6px;
+    padding: 3px 8px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
