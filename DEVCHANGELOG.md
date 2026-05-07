@@ -1,6 +1,6 @@
 ## 2026-05-07 — Side Panel functional fixes
 
-### Commit: TBD — develop
+### Commit: fbb5596 — develop
 
 ---
 
