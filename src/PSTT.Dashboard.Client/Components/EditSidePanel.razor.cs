@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
+using PSTT.Dashboard.Helpers;
 using PSTT.Dashboard.Models;
 using PSTT.Dashboard.Services;
 
@@ -24,6 +25,10 @@ public partial class EditSidePanel : IAsyncDisposable
     [Parameter] public string? CurrentPageName { get; set; }
     [Parameter] public string? CurrentPageBgColor { get; set; }
     [Parameter] public EventCallback<(string Name, string? BgColor)> OnPagePropsApplied { get; set; }
+    [Parameter] public bool CanMovePageLeft { get; set; }
+    [Parameter] public bool CanMovePageRight { get; set; }
+    [Parameter] public EventCallback OnMovePageLeft { get; set; }
+    [Parameter] public EventCallback OnMovePageRight { get; set; }
 
     [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
 
@@ -32,6 +37,12 @@ public partial class EditSidePanel : IAsyncDisposable
     private string? _editPageName;
     private string? _editPageBg;
     private DotNetObjectReference<EditSidePanel>? _dotNetRef;
+
+    // Grid view Apply/Cancel state
+    private NodePropertyEditor? _nodeEditor;
+    private TextNodeModel? _lastGridNode;
+    private string _propertySnapshot = "";
+    private bool _gridHasPendingChanges;
 
     protected override async Task OnInitializedAsync()
     {
@@ -48,6 +59,14 @@ public partial class EditSidePanel : IAsyncDisposable
     {
         _editPageName = CurrentPageName;
         _editPageBg = CurrentPageBgColor;
+
+        // Capture a snapshot when the selected node changes (before any edits)
+        if (!object.ReferenceEquals(SelectedNode, _lastGridNode))
+        {
+            _lastGridNode = SelectedNode;
+            _gridHasPendingChanges = false;
+            _propertySnapshot = SelectedNode != null ? NodeModelSnapshot.Capture(SelectedNode) : "";
+        }
     }
 
     private async Task SetTab(SidePanelTab tab)
@@ -76,7 +95,24 @@ public partial class EditSidePanel : IAsyncDisposable
 
     private void OnGridPropertyChanged()
     {
+        _gridHasPendingChanges = true;
         SelectedNode?.Refresh();
+        AppState.MarkEdited();
+    }
+
+    private void GridApply()
+    {
+        AppState.PushUndoSnapshot(AppState.GetPageData());
+        _propertySnapshot = SelectedNode != null ? NodeModelSnapshot.Capture(SelectedNode) : "";
+        _gridHasPendingChanges = false;
+    }
+
+    private void GridCancel()
+    {
+        if (SelectedNode == null) return;
+        NodeModelSnapshot.Restore(SelectedNode, _propertySnapshot);
+        SelectedNode.Refresh();
+        _gridHasPendingChanges = false;
         AppState.MarkEdited();
     }
 

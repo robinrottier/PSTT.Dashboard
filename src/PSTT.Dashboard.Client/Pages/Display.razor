@@ -15,91 +15,89 @@
 }
 else
 {
-    @if (AppState.PageNames.Count > 1 || AppState.IsEditMode)
-    {
-        <MudPaper Elevation="0" Class="d-flex align-center px-1 py-0"
-                  Style="border-bottom:1px solid var(--mud-palette-divider);flex-wrap:nowrap;gap:2px;">
-            @* Scrollable page tabs *@
-            <div style="display:flex;align-items:center;flex:1;min-width:0;overflow-x:auto;gap:2px;">
-            @for (int i = 0; i < AppState.PageNames.Count; i++)
-            {
-                var idx = i;
-                var isActive = idx == _activePageIndex;
-                @if (AppState.IsEditMode)
+    <div style="display:flex;flex-direction:row;height:calc(100vh - 72px);min-height:0;overflow:hidden;">
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;">
+        @if (AppState.PageNames.Count > 1 || AppState.IsEditMode)
+        {
+            <MudPaper Elevation="0" Class="d-flex align-center px-1 py-0"
+                      Style="border-bottom:1px solid var(--mud-palette-divider);flex-wrap:nowrap;gap:2px;flex-shrink:0;">
+                @* Scrollable page tabs *@
+                <div style="display:flex;align-items:center;flex:1;min-width:0;overflow-x:auto;gap:2px;">
+                @for (int i = 0; i < AppState.PageNames.Count; i++)
                 {
-                    @if (_renamingPageIndex == idx)
+                    var idx = i;
+                    var isActive = idx == _activePageIndex;
+                    @if (AppState.IsEditMode)
                     {
-                        <div @onkeydown:stopPropagation>
-                        <MudTextField @bind-Value="_renameValue"
-                                      Variant="Variant.Outlined"
-                                      Margin="Margin.Dense"
-                                      Immediate="true"
-                                      Style="min-width:80px;max-width:150px;font-size:0.8rem;"
-                                      @onblur="@(async () => await CommitRename(idx))"
-                                      @onkeydown="@(async e => { if (e.Key == "Enter") await CommitRename(idx); else if (e.Key == "Escape") _renamingPageIndex = -1; })"
-                                      AutoFocus="true" />
-                        </div>
+                        @if (_renamingPageIndex == idx)
+                        {
+                            <div @onkeydown:stopPropagation>
+                            <MudTextField @bind-Value="_renameValue"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense"
+                                          Immediate="true"
+                                          Style="min-width:80px;max-width:150px;font-size:0.8rem;"
+                                          @onblur="@(async () => await CommitRename(idx))"
+                                          @onkeydown="@(async e => { if (e.Key == "Enter") await CommitRename(idx); else if (e.Key == "Escape") _renamingPageIndex = -1; })"
+                                          AutoFocus="true" />
+                            </div>
+                        }
+                        else
+                        {
+                            <MudButtonGroup Variant="Variant.Text" Size="Size.Small" Style="flex-shrink:0;">
+                                <MudButton OnClick="@(async () => await SwitchToPageAsync(idx))"
+                                           Variant="@(isActive ? Variant.Filled : Variant.Text)"
+                                           Color="@(isActive ? Color.Primary : Color.Default)"
+                                           Size="Size.Small"
+                                           Style="min-width:unset;padding:4px 8px;text-transform:none;font-size:0.8rem;"
+                                           @ondblclick="@(() => StartRename(idx, AppState.PageNames[idx]))">
+                                    @AppState.PageNames[idx]
+                                </MudButton>
+                                @if (AppState.PageNames.Count > 1)
+                                {
+                                    <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                                   Size="Size.Small" Style="padding:2px;"
+                                                   Color="@(isActive ? Color.Primary : Color.Default)"
+                                                   OnClick="@(async () => await RemovePageAsync(idx))" />
+                                }
+                            </MudButtonGroup>
+                        }
                     }
                     else
                     {
-                        <MudButtonGroup Variant="Variant.Text" Size="Size.Small" Style="flex-shrink:0;">
-                            <MudButton OnClick="@(async () => await SwitchToPageAsync(idx))"
-                                       Variant="@(isActive ? Variant.Filled : Variant.Text)"
-                                       Color="@(isActive ? Color.Primary : Color.Default)"
-                                       Size="Size.Small"
-                                       Style="min-width:unset;padding:4px 8px;text-transform:none;font-size:0.8rem;"
-                                       @ondblclick="@(() => StartRename(idx, AppState.PageNames[idx]))">
-                                @AppState.PageNames[idx]
-                            </MudButton>
-                            @if (AppState.PageNames.Count > 1)
-                            {
-                                <MudIconButton Icon="@Icons.Material.Filled.Close"
-                                               Size="Size.Small" Style="padding:2px;"
-                                               Color="@(isActive ? Color.Primary : Color.Default)"
-                                               OnClick="@(async () => await RemovePageAsync(idx))" />
-                            }
-                        </MudButtonGroup>
+                        <MudButton OnClick="@(async () => await SwitchToPageAsync(idx))"
+                                   Variant="@(isActive ? Variant.Filled : Variant.Text)"
+                                   Color="@(isActive ? Color.Primary : Color.Default)"
+                                   Size="Size.Small"
+                                   Style="min-width:unset;padding:4px 12px;text-transform:none;font-size:0.8rem;flex-shrink:0;">
+                            @AppState.PageNames[idx]
+                        </MudButton>
                     }
                 }
-                else
+                @if (AppState.IsEditMode)
                 {
-                    <MudButton OnClick="@(async () => await SwitchToPageAsync(idx))"
-                               Variant="@(isActive ? Variant.Filled : Variant.Text)"
-                               Color="@(isActive ? Color.Primary : Color.Default)"
-                               Size="Size.Small"
-                               Style="min-width:unset;padding:4px 12px;text-transform:none;font-size:0.8rem;flex-shrink:0;">
-                        @AppState.PageNames[idx]
-                    </MudButton>
+                    <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small"
+                                   Color="Color.Default" Style="opacity:0.7;"
+                                   OnClick="@(async () => await AddPageAsync())" />
                 }
-            }
-            @if (AppState.IsEditMode)
-            {
-                <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small"
-                               Color="Color.Default" Style="opacity:0.7;"
-                               OnClick="@(async () => await AddPageAsync())" />
-            }
-            </div>
-            @* Non-scrolling edit toolbar at right end *@
-            @if (AppState.IsEditMode)
-            {
-                <div style="display:flex;flex-shrink:0;gap:0;border-left:1px solid var(--mud-palette-divider);padding-left:4px;margin-left:2px;">
-                    <MudTooltip Text="Add Node (Ctrl+Shift+A)" Placement="Placement.Left">
-                        <MudIconButton Icon="@Icons.Material.Filled.AddBox" Size="Size.Small"
-                                       Color="@(_isSidePanelOpen && _sidePanelTab == SidePanelTab.AddNode ? Color.Primary : Color.Default)"
-                                       OnClick="@(() => ToggleSidePanelTab(SidePanelTab.AddNode))" />
-                    </MudTooltip>
-                    <MudTooltip Text="Data Explorer (Ctrl+Shift+D)" Placement="Placement.Left">
-                        <MudIconButton Icon="@Icons.Material.Filled.ManageSearch" Size="Size.Small"
-                                       Color="@(_isSidePanelOpen && _sidePanelTab == SidePanelTab.DataExplorer ? Color.Primary : Color.Default)"
-                                       OnClick="@(() => ToggleSidePanelTab(SidePanelTab.DataExplorer))" />
-                    </MudTooltip>
                 </div>
-            }
-        </MudPaper>
-    }
-    <div style="display:flex;flex-direction:row;height:calc(100vh - 100px);min-height:0;overflow:hidden;">
+                @* Panel toggle button — X when panel open, Tune icon when closed *@
+                @if (AppState.IsEditMode)
+                {
+                    <div style="flex-shrink:0;border-left:1px solid var(--mud-palette-divider);padding-left:4px;margin-left:2px;">
+                        <MudTooltip Text="@(_isSidePanelOpen ? "Close Panel" : "Open Edit Panel")" Placement="Placement.Left">
+                            <MudIconButton Icon="@(_isSidePanelOpen ? Icons.Material.Filled.Close : Icons.Material.Filled.Tune)"
+                                           Size="Size.Small"
+                                           Color="@(_isSidePanelOpen ? Color.Default : Color.Default)"
+                                           OnClick="ToggleEditPanel" />
+                        </MudTooltip>
+                    </div>
+                }
+            </MudPaper>
+        }
         <MudPaper @key="_diagram" Elevation="2"
-                  Style="@($"flex:1;min-width:0;padding:0;overflow:hidden;position:relative;{CanvasBgStyle}")">
+                  Style="@($"flex:1;min-width:0;padding:0;overflow:hidden;position:relative;{CanvasBgStyle}")"
+                  >
             <div class="dashboard-canvas" tabindex="0" style="width:100%;height:100%;position:relative;" @onkeydown="HandleKeyDown" @ref="_canvasRef">
             @if (AppState.IsEditMode && AppState.IsMultiSelected)
             {
@@ -166,6 +164,7 @@ else
 
             </div>
         </MudPaper>
+        </div>
         @if (AppState.IsEditMode)
         {
             <EditSidePanel IsOpen="_isSidePanelOpen"
@@ -183,7 +182,11 @@ else
                            OnCreateNodeWithTopic="AddNodeWithTopic"
                            CurrentPageName="@(AppState.PageNames.Count > _activePageIndex ? AppState.PageNames[_activePageIndex] : "")"
                            CurrentPageBgColor="@(_pageStates.Count > _activePageIndex ? _pageStates[_activePageIndex].BackgroundColor : null)"
-                           OnPagePropsApplied="ApplyPageProps" />
+                           OnPagePropsApplied="ApplyPageProps"
+                           CanMovePageLeft="@(_activePageIndex > 0)"
+                           CanMovePageRight="@(_activePageIndex < AppState.PageNames.Count - 1)"
+                           OnMovePageLeft="MoveCurrentPageLeft"
+                           OnMovePageRight="MoveCurrentPageRight" />
         }
     </div>
 }

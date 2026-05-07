@@ -14,10 +14,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **`TextNodeModel` property decorators**: Seven `TextNodeModel` properties (TitlePosition, IconColor, Text, BackgroundColor, BackgroundImageUrl, BackgroundObjectFit, FontSize) now carry `[NpXxx]` attribute decorators so they appear automatically in the new grid view.
 - **`TextNodeModel.NodeTitle`**: New `NodeTitle` wrapper property exposes the node's Title through the `NpXxx` attribute system so it appears as the first row in the grid view editor.
 - **Page Properties tab**: Edit the active page name and background colour inline from the side panel (no separate dialog needed).
+- **Page reorder buttons**: Page Properties tab now has ◁ ▷ buttons to move the current page left or right in the tab order.
 - **Side panel width persistence**: Panel width (200–800 px) is saved to `localStorage` and restored on next load.
+- **`NodeModelSnapshot`**: New `Helpers/NodeModelSnapshot.cs` helper serialises/restores all `NpXxx`-decorated node properties as JSON. Used for grid-view Cancel (reverts live edits) and designed as the foundation for a future JSON property editor.
 
 ### Changed
 - Dashboard Properties is now displayed in the side panel tab instead of a modal dialog. The `DashboardPropertiesDialog` is retained as a thin wrapper for backward compatibility.
+- **Panel layout**: The edit side panel now spans the full viewport height, covering the page-tabs row. The Add Node / Data Explorer icon buttons are removed from the page-tabs toolbar and replaced with a single toggle button (Tune icon → open; × → close).
+- **Apply/Cancel at top of panel**: Node property Apply and Cancel buttons are now in the panel's subview toolbar (always visible), not at the bottom of the form. Grid view: Apply commits to undo history; Cancel reverts via snapshot. Buttons are disabled when no changes have been made.
+- Node property grid-view changes are reflected live on the canvas as properties are edited.
+
+### Fixed
+- Data Explorer tab crash: `OnAdornmentClick` EventCallback type mismatch (`EventCallback` vs `EventCallback<MouseEventArgs>`) caused an unhandled exception when opening the tab.
+- Page property changes (title, background colour) were not undoable; they now push an undo snapshot before applying.
+- Seven `TextNodeModel` common properties appeared twice in the grid view editor (once in the manually-coded section and once via NpXxx attribute rendering).
+- Node property font-size and other properties would reset back to their default a moment after editing due to `StateHasChanged` overwriting local form state; now fixed by `AutoCloseOnCancel` and the grid/form split.
 
 ### Fixed
 - **Grid view changes now update the canvas**: `PropertyGridEditor` now fires an `OnChanged` callback after each property mutation; `EditSidePanel` uses this to call `Node.Refresh()` and mark the diagram dirty.

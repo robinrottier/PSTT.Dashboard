@@ -1,8 +1,96 @@
-## 2026-05-07 — Side Panel functional fixes
+## 2025-05-14 — Edit panel UX improvements, layout restructure & bug fixes
 
-### Commit: fbb5596 — develop
+### Commit: TBD — develop
 
 ---
+
+### 1 — `DataExplorerPanel.razor` — crash fix: `OnAdornmentClick` type mismatch
+**File:** `src/PSTT.Dashboard.Client/Components/DataExplorerPanel.razor`
+
+Changed `EventCallback.Factory.Create(this, ApplySubscription)` to `EventCallback.Factory.Create<MouseEventArgs>(this, _ => ApplySubscription())`. `MudTextField.OnAdornmentClick` is typed `EventCallback<MouseEventArgs>` — the non-generic overload produced an `InvalidCastException` when the Data Explorer tab was opened.
+
+---
+
+### 2 — `Display.razor.cs` `ApplyPageProps()` — undo fix
+**File:** `src/PSTT.Dashboard.Client/Pages/Display.razor.cs`
+
+Added `PushUndoSnapshot()` at the top of `ApplyPageProps()`. Previously page-title and background-colour changes were applied without creating an undo snapshot, so Ctrl+Z had no effect.
+
+---
+
+### 3 — `NodePropertyEditor.razor.cs` `GetNodeSpecificCategories()` — duplicate category fix
+**File:** `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor.cs`
+
+Added `&& c != "Common"` filter. The "Common" category (from `TextNodeModel`'s `NpXxx`-decorated properties) was being included in the node-specific section AND in the manually-coded Common section, causing seven properties to appear twice for TextNode widgets.
+
+---
+
+### 4 — `TextNodeModel.cs` — `NodeTitle` NpText wrapper
+**File:** `src/PSTT.Dashboard.Client/Models/TextNodeModel.cs`
+
+Added `[NpText("Title", Category="Common", Order=0)] public string NodeTitle { get => Title ?? ""; set => Title = value; }` so the node title appears in the grid view editor.
+
+---
+
+### 5 — `PropertyGridEditor.razor` — `OnChanged` EventCallback
+**File:** `src/PSTT.Dashboard.Client/Components/PropertyGridEditor.razor`
+
+Added `[Parameter] public EventCallback OnChanged` and wired all nine value-changed handlers (NpText, NpCheckbox, NpColor, NpJson inline + RenderSelect + four RenderNumeric variants) to invoke it. Previously property changes in grid view never refreshed the canvas.
+
+---
+
+### 6 — `NodePropertyEditor.razor` — no max-height, removed bottom Save/Cancel
+**File:** `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor`
+
+Removed `max-height:70vh` from the wrapper div (content now scrolls inside the panel's scroll area). Removed the Save/Cancel buttons div from the bottom (they moved to the panel subview toolbar).
+
+---
+
+### 7 — `NodePropertyEditor.razor.cs` — public Save/Cancel, AutoCloseOnCancel
+**File:** `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor.cs`
+
+`Save()` and `Cancel()` made `public` so EditSidePanel can call them via `@ref`. Added `[Parameter] public bool AutoCloseOnCancel { get; set; } = true;` — when `false`, Cancel reverts local state but does not invoke `OnClose` (used by EditSidePanel so Cancel doesn't close the panel).
+
+---
+
+### 8 — `NodeModelSnapshot.cs` — new JSON snapshot helper
+**File:** `src/PSTT.Dashboard.Client/Helpers/NodeModelSnapshot.cs` _(new file)_
+
+`NodeModelSnapshot.Capture(node)` serialises all `NpXxx`-decorated properties to a JSON string via `System.Text.Json`. `NodeModelSnapshot.Restore(node, json)` applies the snapshot back. Handles all attribute types including `NpCustom` (NumericRangeSettings, List<ColorTransition>). Used by grid-view Cancel to revert live edits. Will serve as the foundation for a future JSON property editing tab.
+
+---
+
+### 9 — `EditSidePanel.razor/.cs` — full panel restructure
+**Files:** `src/PSTT.Dashboard.Client/Components/EditSidePanel.razor`, `.razor.cs`
+
+- **Tab order**: NodeProps → PageProps → DashboardProps → vertical divider → AddNode → DataExplorer.
+- **Grid/Form toggle**: Replaced single toggle button with two separate `MudIconButton` icons (GridView / ViewAgenda), each highlighted `Color.Primary` when active.
+- **Apply/Cancel in toolbar**: Buttons moved from the bottom of `NodePropertyEditor` to the `panel-subview-toolbar` (always visible at top when a node is selected). Grid view: Apply/Cancel use `NodeModelSnapshot` and `AppState.PushUndoSnapshot`. Form view: Apply/Cancel call `NodePropertyEditor.Save()`/`Cancel()` via `@ref`. Both buttons disabled when no pending changes.
+- **Page move buttons**: Page Properties tab now has ◁ ▷ icon buttons (disabled at boundaries) to reorder the current page left or right.
+- **New parameters**: `CanMovePageLeft`, `CanMovePageRight`, `OnMovePageLeft`, `OnMovePageRight`.
+
+---
+
+### 10 — `Display.razor` — layout restructure
+**File:** `src/PSTT.Dashboard.Client/Pages/Display.razor`
+
+Side panel now spans the full app height including the page-tabs row:
+- Outer `div` is now a flex row with `height:calc(100vh - 72px)`.
+- Left column (`flex:1`) wraps the page-tabs bar and the canvas in a flex column.
+- EditSidePanel is a direct sibling of the left column (not nested inside it), so it stretches to the full height.
+
+Removed the Add Node and Data Explorer icon buttons from the page-tabs toolbar. Replaced with a single toggle button: `Tune` icon when the panel is closed, `Close` (X) icon when open.
+
+---
+
+### 11 — `Display.razor.cs` — ToggleEditPanel, MoveCurrentPageLeft/Right
+**File:** `src/PSTT.Dashboard.Client/Pages/Display.razor.cs`
+
+Added `ToggleEditPanel()` (sets `_isSidePanelOpen` true/false). Added `MoveCurrentPageLeft()` and `MoveCurrentPageRight()` which swap adjacent entries in `_pageStates`, `_diagrams`, and `AppState.PageNames`, update `_activePageIndex`, push an undo snapshot, and call `SwitchToPageAsync`.
+
+---
+
+
 
 ### 1 — `PropertyGridEditor.razor` — add `OnChanged` EventCallback
 **File:** `src/PSTT.Dashboard.Client/Components/PropertyGridEditor.razor`

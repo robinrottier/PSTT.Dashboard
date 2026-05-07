@@ -1516,6 +1516,7 @@ public partial class Display : IDisposable
 
     private void ApplyPageProps((string Name, string? BgColor) args)
     {
+        PushUndoSnapshot();
         if (_activePageIndex < AppState.PageNames.Count)
         {
             var names = new List<string>(AppState.PageNames);
@@ -1526,6 +1527,51 @@ public partial class Display : IDisposable
             _pageStates[_activePageIndex].BackgroundColor = args.BgColor;
         AppState.MarkEdited();
         StateHasChanged();
+    }
+
+    private void ToggleEditPanel()
+    {
+        if (_isSidePanelOpen)
+        {
+            _isSidePanelOpen = false;
+        }
+        else
+        {
+            _isSidePanelOpen = true;
+        }
+        StateHasChanged();
+    }
+
+    private async Task MoveCurrentPageLeft()
+    {
+        if (_activePageIndex <= 0) return;
+        PushUndoSnapshot();
+        if (_diagram != null) _pageStates[_activePageIndex] = AppState.GetPageData();
+        var idx = _activePageIndex;
+        (_pageStates[idx - 1], _pageStates[idx]) = (_pageStates[idx], _pageStates[idx - 1]);
+        (_diagrams[idx - 1], _diagrams[idx]) = (_diagrams[idx], _diagrams[idx - 1]);
+        var names = new List<string>(AppState.PageNames);
+        (names[idx - 1], names[idx]) = (names[idx], names[idx - 1]);
+        _activePageIndex--;
+        AppState.SetPageNames(names, _activePageIndex);
+        AppState.MarkEdited();
+        await SwitchToPageAsync(_activePageIndex);
+    }
+
+    private async Task MoveCurrentPageRight()
+    {
+        if (_activePageIndex >= AppState.PageNames.Count - 1) return;
+        PushUndoSnapshot();
+        if (_diagram != null) _pageStates[_activePageIndex] = AppState.GetPageData();
+        var idx = _activePageIndex;
+        (_pageStates[idx + 1], _pageStates[idx]) = (_pageStates[idx], _pageStates[idx + 1]);
+        (_diagrams[idx + 1], _diagrams[idx]) = (_diagrams[idx], _diagrams[idx + 1]);
+        var names = new List<string>(AppState.PageNames);
+        (names[idx + 1], names[idx]) = (names[idx], names[idx + 1]);
+        _activePageIndex++;
+        AppState.SetPageNames(names, _activePageIndex);
+        AppState.MarkEdited();
+        await SwitchToPageAsync(_activePageIndex);
     }
 
     private async Task SaveLastDiagramName(string name)

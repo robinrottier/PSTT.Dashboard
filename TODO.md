@@ -6,6 +6,9 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 ## BUGS
 
+- [ ] Editor side panel:
+	- [ ] Dashboard and page properties edit could also have the "form" vs "grid" options — requires NpXxx attributes on DiagramState/PageState models
+
 ## 🟡 Minor Enhancements
 
 - [ ] release.ps1
@@ -82,7 +85,7 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 ### FEAT-D: Multiple dashboard pages _(basic multi-page done — see CHANGELOG)_
 - [ ] Page tab overflow handling (scrolling/dropdown when many pages)
 - [ ] Swipe left/right gesture on mobile
-- [ ] Page reordering (drag tabs) somewhereor at least a "move left, move right" option 
+- [ ] Page reordering by drag (tabs)
 - [ ] Page in memory persistence? - should pages be held in memory live for rapdi and no-change switching, or should they be reloaded from razor code each time? Maybe an option for this at page level or dashboard level. Default owuld be keep in memory
 
 ### FEAT-E: Editing improvements

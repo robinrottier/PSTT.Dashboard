@@ -44,7 +44,7 @@ else
         __builder.AddAttribute(7, "Margin", Margin.Dense);
         __builder.AddAttribute(8, "Adornment", Adornment.End);
         __builder.AddAttribute(9, "AdornmentIcon", Icons.Material.Filled.PlayArrow);
-        __builder.AddAttribute(10, "OnAdornmentClick", EventCallback.Factory.Create(this, ApplySubscription));
+        __builder.AddAttribute(10, "OnAdornmentClick", EventCallback.Factory.Create<MouseEventArgs>(this, _ => ApplySubscription()));
         __builder.AddAttribute(11, "Style", "flex:1;");
         __builder.AddAttribute(12, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, OnWildcardKeyDown));
         __builder.CloseComponent();
