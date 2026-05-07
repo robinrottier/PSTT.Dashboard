@@ -1,6 +1,6 @@
 ## 2026-05-07 — Combined Edit Side Panel
 
-### Commit: TBD — develop
+### Commit: 38a922a — develop
 
 ---
 
