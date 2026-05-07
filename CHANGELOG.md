@@ -12,11 +12,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Node Properties — grid/list sub-view**: The Node Props tab offers a compact two-column grid editor (`PropertyGridEditor`) driven by `[NpXxx]` attribute decorators on model properties, alongside the existing custom form view (`NodePropertyEditor`). Toggle between views with the grid/form icon in the panel toolbar.
 - **`NpColorAttribute`**: New `[NpColor(...)]` attribute for model properties, rendered as `<ColorInputRow>` in both `PropertyGridEditor` and `NodePropertyEditor`.
 - **`TextNodeModel` property decorators**: Seven `TextNodeModel` properties (TitlePosition, IconColor, Text, BackgroundColor, BackgroundImageUrl, BackgroundObjectFit, FontSize) now carry `[NpXxx]` attribute decorators so they appear automatically in the new grid view.
+- **`TextNodeModel.NodeTitle`**: New `NodeTitle` wrapper property exposes the node's Title through the `NpXxx` attribute system so it appears as the first row in the grid view editor.
 - **Page Properties tab**: Edit the active page name and background colour inline from the side panel (no separate dialog needed).
 - **Side panel width persistence**: Panel width (200–800 px) is saved to `localStorage` and restored on next load.
 
 ### Changed
 - Dashboard Properties is now displayed in the side panel tab instead of a modal dialog. The `DashboardPropertiesDialog` is retained as a thin wrapper for backward compatibility.
+
+### Fixed
+- **Grid view changes now update the canvas**: `PropertyGridEditor` now fires an `OnChanged` callback after each property mutation; `EditSidePanel` uses this to call `Node.Refresh()` and mark the diagram dirty.
+- **Node property Save now records undo and marks dirty**: `OnNodePropertiesSaved()` in Display now correctly calls `PushUndoSnapshot()` and `AppState.MarkEdited()` — previously changes were lost on close and could not be undone.
+- **No duplicate properties in custom form**: `GetNodeSpecificCategories()` now excludes the "Common" category, preventing the seven `TextNodeModel` NpXxx-decorated properties from being rendered twice in the custom form.
+- **Removed redundant `max-height:70vh`** from `NodePropertyEditor`'s wrapper div — the panel's own scroll container makes this unnecessary.
 
 ## [v0.1.11] - 2026-05-06
 

@@ -1,3 +1,51 @@
+## 2026-05-07 — Side Panel functional fixes
+
+### Commit: TBD — develop
+
+---
+
+### 1 — `PropertyGridEditor.razor` — add `OnChanged` EventCallback
+**File:** `src/PSTT.Dashboard.Client/Components/PropertyGridEditor.razor`
+
+Added `[Parameter] public EventCallback OnChanged { get; set; }`. Every value-changed handler (NpText, NpCheckbox, NpColor, NpJson inline handlers + RenderSelect and all four RenderNumeric type branches) now calls `await OnChanged.InvokeAsync()` after mutating the model via `prop.SetValue`. Previously, grid-view property changes had no downstream effect — the node on the canvas never refreshed and the diagram was never marked dirty.
+
+---
+
+### 2 — `EditSidePanel.razor` + `.cs` — wire up `OnChanged`
+**Files:** `src/PSTT.Dashboard.Client/Components/EditSidePanel.razor`, `.razor.cs`
+
+Added `OnChanged="OnGridPropertyChanged"` to the `<PropertyGridEditor>` element. Added `OnGridPropertyChanged()` method that calls `SelectedNode?.Refresh()` (redraws the node on the canvas) and `AppState.MarkEdited()` (marks the diagram dirty so Save is triggered on close). This path does NOT push an undo snapshot on every keystroke — that would bloat the undo stack; undo is only pushed on explicit Save.
+
+---
+
+### 3 — `NodePropertyEditor.razor` — remove `max-height:70vh`
+**File:** `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor` (line 4)
+
+Removed `max-height:70vh` from the wrapper `<div>`. The panel's `.panel-content` flex container already handles overflow and scrolling; the height cap just wasted panel space and caused double scrollbars.
+
+---
+
+### 4 — `NodePropertyEditor.razor.cs` — filter "Common" from `GetNodeSpecificCategories()`
+**File:** `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor.cs`
+
+`GetNodeSpecificCategories()` now excludes `c != "Common"`. Previously it would return "Common" (from the seven `[NpXxx]`-decorated properties on `TextNodeModel`), causing those properties to be rendered a second time via `NodePropertyRenderer` below the manually-coded custom-form section — duplicating TitlePosition, IconColor, BackgroundColor, etc.
+
+---
+
+### 5 — `TextNodeModel.cs` — add `NodeTitle` wrapper property
+**File:** `src/PSTT.Dashboard.Client/Models/TextNodeModel.cs`
+
+Added `[NpText("Title", Category = "Common", Order = 0)] public string NodeTitle { get => Title ?? ""; set => Title = value; }`. This exposes the `NodeModel.Title` base property through the `NpXxx` attribute system so it appears as the first row in the `PropertyGridEditor` grid view. Without this, the most-used property (Title) was absent from the grid view and required switching to the custom form. The property is in the "Common" category (same as the other TextNodeModel decorators) and is filtered out of `GetNodeSpecificCategories()` so it does not appear in the custom form's node-specific section.
+
+---
+
+### 6 — `Display.razor.cs` — `OnNodePropertiesSaved()` now pushes undo snapshot
+**File:** `src/PSTT.Dashboard.Client/Pages/Display.razor.cs`
+
+Added `PushUndoSnapshot(); AppState.MarkEdited();` to `OnNodePropertiesSaved()`. Previously, clicking Save in the node custom form showed a snackbar and called `StateHasChanged()` but never marked the diagram dirty or added an undo point — so changes were invisible to the save-on-close guard and couldn't be undone. This was a pre-existing bug first surfaced when examining panel wiring.
+
+---
+
 ## 2026-05-07 — Combined Edit Side Panel
 
 ### Commit: 38a922a — develop

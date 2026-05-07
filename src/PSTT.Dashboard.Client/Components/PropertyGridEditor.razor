@@ -29,7 +29,7 @@
                     {
                         <MudTextField T="string"
                                       Value="@((string?)prop.GetValue(m))"
-                                      ValueChanged="@((string v) => { prop.SetValue(m, v); })"
+                                      ValueChanged="@(async (string v) => { prop.SetValue(m, v); await OnChanged.InvokeAsync(); })"
                                       Lines="@textAttr.Lines"
                                       Placeholder="@(textAttr.Placeholder ?? "")"
                                       Variant="Variant.Outlined"
@@ -39,7 +39,7 @@
                     {
                         <MudCheckBox T="bool"
                                      Value="@((bool)(prop.GetValue(m) ?? false))"
-                                     ValueChanged="@((bool v) => { prop.SetValue(m, v); })"
+                                     ValueChanged="@(async (bool v) => { prop.SetValue(m, v); await OnChanged.InvokeAsync(); })"
                                      Dense="true"
                                      Label="" />
                     }
@@ -54,14 +54,14 @@
                     else if (attr is NpColorAttribute colorAttr)
                     {
                         <ColorInputRow Value="@((string?)prop.GetValue(m))"
-                                       ValueChanged="@((string? v) => { prop.SetValue(m, v); })"
+                                       ValueChanged="@(async (string? v) => { prop.SetValue(m, v); await OnChanged.InvokeAsync(); })"
                                        Label=""
                                        ShowClear="@colorAttr.ShowClear" />
                     }
                     else if (attr is NpJsonAttribute jsonAttr)
                     {
                         <JsonEditorField Value="@((string?)prop.GetValue(m))"
-                                         ValueChanged="@((string? v) => { prop.SetValue(m, v); })"
+                                         ValueChanged="@(async (string? v) => { prop.SetValue(m, v); await OnChanged.InvokeAsync(); })"
                                          Label=""
                                          ExampleJson="@jsonAttr.ExampleJson"
                                          Lines="@jsonAttr.Lines" />
@@ -80,6 +80,7 @@
 
 @code {
     [Parameter] public object? Model { get; set; }
+    [Parameter] public EventCallback OnChanged { get; set; }
 
     private record PropEntry(System.Reflection.PropertyInfo Prop, NodePropertyAttribute Attr);
 
@@ -98,7 +99,7 @@
     {
         builder.OpenComponent<MudSelect<string>>(0);
         builder.AddAttribute(1, "Value", (string?)prop.GetValue(model));
-        builder.AddAttribute(2, "ValueChanged", EventCallback.Factory.Create<string>(this, v => prop.SetValue(model, v)));
+        builder.AddAttribute(2, "ValueChanged", EventCallback.Factory.Create<string>(this, async v => { prop.SetValue(model, v); await OnChanged.InvokeAsync(); }));
         builder.AddAttribute(3, "Variant", Variant.Outlined);
         builder.AddAttribute(4, "Margin", Margin.Dense);
         builder.AddAttribute(5, "Dense", true);
@@ -127,7 +128,7 @@
         {
             builder.OpenComponent<MudNumericField<int?>>(seq++);
             builder.AddAttribute(seq++, "Value", (int?)prop.GetValue(model));
-            builder.AddAttribute(seq++, "ValueChanged", EventCallback.Factory.Create<int?>(this, v => prop.SetValue(model, v)));
+            builder.AddAttribute(seq++, "ValueChanged", EventCallback.Factory.Create<int?>(this, async v => { prop.SetValue(model, v); await OnChanged.InvokeAsync(); }));
             if (hasMin) builder.AddAttribute(seq++, "Min", (int)attr.Min);
             if (hasMax) builder.AddAttribute(seq++, "Max", (int)attr.Max);
             builder.AddAttribute(seq++, "Variant", Variant.Outlined);
@@ -137,7 +138,7 @@
         {
             builder.OpenComponent<MudNumericField<int>>(seq++);
             builder.AddAttribute(seq++, "Value", (int)(prop.GetValue(model) ?? 0));
-            builder.AddAttribute(seq++, "ValueChanged", EventCallback.Factory.Create<int>(this, v => prop.SetValue(model, v)));
+            builder.AddAttribute(seq++, "ValueChanged", EventCallback.Factory.Create<int>(this, async v => { prop.SetValue(model, v); await OnChanged.InvokeAsync(); }));
             if (hasMin) builder.AddAttribute(seq++, "Min", (int)attr.Min);
             if (hasMax) builder.AddAttribute(seq++, "Max", (int)attr.Max);
             builder.AddAttribute(seq++, "Variant", Variant.Outlined);
@@ -147,7 +148,7 @@
         {
             builder.OpenComponent<MudNumericField<double?>>(seq++);
             builder.AddAttribute(seq++, "Value", (double?)prop.GetValue(model));
-            builder.AddAttribute(seq++, "ValueChanged", EventCallback.Factory.Create<double?>(this, v => prop.SetValue(model, v)));
+            builder.AddAttribute(seq++, "ValueChanged", EventCallback.Factory.Create<double?>(this, async v => { prop.SetValue(model, v); await OnChanged.InvokeAsync(); }));
             if (hasMin) builder.AddAttribute(seq++, "Min", attr.Min);
             if (hasMax) builder.AddAttribute(seq++, "Max", attr.Max);
             builder.AddAttribute(seq++, "Variant", Variant.Outlined);
@@ -157,7 +158,7 @@
         {
             builder.OpenComponent<MudNumericField<double>>(seq++);
             builder.AddAttribute(seq++, "Value", (double)(prop.GetValue(model) ?? 0.0));
-            builder.AddAttribute(seq++, "ValueChanged", EventCallback.Factory.Create<double>(this, v => prop.SetValue(model, v)));
+            builder.AddAttribute(seq++, "ValueChanged", EventCallback.Factory.Create<double>(this, async v => { prop.SetValue(model, v); await OnChanged.InvokeAsync(); }));
             if (hasMin) builder.AddAttribute(seq++, "Min", attr.Min);
             if (hasMax) builder.AddAttribute(seq++, "Max", attr.Max);
             builder.AddAttribute(seq++, "Variant", Variant.Outlined);

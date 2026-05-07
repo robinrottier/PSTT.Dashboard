@@ -1441,6 +1441,8 @@ public partial class Display : IDisposable
 
     private void OnNodePropertiesSaved()
     {
+        PushUndoSnapshot();
+        AppState.MarkEdited();
         StateHasChanged();
         Snackbar.Add("Node properties updated", Severity.Success);
     }

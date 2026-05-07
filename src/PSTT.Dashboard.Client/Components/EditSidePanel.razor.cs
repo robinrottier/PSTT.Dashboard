@@ -74,6 +74,12 @@ public partial class EditSidePanel : IAsyncDisposable
         catch { }
     }
 
+    private void OnGridPropertyChanged()
+    {
+        SelectedNode?.Refresh();
+        AppState.MarkEdited();
+    }
+
     private void ApplyPageProps()
     {
         _ = OnPagePropsApplied.InvokeAsync((_editPageName ?? "", _editPageBg));

@@ -139,7 +139,7 @@ public partial class NodePropertyEditor
     private IEnumerable<string> GetNodeSpecificCategories() =>
         Node.GetType().GetProperties()
             .Select(p => p.GetCustomAttribute<NodePropertyAttribute>()?.Category)
-            .Where(c => !string.IsNullOrEmpty(c))
+            .Where(c => !string.IsNullOrEmpty(c) && c != "Common")
             .Distinct()!;
 
     // ── Table widget: discover defs from live data ────────────────────────────

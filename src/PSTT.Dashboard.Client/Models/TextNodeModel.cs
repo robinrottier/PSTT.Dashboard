@@ -25,6 +25,10 @@ namespace PSTT.Dashboard.Models
         /// Position of the title relative to the main content: "Above", "Below", "Left", "Right". Defaults to "Above".
         /// (Title is inherited from base blazor diagram node model)
         /// </summary>
+        /// <summary>Wrapper so the grid view can edit Title via NpXxx attribute discovery.</summary>
+        [NpText("Title", Category = "Common", Order = 0)]
+        public string NodeTitle { get => Title ?? ""; set => Title = value; }
+
         [NpSelect("Title Position", "Above", "Below", "Left", "Right", Category = "Common", Order = 1, Labels = ["Above", "Below", "Left", "Right"])]
         public string TitlePosition { get; set; } = "Above";
 
