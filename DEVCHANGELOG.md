@@ -1,6 +1,6 @@
 ## 2025-05-14 — Edit panel UX improvements, layout restructure & bug fixes
 
-### Commit: TBD — develop
+### Commit: 156dfb0 — develop
 
 ---
 
