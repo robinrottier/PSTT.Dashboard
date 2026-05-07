@@ -7,6 +7,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **Combined Edit Side Panel**: Three floating edit panels (Add Node, Node Properties, Data Explorer) and the Dashboard Properties modal dialog have been replaced by a single docked right-side panel (`EditSidePanel`). The panel has five icon tabs (Node Props, Add Node, Data Explorer, Page Props, Dashboard Props), is resizable by dragging its left edge, and auto-opens when entering edit mode.
+- **Node Properties — grid/list sub-view**: The Node Props tab offers a compact two-column grid editor (`PropertyGridEditor`) driven by `[NpXxx]` attribute decorators on model properties, alongside the existing custom form view (`NodePropertyEditor`). Toggle between views with the grid/form icon in the panel toolbar.
+- **`NpColorAttribute`**: New `[NpColor(...)]` attribute for model properties, rendered as `<ColorInputRow>` in both `PropertyGridEditor` and `NodePropertyEditor`.
+- **`TextNodeModel` property decorators**: Seven `TextNodeModel` properties (TitlePosition, IconColor, Text, BackgroundColor, BackgroundImageUrl, BackgroundObjectFit, FontSize) now carry `[NpXxx]` attribute decorators so they appear automatically in the new grid view.
+- **Page Properties tab**: Edit the active page name and background colour inline from the side panel (no separate dialog needed).
+- **Side panel width persistence**: Panel width (200–800 px) is saved to `localStorage` and restored on next load.
+
+### Changed
+- Dashboard Properties is now displayed in the side panel tab instead of a modal dialog. The `DashboardPropertiesDialog` is retained as a thin wrapper for backward compatibility.
+
 ## [v0.1.11] - 2026-05-06
 
 ### Added

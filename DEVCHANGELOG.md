@@ -1,3 +1,144 @@
+## 2026-05-07 — Combined Edit Side Panel
+
+### Commit: TBD — develop
+
+---
+
+### 1 — `SidePanelEnums.cs` (new)
+**File:** `src/PSTT.Dashboard.Client/Components/SidePanelEnums.cs`
+
+Defines `SidePanelTab` enum (NodeProps, AddNode, DataExplorer, PageProps, DashboardProps) and `SubView` enum (List, Custom) in the `PSTT.Dashboard.Components` namespace. Used by `EditSidePanel` and `Display`.
+
+---
+
+### 2 — `PropertyGridEditor.razor` + CSS (new)
+**Files:** `src/PSTT.Dashboard.Client/Components/PropertyGridEditor.razor`, `.razor.css`
+
+Compact two-column grid editor that reads `NpXxx` attributes from any `object? Model`. Handles NpText, NpNumeric, NpCheckbox, NpSelect, NpColor, NpJson, NpCustom. Groups by `Category`, sorted by `Order`. Uses CSS grid (`display:grid; grid-template-columns: minmax(70px,40%) 1fr`) so label and value divs automatically flow into two columns.
+
+---
+
+### 3 — `CustomPropertyCell.razor` (new)
+**File:** `src/PSTT.Dashboard.Client/Components/CustomPropertyCell.razor`
+
+Wraps `DynamicComponent` for `NpCustomAttribute` rendering in PropertyGridEditor. Casts `Model as TextNodeModel` and passes property value via `BuildParams()`.
+
+---
+
+### 4 — `DashboardPropertiesContent.razor` (new)
+**File:** `src/PSTT.Dashboard.Client/Components/DashboardPropertiesContent.razor`
+
+Extracted dashboard properties form from `DashboardPropertiesDialog.razor` into a standalone component. Has optional `OnApplied`/`OnCancelled` EventCallback parameters; Cancel button only shown when `OnCancelled.HasDelegate`. Used both by the thin dialog wrapper and embedded in the side panel.
+
+---
+
+### 5 — `sidePanel.js` (new)
+**File:** `src/PSTT.Dashboard.Client/wwwroot/sidePanel.js`
+
+`window.SidePanel` IIFE with `startResize(dotNetRef, startX, startWidth)` (mouse-drag resize with `SetWidth` .NET callback), `saveWidth(w)` and `loadWidth()` using `localStorage` key `edit-side-panel-width`.
+
+---
+
+### 6 — `NpColorAttribute` added to `NodePropertyAttributes.cs`
+**File:** `src/PSTT.Dashboard.Client/Models/NodePropertyAttributes.cs`
+
+Added `NpColorAttribute(displayName)` sealed class inheriting `NodePropertyAttribute`. Properties: `ShowClear` (default true), `Placeholder`. Used by `PropertyGridEditor` and `NodePropertyRenderer` to render `<ColorInputRow>`.
+
+---
+
+### 7 — NpXxx decorators on `TextNodeModel.cs`
+**File:** `src/PSTT.Dashboard.Client/Models/TextNodeModel.cs`
+
+Added `[NpXxx]` attribute decorators to 7 properties so they appear in `PropertyGridEditor` (grid/list sub-view):
+- `TitlePosition` → `[NpSelect(...)]`
+- `IconColor` → `[NpColor(..., ShowClear=true)]`
+- `Text` → `[NpText(..., Lines=4)]`
+- `BackgroundColor` → `[NpColor(..., ShowClear=true)]`
+- `BackgroundImageUrl` → `[NpText(...)]`
+- `BackgroundObjectFit` → `[NpSelect(...)]`
+- `FontSize` → `[NpNumeric(..., Min=0)]`
+
+All use `Category="Common"`, `Order` 1–8.
+
+---
+
+### 8 — `NpColorAttribute` handling in `NodePropertyRenderer.razor`
+**File:** `src/PSTT.Dashboard.Client/Components/NodePropertyRenderer.razor`
+
+Added `else if (entry.Attr is NpColorAttribute colorAttr)` branch between `NpJsonAttribute` and `NpCustomAttribute` handling. Renders `<ColorInputRow>` with two-way binding.
+
+---
+
+### 9 — `DashboardPropertiesDialog.razor` refactored to thin wrapper
+**File:** `src/PSTT.Dashboard.Client/Components/DashboardPropertiesDialog.razor`
+
+Replaced the full form implementation with a thin wrapper that delegates to `<DashboardPropertiesContent OnApplied="..." OnCancelled="..." />`. `@code` block now only has `[CascadingParameter] IMudDialogInstance MudDialog`.
+
+---
+
+### 10 — `DataExplorerPanel.razor` — Embedded mode
+**File:** `src/PSTT.Dashboard.Client/Components/DataExplorerPanel.razor`
+
+Added `[Parameter] public bool Embedded { get; set; }`. When `Embedded=true`, renders the inner content div directly without the `<FloatingPanel>` wrapper. Inner content shared via `RenderFragment RenderInner` (tree builder API).
+
+---
+
+### 11 — `EditSidePanel.razor` + `.razor.cs` + `.razor.css` (new)
+**Files:** `src/PSTT.Dashboard.Client/Components/EditSidePanel.*`
+
+The main combined edit side panel component. Key features:
+- **5 icon tabs** in header: NodeProps, AddNode, DataExplorer, PageProps, DashboardProps
+- **Sub-view toggle** (grid/form icons) shown only for NodeProps tab — switches between `<PropertyGridEditor>` (list) and `<NodePropertyEditor>` (custom form)
+- **Resize handle** on left edge: calls `SidePanel.startResize()` JS, which invokes `[JSInvokable] SetWidth()` on the .NET side; width clamped 200–800px, persisted to localStorage
+- **PageProps tab**: inline MudTextField + ColorInputRow + Apply button (fires `OnPagePropsApplied` callback)
+- **DashboardProps tab**: renders `<DashboardPropertiesContent />` (no sub-view toggle)
+- **DataExplorer tab**: `<DataExplorerPanel Embedded="true" ...>` 
+- Implements `IAsyncDisposable` for `DotNetObjectReference` cleanup
+
+---
+
+### 12 — `Display.razor` restructured
+**File:** `src/PSTT.Dashboard.Client/Pages/Display.razor`
+
+- Wrapped the canvas `<MudPaper>` in a `display:flex;flex-direction:row` container taking `height:calc(100vh - 100px)`
+- MudPaper now has `flex:1;min-width:0;` instead of the fixed height/width style
+- Removed three `<FloatingPanel>` blocks (AddNode, DataExplorer, NodeProperties)
+- Added `<EditSidePanel>` after the canvas paper, inside `@if (AppState.IsEditMode)`
+- Updated toolbar Add/DataExplorer icon buttons to call `ToggleSidePanelTab()` and reflect `_sidePanelTab`
+
+---
+
+### 13 — `Display.razor.cs` updated
+**File:** `src/PSTT.Dashboard.Client/Pages/Display.razor.cs`
+
+Multiple changes:
+- Replaced `_isAddNodeOpen`/`_isDataExplorerOpen`/`_isPropertiesOpen` with `_isSidePanelOpen` + `_sidePanelTab`
+- `SwitchMode(true)` → sets `_isSidePanelOpen = true`; `SwitchMode(false)` → sets `_isSidePanelOpen = false`
+- `AddNode()` → calls `ToggleSidePanelTab(SidePanelTab.AddNode)`
+- `EditNodeProperties()` → sets `_isSidePanelOpen=true`, `_sidePanelTab=SidePanelTab.NodeProps`
+- `ClosePropertiesPanel()` → just calls `StateHasChanged()` (no panel bool to clear)
+- `OnSelectionChanged()` → switches to NodeProps tab when a node is selected and panel is open
+- `ShowDiagramPropertiesAsync()` → now synchronous: sets `_isSidePanelOpen=true`, `_sidePanelTab=SidePanelTab.DashboardProps` (no more dialog)
+- `CanvasStyle` → renamed to `CanvasBgStyle`, returns only `background-color:...` or `""` (layout handled by flex container)
+- Added `ToggleSidePanelTab(tab)` helper: toggles open/closed, or switches tab
+- Added `ApplyPageProps((string Name, string? BgColor))`: updates page name + background, calls `AppState.MarkEdited()`
+
+---
+
+### 14 — `App.razor` — script tag added
+**File:** `src/PSTT.Dashboard.Client/App.razor`
+
+Added `<script src="_content/PSTT.Dashboard.Client/sidePanel.js"></script>` after the existing `tableResize.js` script tag.
+
+---
+
+⚠️ **Known caveats / remaining work:**
+- DataExplorer embedded mode uses a `RenderFragment` with builder API — if it shows rendering issues, consider extracting inner content to a separate `DataExplorerPanelContent.razor`
+- The `DashboardPropertiesDialog.razor` is kept as a thin wrapper for backward compat (any code still calling `DialogService.ShowAsync<DashboardPropertiesDialog>()` will still work)
+- PropertyGridEditor only renders `NpXxx`-decorated properties; widgets that have few/no decorators will show an empty grid — add attributes incrementally per widget
+
+---
+
 ## 2026-05-05 — Table widget Session 3 complete — cell/row/col styling, conditional formatting, flash animation
 
 ### Commit: TBD — feature/table-widget

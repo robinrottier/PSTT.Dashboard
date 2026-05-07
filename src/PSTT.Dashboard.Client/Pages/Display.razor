@@ -85,117 +85,105 @@ else
                 <div style="display:flex;flex-shrink:0;gap:0;border-left:1px solid var(--mud-palette-divider);padding-left:4px;margin-left:2px;">
                     <MudTooltip Text="Add Node (Ctrl+Shift+A)" Placement="Placement.Left">
                         <MudIconButton Icon="@Icons.Material.Filled.AddBox" Size="Size.Small"
-                                       Color="@(_isAddNodeOpen ? Color.Primary : Color.Default)"
-                                       OnClick="@(() => { _isAddNodeOpen = !_isAddNodeOpen; StateHasChanged(); })" />
+                                       Color="@(_isSidePanelOpen && _sidePanelTab == SidePanelTab.AddNode ? Color.Primary : Color.Default)"
+                                       OnClick="@(() => ToggleSidePanelTab(SidePanelTab.AddNode))" />
                     </MudTooltip>
                     <MudTooltip Text="Data Explorer (Ctrl+Shift+D)" Placement="Placement.Left">
                         <MudIconButton Icon="@Icons.Material.Filled.ManageSearch" Size="Size.Small"
-                                       Color="@(_isDataExplorerOpen ? Color.Primary : Color.Default)"
-                                       OnClick="@(() => { _isDataExplorerOpen = !_isDataExplorerOpen; StateHasChanged(); })" />
+                                       Color="@(_isSidePanelOpen && _sidePanelTab == SidePanelTab.DataExplorer ? Color.Primary : Color.Default)"
+                                       OnClick="@(() => ToggleSidePanelTab(SidePanelTab.DataExplorer))" />
                     </MudTooltip>
                 </div>
             }
         </MudPaper>
     }
-    <MudPaper @key="_diagram" Elevation="2" Style="@($"padding:0;{CanvasStyle}")">
-        <div class="dashboard-canvas" tabindex="0" style="width:100%;height:100%;position:relative;" @onkeydown="HandleKeyDown" @ref="_canvasRef">
-        @if (AppState.IsEditMode && AppState.IsMultiSelected)
-        {
-            <MudPaper Elevation="1" Style="position:absolute;z-index:1000;top:4px;left:50%;transform:translateX(-50%);display:flex;gap:2px;padding:2px 4px;border-radius:8px;">
-                <MudTooltip Text="Align Left Edges">
-                    <MudIconButton Icon="@Icons.Material.Filled.AlignHorizontalLeft" Size="Size.Small" Color="Color.Primary" OnClick='() => AlignNodes("left")' />
-                </MudTooltip>
-                <MudTooltip Text="Center Horizontally">
-                    <MudIconButton Icon="@Icons.Material.Filled.AlignHorizontalCenter" Size="Size.Small" Color="Color.Primary" OnClick='() => AlignNodes("centerH")' />
-                </MudTooltip>
-                <MudTooltip Text="Align Right Edges">
-                    <MudIconButton Icon="@Icons.Material.Filled.AlignHorizontalRight" Size="Size.Small" Color="Color.Primary" OnClick='() => AlignNodes("right")' />
-                </MudTooltip>
-                <MudDivider Vertical="true" FlexItem="true" />
-                <MudTooltip Text="Align Top Edges">
-                    <MudIconButton Icon="@Icons.Material.Filled.AlignVerticalTop" Size="Size.Small" Color="Color.Primary" OnClick='() => AlignNodes("top")' />
-                </MudTooltip>
-                <MudTooltip Text="Center Vertically">
-                    <MudIconButton Icon="@Icons.Material.Filled.AlignVerticalCenter" Size="Size.Small" Color="Color.Primary" OnClick='() => AlignNodes("centerV")' />
-                </MudTooltip>
-                <MudTooltip Text="Align Bottom Edges">
-                    <MudIconButton Icon="@Icons.Material.Filled.AlignVerticalBottom" Size="Size.Small" Color="Color.Primary" OnClick='() => AlignNodes("bottom")' />
-                </MudTooltip>
-                <MudDivider Vertical="true" FlexItem="true" Style="margin:4px 2px;" />
-                <MudTooltip Text="Make Same Width">
-                    <MudIconButton Icon="@Icons.Material.Filled.SwapHoriz" Size="Size.Small" Color="Color.Primary" OnClick="SameWidth" />
-                </MudTooltip>
-                <MudTooltip Text="Make Same Height">
-                    <MudIconButton Icon="@Icons.Material.Filled.SwapVert" Size="Size.Small" Color="Color.Primary" OnClick="SameHeight" />
-                </MudTooltip>
-            </MudPaper>
-        }
-        <CascadingValue Value="_diagram" IsFixed="true">
-            <DiagramCanvas>
-                <Widgets>
-                    @if (AppState.IsEditMode)
-                    {
-                        <GridWidget Size="@(_diagram.Options.GridSize ?? 10)"
-                                    Mode="GridMode.Line"
-                                    BackgroundColor="white" />
-                    }
-                </Widgets>
-            </DiagramCanvas>
-        </CascadingValue>
+    <div style="display:flex;flex-direction:row;height:calc(100vh - 100px);min-height:0;overflow:hidden;">
+        <MudPaper @key="_diagram" Elevation="2"
+                  Style="@($"flex:1;min-width:0;padding:0;overflow:hidden;position:relative;{CanvasBgStyle}")">
+            <div class="dashboard-canvas" tabindex="0" style="width:100%;height:100%;position:relative;" @onkeydown="HandleKeyDown" @ref="_canvasRef">
+            @if (AppState.IsEditMode && AppState.IsMultiSelected)
+            {
+                <MudPaper Elevation="1" Style="position:absolute;z-index:1000;top:4px;left:50%;transform:translateX(-50%);display:flex;gap:2px;padding:2px 4px;border-radius:8px;">
+                    <MudTooltip Text="Align Left Edges">
+                        <MudIconButton Icon="@Icons.Material.Filled.AlignHorizontalLeft" Size="Size.Small" Color="Color.Primary" OnClick='() => AlignNodes("left")' />
+                    </MudTooltip>
+                    <MudTooltip Text="Center Horizontally">
+                        <MudIconButton Icon="@Icons.Material.Filled.AlignHorizontalCenter" Size="Size.Small" Color="Color.Primary" OnClick='() => AlignNodes("centerH")' />
+                    </MudTooltip>
+                    <MudTooltip Text="Align Right Edges">
+                        <MudIconButton Icon="@Icons.Material.Filled.AlignHorizontalRight" Size="Size.Small" Color="Color.Primary" OnClick='() => AlignNodes("right")' />
+                    </MudTooltip>
+                    <MudDivider Vertical="true" FlexItem="true" />
+                    <MudTooltip Text="Align Top Edges">
+                        <MudIconButton Icon="@Icons.Material.Filled.AlignVerticalTop" Size="Size.Small" Color="Color.Primary" OnClick='() => AlignNodes("top")' />
+                    </MudTooltip>
+                    <MudTooltip Text="Center Vertically">
+                        <MudIconButton Icon="@Icons.Material.Filled.AlignVerticalCenter" Size="Size.Small" Color="Color.Primary" OnClick='() => AlignNodes("centerV")' />
+                    </MudTooltip>
+                    <MudTooltip Text="Align Bottom Edges">
+                        <MudIconButton Icon="@Icons.Material.Filled.AlignVerticalBottom" Size="Size.Small" Color="Color.Primary" OnClick='() => AlignNodes("bottom")' />
+                    </MudTooltip>
+                    <MudDivider Vertical="true" FlexItem="true" Style="margin:4px 2px;" />
+                    <MudTooltip Text="Make Same Width">
+                        <MudIconButton Icon="@Icons.Material.Filled.SwapHoriz" Size="Size.Small" Color="Color.Primary" OnClick="SameWidth" />
+                    </MudTooltip>
+                    <MudTooltip Text="Make Same Height">
+                        <MudIconButton Icon="@Icons.Material.Filled.SwapVert" Size="Size.Small" Color="Color.Primary" OnClick="SameHeight" />
+                    </MudTooltip>
+                </MudPaper>
+            }
+            <CascadingValue Value="_diagram" IsFixed="true">
+                <DiagramCanvas>
+                    <Widgets>
+                        @if (AppState.IsEditMode)
+                        {
+                            <GridWidget Size="@(_diagram.Options.GridSize ?? 10)"
+                                        Mode="GridMode.Line"
+                                        BackgroundColor="white" />
+                        }
+                    </Widgets>
+                </DiagramCanvas>
+            </CascadingValue>
 
-        @if (AppState.SubscribedTopics.Count == 0)
-        {
-            <div style="position:absolute;top:0;left:0;right:0;z-index:500;pointer-events:auto;">
-                <MudAlert Severity="Severity.Warning" Dense="true" Square="true"
-                          Icon="@Icons.Material.Filled.WifiOff"
-                          OnClick="@(AppState.IsEditMode ? EventCallback.Factory.Create(this, OpenDashboardProperties) : default)"
-                          Style="border-radius:0;">
-                    @if (AppState.IsEditMode)
-                    {
-                        <span>No data topics configured. Add topics in Dashboard Properties.</span>
-                    }
-                    else
-                    {
-                        <span>No data topics configured. Switch to edit mode to add MQTT topics.</span>
-                    }
-                </MudAlert>
+            @if (AppState.SubscribedTopics.Count == 0)
+            {
+                <div style="position:absolute;top:0;left:0;right:0;z-index:500;pointer-events:auto;">
+                    <MudAlert Severity="Severity.Warning" Dense="true" Square="true"
+                              Icon="@Icons.Material.Filled.WifiOff"
+                              OnClick="@(AppState.IsEditMode ? EventCallback.Factory.Create(this, OpenDashboardProperties) : default)"
+                              Style="border-radius:0;">
+                        @if (AppState.IsEditMode)
+                        {
+                            <span>No data topics configured. Add topics in Dashboard Properties.</span>
+                        }
+                        else
+                        {
+                            <span>No data topics configured. Switch to edit mode to add MQTT topics.</span>
+                        }
+                    </MudAlert>
+                </div>
+            }
+
             </div>
-        }
-
-        <FloatingPanel Title="Add Node" @bind-IsOpen="_isAddNodeOpen" InitialLeft="80" InitialTop="160" MinWidth="280">
-            <AddNodePanelContent OnNodeTypeSelected="OnAddNodeTypeSelected" />
-        </FloatingPanel>
-
-        <DataExplorerPanel AppState="AppState"
-                           IsOpen="_isDataExplorerOpen"
-                           IsOpenChanged="@(v => { _isDataExplorerOpen = v; StateHasChanged(); })"
+        </MudPaper>
+        @if (AppState.IsEditMode)
+        {
+            <EditSidePanel IsOpen="_isSidePanelOpen"
+                           IsOpenChanged="@(v => { _isSidePanelOpen = v; StateHasChanged(); })"
+                           ActiveTab="_sidePanelTab"
+                           ActiveTabChanged="@(t => { _sidePanelTab = t; StateHasChanged(); })"
+                           SelectedNode="_propertiesNode"
+                           OnNodeSaved="OnNodePropertiesSaved"
+                           OnNodeClose="ClosePropertiesPanel"
+                           OnAddNodeTypeSelected="OnAddNodeTypeSelected"
+                           AppState="AppState"
                            HasSelectedNode="AppState.HasSingleSelectedNode"
                            SelectedNodeTopics="SelectedNodeTopics"
                            OnTopicAssigned="AssignTopicToSelectedNode"
                            OnCreateNodeWithTopic="AddNodeWithTopic"
-                           InitialLeft="900" InitialTop="160" />
-
-        @if (_isPropertiesOpen)
-        {
-            <FloatingPanel Title="@(_propertiesNode != null ? $"Node Properties – {_propertiesNode.NodeType}" : "Node Properties")"
-                           @bind-IsOpen="_isPropertiesOpen"
-                           Resizable="true"
-                           InitialLeft="300" InitialTop="140" MinWidth="340">
-                @if (_propertiesNode != null)
-                {
-                    <NodePropertyEditor Node="_propertiesNode"
-                                        OnSaved="OnNodePropertiesSaved"
-                                        OnClose="ClosePropertiesPanel" />
-                }
-                else
-                {
-                    <MudText Typo="Typo.body2" Class="pa-4" Color="Color.Secondary">
-                        Select a single node to edit its properties.
-                    </MudText>
-                }
-            </FloatingPanel>
+                           CurrentPageName="@(AppState.PageNames.Count > _activePageIndex ? AppState.PageNames[_activePageIndex] : "")"
+                           CurrentPageBgColor="@(_pageStates.Count > _activePageIndex ? _pageStates[_activePageIndex].BackgroundColor : null)"
+                           OnPagePropsApplied="ApplyPageProps" />
         }
-
-        </div>
-    </MudPaper>
+    </div>
 }

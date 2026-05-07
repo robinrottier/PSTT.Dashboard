@@ -71,12 +71,13 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
       - Self collected easy to do but little application if looses it every refresh.
 
 - [ ] Widget libraries- What libraries or packages are availble (FOSS) that would enhance the package?? Are there any emerging standards or widely used packages?
+
 - [ ] Generic property handling for data value transition:
-- [ ] Any widget property should be able to have a data transition appliled to it in some generic way
-      rather than present where just fixed (typlically color) property has data vaue transition built in only
-	  - other use cases would be whole widget visibility based on a data vaue (e.g. hide if 0)
-	  - speed of animation of line based on data vaue
-	  - 
+	- [ ] Any widget property should be able to have a data transition appliled to it in some generic way
+		  rather than present where just fixed (typlically color) property has data vaue transition built in only
+		  - other use cases would be whole widget visibility based on a data vaue (e.g. hide if 0)
+		  - speed of animation of line based on data vaue
+		  - 
 
 ### FEAT-D: Multiple dashboard pages _(basic multi-page done — see CHANGELOG)_
 - [ ] Page tab overflow handling (scrolling/dropdown when many pages)
@@ -93,21 +94,6 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 	- [ ] drag onto the canvas and positioned without loosing the dialog
 - [ ] Data explorer panel
 	- [ ] drag a data item to an existing node to add it to that node
-
-- [ ] all the edit mode panels could be combined into a tabbed super panel with a tab for each of these functions (add node, edit node, data explorer, page properties, dashboard properties, etc)
-	- [ ] similar to current floating panels but also could be "docked" to right hand side of screen
-	- [ ] that is resizeable (and saves size and position and dock state i,e. floating or ocked)
-	- [ ] and when in edit mode this panel is shown by default but can be hidden to give more canvas space, and then shown again when needed
-	- [ ] whole thing is shown/hidden via single button
-	- [ ] thing becomes very extendable
-	- [ ] contained panels:
-		- [ ] nodeproperties panel is simple list of all properties and a simple editing value
-		- [ ] second propeties panel (ie. current dialog) would be for specialized node properties with the layout and cusom dialog as present
-		- [ ] dashboard oroperties and page properties another panel - again have linear list or ghioh value custom dialog
-		- [ ] add node
-		- [ ] data explorer
-		- [ ] ...so maybe tool bar olong top to choose which panel (node, page, table, data, add node) but also for some panel type a binary choice of list or custom
-	- [ ] rather like the node-red editing page with slide out panel on the right side
 
 ### FEAT-F: Link improvements
 - [ ] Links as proper model objects with a properties editor: color, thickness, dash style

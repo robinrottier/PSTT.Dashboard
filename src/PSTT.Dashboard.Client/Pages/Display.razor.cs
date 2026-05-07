@@ -50,10 +50,9 @@ public partial class Display : IDisposable
     private int _nodeCounter = 1;
     private int _pasteGeneration = 0;
 
-    // Floating panel state
-    private bool _isAddNodeOpen;
-    private bool _isDataExplorerOpen;
-    private bool _isPropertiesOpen;
+    // Side panel state (replaces separate _isAddNodeOpen/_isDataExplorerOpen/_isPropertiesOpen)
+    private bool _isSidePanelOpen;
+    private SidePanelTab _sidePanelTab = SidePanelTab.NodeProps;
     private TextNodeModel? _propertiesNode;
 
     // Guards against concurrent dialog invocations (open, save-as, export, import)
@@ -126,12 +125,10 @@ public partial class Display : IDisposable
                         await SaveDashboard();
                     break;
                 case "A" when e.ShiftKey:
-                    _isAddNodeOpen = !_isAddNodeOpen;
-                    StateHasChanged();
+                    ToggleSidePanelTab(SidePanelTab.AddNode);
                     break;
                 case "D" when e.ShiftKey:
-                    _isDataExplorerOpen = !_isDataExplorerOpen;
-                    StateHasChanged();
+                    ToggleSidePanelTab(SidePanelTab.DataExplorer);
                     break;
             }
         }
@@ -441,12 +438,10 @@ public partial class Display : IDisposable
         }
 
         AppState.SetEditMode(enterEditMode);
-        if (!enterEditMode)
-        {
-            _isAddNodeOpen = false;
-            _isDataExplorerOpen = false;
-            _isPropertiesOpen = false;
-        }
+        if (enterEditMode)
+            _isSidePanelOpen = true;
+        else
+            _isSidePanelOpen = false;
         // Clear any dirty flag spuriously raised during mode-switch setup
         if (enterEditMode) AppState.MarkSaved();
         StateHasChanged();
@@ -500,7 +495,7 @@ public partial class Display : IDisposable
         _onMenuDiagramProperties = () => InvokeAsync(ShowDiagramPropertiesAsync);
         AppState.MenuDiagramProperties += _onMenuDiagramProperties;
 
-        _onMenuToggleDataExplorer = () => InvokeAsync(() => { _isDataExplorerOpen = !_isDataExplorerOpen; StateHasChanged(); return Task.CompletedTask; });
+        _onMenuToggleDataExplorer = () => InvokeAsync(() => { ToggleSidePanelTab(SidePanelTab.DataExplorer); return Task.CompletedTask; });
         AppState.MenuToggleDataExplorer += _onMenuToggleDataExplorer;
 
         _onMenuAddPage = () => InvokeAsync(AddPageAsync);
@@ -567,6 +562,8 @@ public partial class Display : IDisposable
         {
             var selectedNodes = _diagram.GetSelectedModels().OfType<TextNodeModel>().ToList();
             _propertiesNode = selectedNodes.Count == 1 ? selectedNodes[0] : null;
+            if (_propertiesNode != null && _isSidePanelOpen)
+                _sidePanelTab = SidePanelTab.NodeProps;
         }
 
         InvokeAsync(StateHasChanged);
@@ -605,8 +602,7 @@ public partial class Display : IDisposable
 
     private void AddNode()
     {
-        _isAddNodeOpen = !_isAddNodeOpen;
-        StateHasChanged();
+        ToggleSidePanelTab(SidePanelTab.AddNode);
     }
 
     private void OnAddNodeTypeSelected(string nodeType)
@@ -1438,7 +1434,8 @@ public partial class Display : IDisposable
         var node = _diagram.GetSelectedModels().OfType<TextNodeModel>().FirstOrDefault();
         if (node == null) { Snackbar.Add("No node selected", Severity.Warning); return; }
         _propertiesNode = node;
-        _isPropertiesOpen = true;
+        _isSidePanelOpen = true;
+        _sidePanelTab = SidePanelTab.NodeProps;
         StateHasChanged();
     }
 
@@ -1450,14 +1447,13 @@ public partial class Display : IDisposable
 
     private void ClosePropertiesPanel()
     {
-        _isPropertiesOpen = false;
         StateHasChanged();
     }
 
-    private string CanvasStyle =>
+    private string CanvasBgStyle =>
         string.IsNullOrEmpty(AppState.CanvasBackgroundColor)
-            ? "position:relative;width: 100%; height: calc(100vh - 100px); overflow: hidden;"
-            : $"position:relative;width: 100%; height: calc(100vh - 100px); overflow: hidden; background-color: {AppState.CanvasBackgroundColor};";
+            ? ""
+            : $"background-color:{AppState.CanvasBackgroundColor};";
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -1497,20 +1493,38 @@ public partial class Display : IDisposable
         });
     }
 
-    private async Task ShowDiagramPropertiesAsync()
+    private Task ShowDiagramPropertiesAsync()
     {
-        if (_dialogActive) return;
-        _dialogActive = true;
-        try
-        {
-        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
-        await DialogService.ShowAsync<DashboardPropertiesDialog>("Dashboard Properties", options);
-        }
-        finally { _dialogActive = false; }
+        _isSidePanelOpen = true;
+        _sidePanelTab = SidePanelTab.DashboardProps;
+        StateHasChanged();
+        return Task.CompletedTask;
     }
 
     // Called from the "no topics" overlay on Display.razor
     private Task OpenDashboardProperties() => ShowDiagramPropertiesAsync();
+
+    private void ToggleSidePanelTab(SidePanelTab tab)
+    {
+        if (_isSidePanelOpen && _sidePanelTab == tab)
+            _isSidePanelOpen = false;
+        else { _isSidePanelOpen = true; _sidePanelTab = tab; }
+        StateHasChanged();
+    }
+
+    private void ApplyPageProps((string Name, string? BgColor) args)
+    {
+        if (_activePageIndex < AppState.PageNames.Count)
+        {
+            var names = new List<string>(AppState.PageNames);
+            names[_activePageIndex] = args.Name;
+            AppState.SetPageNames(names, _activePageIndex);
+        }
+        if (_pageStates.Count > _activePageIndex)
+            _pageStates[_activePageIndex].BackgroundColor = args.BgColor;
+        AppState.MarkEdited();
+        StateHasChanged();
+    }
 
     private async Task SaveLastDiagramName(string name)
     {

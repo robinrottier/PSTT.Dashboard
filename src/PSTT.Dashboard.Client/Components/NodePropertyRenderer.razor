@@ -40,6 +40,13 @@
                          ExampleJson="@jsonAttr.ExampleJson"
                          Lines="@jsonAttr.Lines" />
     }
+    else if (entry.Attr is NpColorAttribute colorAttr)
+    {
+        <ColorInputRow Value="@((string?)entry.Prop.GetValue(Node))"
+                       ValueChanged="@((string? v) => entry.Prop.SetValue(Node, v))"
+                       Label="@colorAttr.DisplayName"
+                       ShowClear="@colorAttr.ShowClear" />
+    }
     else if (entry.Attr is NpCustomAttribute custAttr)
     {
         <DynamicComponent Type="custAttr.ComponentType"
