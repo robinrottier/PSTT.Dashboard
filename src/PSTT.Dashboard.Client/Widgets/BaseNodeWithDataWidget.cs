@@ -187,20 +187,24 @@ public abstract class BaseNodeWithDataWidget<TNode> : BaseNodeWidget<TNode>
         new(@"\{(\d+)(?::([^}]*))?\}", RegexOptions.Compiled);
 
     /// <summary>
-    /// Renders <see cref="TextNodeModel.Text"/> as a <see cref="MarkupString"/> so that
-    /// HTML tags in the static template (e.g. <c>&lt;b&gt;</c>, <c>&lt;br&gt;</c>) are
-    /// interpreted by the browser rather than displayed as literal text.
-    ///
-    /// Data values substituted for <c>{0}</c>, <c>{1}</c>, etc. are HTML-encoded before
-    /// insertion to prevent injection from MQTT payloads authored outside the dashboard.
+    /// Renders <see cref="TextNodeModel.Text"/> substituting data values for <c>{0}</c>,
+    /// <c>{1}</c>, etc. Both the static template and substituted values are HTML-encoded,
+    /// so angle brackets and special characters appear as literal text.
+    /// Newlines (Enter in the text field) are preserved as line breaks via CSS white-space:pre-wrap.
+    /// Supports C# format specs, e.g. {0:F2}.
     /// </summary>
     protected MarkupString FormatHtml()
     {
         if (string.IsNullOrEmpty(Node.Text)) return new MarkupString(string.Empty);
         try
         {
-            var html = _formatTokenRegex.Replace(Node.Text, m =>
+            var sb = new System.Text.StringBuilder();
+            int lastIndex = 0;
+            foreach (Match m in _formatTokenRegex.Matches(Node.Text))
             {
+                // Encode the static segment before this token so HTML tags appear as literal text
+                sb.Append(System.Net.WebUtility.HtmlEncode(Node.Text[lastIndex..m.Index]));
+
                 int idx = int.Parse(m.Groups[1].Value);
                 string? spec = m.Groups[2].Success && m.Groups[2].Length > 0 ? m.Groups[2].Value : null;
                 object? raw = idx < Node.DataValues.Length ? Node.DataValues[idx] : null;
@@ -212,9 +216,12 @@ public abstract class BaseNodeWithDataWidget<TNode> : BaseNodeWidget<TNode>
                         : (raw?.ToString() ?? string.Empty);
                 }
                 catch { formatted = raw?.ToString() ?? string.Empty; }
-                return System.Net.WebUtility.HtmlEncode(formatted);
-            });
-            return new MarkupString(html);
+                sb.Append(System.Net.WebUtility.HtmlEncode(formatted));
+                lastIndex = m.Index + m.Length;
+            }
+            // Encode the trailing static segment
+            sb.Append(System.Net.WebUtility.HtmlEncode(Node.Text[lastIndex..]));
+            return new MarkupString(sb.ToString());
         }
         catch { return new MarkupString(System.Net.WebUtility.HtmlEncode(Node.Text)); }
     }
