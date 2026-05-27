@@ -102,6 +102,15 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] Links as proper model objects with a properties editor: color, thickness, dash style
 	- [ ] Data-driven link styling — color/intensity driven by a topic value
 	- [ ] remove link animation from current widget joined to the link and build it into the link itself 
+	- [ ] links will now have set of properties too
+		- [ ] Can link be derived from NodeModel? - I dont think so ,blazor diagrams has it differently ==> we'll need to duplicate Data topic properties
+		- [ ] ==> Properties editor has to edit them too and make it look consistent with node properties
+- [ ] Behavoirs:
+	- [ ] as current drag from a port starts a new link, drop on end port to finsih it or drop on canvas to leave it unattached
+	- [ ] a new link inherits data topic from widget at start point but can be changed in link properties
+	- [ ] double click a link and edit properties in properties editor
+	- [ ] del on a link deletes it
+	- [ ] 
 - [ ] Link options: 
 	- [ ] More stylinging, colour, thickness.
 	- [ ] Animations... moving dashes moving arrows, color changes etc
@@ -114,12 +123,13 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 	- [ ] Current dots seems too heavy and positionn is difficult. The are fill rouns circles, half round would be a good option,
 	- [ ] Also coulud be arrow head,  with topic value being flow direction directs arrow head direction, and which end
 	- [ ] Not at all or single ended - or much finer than current black blob.
-	- [ ] Diffenent view in edit mode as has to be visible and allow attaching line when dragging
-- [ ] Link port to centre of widget aswell as edge ports (blozor diagrams supports this).
-- [ ] Mutiple edge ports per side spaced properly or on top of each other? (implement in blazor diagrams)
+	- [ ] Different look in edit mode as has to be visible and allow attaching line when dragging
+- [ ] Link port to centre of widget aswell as edge ports (blazor diagrams supports this) we'll need a gui to enable it
+- [ ] Fork/junction points between links - option to "split" a line by inserting a junction that then allows dragging to create new line form junction to a port
 - [ ] Draggable Bezier control points
-- [ ] Fork/junction points between links
-It shopudnt be
+- [ ] Mutiple edge ports per side spaced properly or on top of each other? (implement in blazor diagrams)
+- [ ] 
+
 ### FEAT-G: Grouping / layout containers
 - [ ] "Group" box — labeled background rectangle that visually wraps related nodes
 - [ ] Moving a group moves all contained nodes

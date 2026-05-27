@@ -1,3 +1,58 @@
+## 2026-05-29 — FEAT-F Session B: FlowLinkModel + FlowLinkWidget (Blazor.Diagrams foundation)
+
+### Commit: d0e7015 (libs/Blazor.Diagrams main) — UTC timestamp: 2026-05-29
+
+---
+
+### 1 — `libs/Blazor.Diagrams/src/Blazor.Diagrams.Core/Models/FlowLinkModel.cs` — **NEW**
+
+Extends `LinkModel` with marching-ants animation properties:
+- `FlowDirection` (enum: None/Forward/Reverse/Paused) — runtime-settable; Forward = source→target, Reverse = target→source, Paused = frozen dashes
+- `FlowSpeed` (double, clamped ≥ 0.05) — seconds per animation cycle
+- `FlowColor` (string?) — overlay path color; falls back to `Link.Color` when null
+- `FlowWidth` (double?) — overlay path width; falls back to half of `Link.Width` when null
+- `FlowDashSize` (double, clamped ≥ 1) — dash/gap size for the marching-ants pattern
+- `ResolvedFlowWidth`, `ResolvedFlowColor` — computed fallback properties
+- `FlowAnimateTo` — returns SVG `stroke-dashoffset` `to` value based on direction (negative=Forward, positive=Reverse, "0"=None/Paused)
+- All setters call `Refresh()` so the `LinkRenderer`'s `Changed` subscription triggers a re-render immediately.
+
+### 2 — `libs/Blazor.Diagrams/src/Blazor.Diagrams/Components/FlowLinkWidget.razor` + `.razor.cs` — **NEW**
+
+Three-layer SVG renderer registered with `diagram.RegisterComponent<FlowLinkModel, FlowLinkWidget>()`:
+1. **Base path** — same as `LinkWidget`: solid, full color/width, existing `AnimateModel` children
+2. **Flow overlay** — narrower dashed path; animated via `stroke-dashoffset` when `FlowDirection` is Forward or Reverse; present but static when Paused; omitted entirely when None
+3. **Selection helper** — wide transparent hit-target path; mouse events forwarded to `BlazorDiagram` for pointer-down/vertex-insertion
+
+`FlowLinkWidget` uses `[Parameter] public LinkModel Link` (same parameter name as `LinkWidget` — required by `LinkRenderer`'s `BuildRenderTree`). Cast to `FlowLinkModel` is done internally via a `FlowLink` computed property.
+
+### 3 — `libs/Blazor.Diagrams/samples/SharedDemo/Demos/Links/FlowLinkDemo.razor` + `.razor.cs` — **NEW**
+
+Interactive sample page at `/links/flow`:
+- 4 `FlowLinkModel` connections in a diamond topology
+- Real-time controls: direction selector, speed slider, dash-size slider, color picker, width slider
+- Demonstrates `RegisterComponent<FlowLinkModel, FlowLinkWidget>()` pattern
+
+### 4 — `libs/Blazor.Diagrams/samples/SharedDemo/Layouts/DemoLayout.razor` — nav entry added
+
+Added "Flow (animated)" link to the Links section of the demo nav menu.
+
+### 5 — `libs/Blazor.Diagrams/tests/Blazor.Diagrams.Core.Tests/Models/FlowLinkModelTests.cs` — **NEW**
+
+17 unit tests (pass across net8/9/10):
+- Default values, FlowDirection changes, `Refresh()` trigger on property change
+- `FlowSpeed` and `FlowDashSize` clamping
+- `FlowAnimateTo` sign (Forward=negative, Reverse=positive, None/Paused="0")
+- `ResolvedFlowWidth` and `ResolvedFlowColor` fallback logic
+- Multiple constructor variants
+
+**All 199 Blazor.Diagrams tests pass (183 Core + 16 Component).**
+
+---
+
+**⚠️ Session C (PSTT layer) not yet started.** `NodeLinkModel`, persistence changes, `LinkPropertyEditor`, and side-panel wiring are next.
+
+---
+
 ## 2026-05-29 — Fix flaky `MultiClient_DisconnectOneDoesNotAffectOther` test (thread-pool starvation)
 
 ### Commit: 740a835 (libs/PSTT develop) — UTC timestamp: 2026-05-29
