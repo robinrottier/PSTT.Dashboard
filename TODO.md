@@ -18,7 +18,7 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 	- [ ] Needs a means to drag reordering around the conditions to specify which is first match
 
 - [ ] Data item topics per node
-	- [ ] "Link animation" needs a property for index of which data item to animate upon
+	- [ ] _(Link animation is now on the link itself, not the node — Session C done)_
 
 - [ ] Page tabs
 	- [ ] Use MudTabs and related controls for displaying. MudTabs has a different model...every page is rendered inside tab component BUT maybe there's a way to use index of selected tab to render it outside MudTabs component?
@@ -99,18 +99,16 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 	- [ ] drag a data item to an existing node to add it to that node
 
 ### FEAT-F: Link improvements
-- [ ] Links as proper model objects with a properties editor: color, thickness, dash style
-	- [ ] Data-driven link styling — color/intensity driven by a topic value
-	- [ ] remove link animation from current widget joined to the link and build it into the link itself 
-	- [ ] links will now have set of properties too
-		- [ ] Can link be derived from NodeModel? - I dont think so ,blazor diagrams has it differently ==> we'll need to duplicate Data topic properties
-		- [ ] ==> Properties editor has to edit them too and make it look consistent with node properties
-- [ ] Behavoirs:
-	- [ ] as current drag from a port starts a new link, drop on end port to finsih it or drop on canvas to leave it unattached
-	- [ ] a new link inherits data topic from widget at start point but can be changed in link properties
-	- [ ] double click a link and edit properties in properties editor
-	- [ ] del on a link deletes it
-	- [ ] 
+- [ ] Links as proper model objects with a properties editor: color, thickness, dash style _(Session C: basic LinkPropertyEditor + persistence done; Sessions D-E for full polish)_
+	- [ ] Data-driven link styling — color/intensity driven by a topic value _(Session D)_
+	- [x] remove link animation from current widget joined to the link and build it into the link itself — ✓ done (Session C)
+	- [x] links have set of properties (Color, Width, DashPattern, DataTopic, Animation, AnimationSpeed, FlowColor) — ✓ done (Session C)
+		- [x] Properties editor (LinkPropertyEditor) shown in side panel when link selected — ✓ done (Session C)
+- [ ] Behaviours:
+	- [ ] as current drag from a port starts a new link, drop on end port to finish it or drop on canvas to leave it unattached
+	- [x] a new link inherits data topic from widget at start point but can be changed in link properties — ✓ done (Session C)
+	- [x] double click a link and edit properties in properties editor — ✓ done (Session B)
+	- [x] del on a link deletes it — ✓ done (Session B)
 - [ ] Link options: 
 	- [ ] More stylinging, colour, thickness.
 	- [ ] Animations... moving dashes moving arrows, color changes etc

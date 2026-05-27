@@ -94,9 +94,6 @@ namespace PSTT.Dashboard.Models
         [NpNumeric("Font Size", Category = "Common", Order = 8, Min = 0)]
         public int? FontSize { get; set; }
 
-        /// <summary>Link animation style for links sourced from this node: "None", "Forward", "Reverse"</summary>
-        public string? LinkAnimation { get; set; }
-
         /// <summary>Node type discriminator. Defaults to "Text" (existing text/display node).</summary>
         public string NodeType { get; set; } = "Text";
 
@@ -118,7 +115,6 @@ namespace PSTT.Dashboard.Models
             data.BackgroundImageUrl = string.IsNullOrEmpty(BackgroundImageUrl) ? null : BackgroundImageUrl;
             data.BackgroundObjectFit = BackgroundObjectFit != "cover" ? BackgroundObjectFit : null;
             data.TitlePosition = TitlePosition != "Above" ? TitlePosition : null;
-            data.LinkAnimation = LinkAnimation;
             data.FontSize = FontSize;
             data.Metadata = Metadata.Count > 0 ? new Dictionary<string, string>(Metadata) : null;
             data.DataTopics = DataTopics.Count > 0 ? new List<string>(DataTopics) : null;
@@ -139,7 +135,6 @@ namespace PSTT.Dashboard.Models
             node.BackgroundImageUrl = data.BackgroundImageUrl ?? string.Empty;
             node.BackgroundObjectFit = data.BackgroundObjectFit ?? "cover";
             node.TitlePosition = data.TitlePosition ?? "Above";
-            node.LinkAnimation = data.LinkAnimation;
             node.FontSize = data.FontSize;
             node.Metadata = data.Metadata ?? new Dictionary<string, string>();
             node.DataTopics = data.DataTopics != null ? new List<string>(data.DataTopics) : new List<string>();

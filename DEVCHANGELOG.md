@@ -1,3 +1,99 @@
+## 2026-05-27 — FEAT-F Session C: PSTT Link Model, Persistence + Link Property Editor
+
+### Commit: (see below) — UTC timestamp: 2026-05-27 — Branch: develop
+
+---
+
+### 1 — `src/PSTT.Dashboard.Client/Models/NodeLinkModel.cs` — **NEW**
+
+PSTT-layer link model extending `FlowLinkModel` (Blazor.Diagrams).
+
+Adds `DataTopic` (string?) — the MQTT topic whose value drives `FlowDirection` at runtime:
+- positive value → `FlowDirection.Forward`
+- negative value → `FlowDirection.Reverse`
+- zero → `FlowDirection.Paused`
+- null/empty topic → no data watcher; direction controlled purely by properties
+
+Also exposes `Animation` (string?) for persisting the user-chosen animation style ("None" | "Flow").
+
+---
+
+### 2 — `src/PSTT.Dashboard.Client/Models/DashboardModel.cs` — Extended
+
+`LinkData` gains: `Color`, `Width` (`double?`), `DashPattern`, `DataTopic`, `Animation`, `AnimationSpeed`, `FlowColor`.  
+`NodePortData` gains: `PortStyle` (string?) — persisted but rendering deferred to a later session.  
+`NodeData.LinkAnimation` **retained** in the data class (even though removed from `TextNodeModel`) for safe round-tripping of old JSON files.
+
+---
+
+### 3 — `src/PSTT.Dashboard.Client/Models/NodePortModel.cs` — Extended
+
+Added `PortStyle` property (default "Dot"). Persisted via `NodePortData.PortStyle`.
+
+---
+
+### 4 — `src/PSTT.Dashboard.Client/Models/TextNodeModel.cs` — Removed `LinkAnimation`
+
+`LinkAnimation` property removed from the model, `FillBaseData` and `ApplyBaseData` no longer write/read it.  
+Old JSON with `LinkAnimation` simply deserializes `NodeData.LinkAnimation` (still present in `DashboardModel`) and is then ignored — backward compatible.
+
+---
+
+### 5 — `src/PSTT.Dashboard.Client/Widgets/BaseNodeWithDataWidget.cs` — Removed `TriggerLinkAnimation`
+
+`TriggerLinkAnimation()` method removed in full, plus all 3 call sites (`SetupDataWatchers`, `OnData1ReceivedCore`, `SeedFromCache`).  
+Unused `using Blazor.Diagrams.Core.Anchors` also removed.
+
+---
+
+### 6 — `src/PSTT.Dashboard.Client/Services/ApplicationState.cs` — Major update
+
+Key changes:
+- Added `using Blazor.Diagrams.Components` (required for `RegisterComponent<FlowLinkModel, FlowLinkWidget>()`).
+- `SelectedLink` (`NodeLinkModel?`) public property; `UpdateLinkSelection()` sets it and triggers `StateHasChanged`.
+- `_linkWatchers` (`List<IDisposable>`) — per-diagram MQTT watchers for all links; disposed in `ResetDiagram()`.
+- `SetupLinkDataWatcher(NodeLinkModel)` — subscribes to link's `DataTopic`; on value → sets `FlowDirection`.
+- `ApplyLinkDataValue(NodeLinkModel, double)` — maps positive/negative/zero to Forward/Reverse/Paused.
+- `CreateDiagramFromPageData`: registers `FlowLinkWidget`, creates `NodeLinkModel` (not plain `LinkModel`), applies persisted Color/Width/DashPattern/DataTopic/FlowColor/Animation/AnimationSpeed, calls `SetupLinkDataWatcher`.
+- `GetPageData`: serializes `NodeLinkModel` properties to `LinkData` (Width defaults to 2.0, so `!= 2.0` check used because `Width` is `double` not `double?` on the model).
+- `CheckForLinkAnimation` kept as empty no-op stub (Display.razor.cs still calls it; stub is harmless and unreachable after `OnLinkAdded` update).
+
+⚠️ Known: calling `SetupLinkDataWatcher` again (e.g. when user changes DataTopic in LinkPropertyEditor) leaks the old watcher. Fix: track per-link watcher in a dictionary keyed by link ID. Deferred to Session D.
+
+---
+
+### 7 — `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor` — Removed `LinkAnimation` block
+
+The Link Animation `MudSelect` block (4 options: None/Forward/Reverse/Auto) was removed from the node properties editor — it referenced the now-removed `TextNodeModel.LinkAnimation`.
+
+---
+
+### 8 — `src/PSTT.Dashboard.Client/Components/LinkPropertyEditor.razor` — **NEW**
+
+Link property editor shown in side panel when a `NodeLinkModel` is selected.
+
+Fields: Color (via `ColorInputRow`), Width (`MudNumericField`), Dash Pattern (`MudTextField`), Animation style (`MudSelect`: None/Flow), Data Topic (`MudTextField`), Animation Speed (`MudNumericField`), Flow Color (via `ColorInputRow`).
+
+All fields use `Value`/`ValueChanged` separately (not `@bind-Value` + `ValueChanged` — invalid in Blazor: RZ10010).  
+Changes call `AppState.SetupLinkDataWatcher` and `StateHasChanged` as needed.
+
+---
+
+### 9 — `src/PSTT.Dashboard.Client/Components/EditSidePanel.razor` + `.razor.cs` — Link selection wiring
+
+`SelectedLink` (`NodeLinkModel?`) parameter added to `EditSidePanel`.  
+The Node Props tab toolbar now shows "Link Properties" title when a link is selected.  
+The Node Props tab content renders `<LinkPropertyEditor>` when `SelectedLink != null`, otherwise `<NodePropertyEditor>` as before.
+
+---
+
+### 10 — `src/PSTT.Dashboard.Client/Pages/Display.razor` + `.razor.cs` — Link selection tracking
+
+`Display.razor`: passes `SelectedLink="_propertiesLink"` to `EditSidePanel`.  
+`Display.razor.cs`: `_propertiesLink` field tracks the currently selected `NodeLinkModel`. `OnSelectionChanged` now also handles link selection — updates `AppState.SelectedLink` and `_propertiesLink`. `OnLinkAdded` updated: creates `NodeLinkModel` (not `LinkModel`), inherits source node `DataTopic1` as default, calls `SetupLinkDataWatcher`.
+
+---
+
 ## 2026-05-29 — FEAT-F Session B: FlowLinkModel + FlowLinkWidget (Blazor.Diagrams foundation)
 
 ### Commit: d0e7015 (libs/Blazor.Diagrams main) — UTC timestamp: 2026-05-29

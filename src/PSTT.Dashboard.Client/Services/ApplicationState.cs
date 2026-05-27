@@ -1,4 +1,5 @@
 using Blazor.Diagrams;
+using Blazor.Diagrams.Components;
 using Blazor.Diagrams.Core.Anchors;
 using Blazor.Diagrams.Core.Controls.Default;
 using Blazor.Diagrams.Core.Geometry;
@@ -50,6 +51,16 @@ public class ApplicationState
     public bool IsInteractive { get; private set; } = false;
 
     private BlazorDiagram? _diagram;
+    private readonly List<IDisposable> _linkWatchers = new();
+
+    // Link selection state
+    public NodeLinkModel? SelectedLink { get; private set; }
+
+    public void UpdateLinkSelection(NodeLinkModel? link)
+    {
+        SelectedLink = link;
+        NotifyStateChangedAsync();
+    }
 
     // Multi-page support
     public List<string> PageNames { get; private set; } = ["Page 1"];
@@ -438,6 +449,7 @@ public class ApplicationState
         diagram.RegisterComponent<ButtonGroupNodeModel, ButtonGroupNodeWidget>();
         diagram.RegisterComponent<RadioGroupNodeModel, RadioGroupNodeWidget>();
         diagram.RegisterComponent<TableNodeModel, TableNodeWidget>();
+        diagram.RegisterComponent<Blazor.Diagrams.Core.Models.FlowLinkModel, FlowLinkWidget>();
 
         if (page != null)
         {
@@ -504,9 +516,19 @@ public class ApplicationState
                         ? new SinglePortAnchor(targetPort)
                         : new ShapeIntersectionAnchor(targetNode);
 
-                    var link = diagram.Links.Add(new LinkModel(sourceAnchor, targetAnchor));
+                    var link = new NodeLinkModel(sourceAnchor, targetAnchor);
+
+                    // Apply persisted visual properties
+                    if (!string.IsNullOrEmpty(linkData.Color))     link.Color     = linkData.Color;
+                    if (linkData.Width.HasValue)                    link.Width     = linkData.Width.Value;
+                    if (!string.IsNullOrEmpty(linkData.DashPattern)) link.DashPattern = linkData.DashPattern;                    if (!string.IsNullOrEmpty(linkData.FlowColor))  link.FlowColor = linkData.FlowColor;
+                    if (linkData.AnimationSpeed.HasValue)           link.FlowSpeed = linkData.AnimationSpeed.Value;
+                    if (!string.IsNullOrEmpty(linkData.DataTopic))  link.DataTopic = linkData.DataTopic;
+                    if (!string.IsNullOrEmpty(linkData.Animation))  link.Animation = linkData.Animation;
+
+                    diagram.Links.Add(link);
                     link.Locked = readOnly;
-                    CheckForLinkAnimation(sourceNode, link);
+                    SetupLinkDataWatcher(link);
                 }
             }
         }
@@ -557,6 +579,17 @@ public class ApplicationState
                 linkData.Target = targetNode.Id;
             }
 
+            if (link is NodeLinkModel nl)
+            {
+                if (!string.IsNullOrEmpty(nl.Color))     linkData.Color     = nl.Color;
+                if (nl.Width != 2.0)                     linkData.Width     = nl.Width;
+                if (!string.IsNullOrEmpty(nl.DashPattern)) linkData.DashPattern = nl.DashPattern;
+                if (!string.IsNullOrEmpty(nl.FlowColor)) linkData.FlowColor = nl.FlowColor;
+                if (nl.FlowSpeed != 1.0)                 linkData.AnimationSpeed = nl.FlowSpeed;
+                if (!string.IsNullOrEmpty(nl.DataTopic)) linkData.DataTopic = nl.DataTopic;
+                if (nl.Animation != "Flow")              linkData.Animation = nl.Animation;
+            }
+
             if (!string.IsNullOrEmpty(linkData.Source) && !string.IsNullOrEmpty(linkData.Target))
                 page.Links.Add(linkData);
         }
@@ -569,6 +602,9 @@ public class ApplicationState
 
     public void ResetDiagram()
     {
+        foreach (var w in _linkWatchers) w.Dispose();
+        _linkWatchers.Clear();
+        SelectedLink = null;
         _diagram = null;
     }
 
@@ -684,19 +720,40 @@ public class ApplicationState
 
     public void CheckForLinkAnimation(NodeModel sourceNode, LinkModel link)
     {
-        if (sourceNode is TextNodeModel textSource
-         && !string.IsNullOrWhiteSpace(textSource.LinkAnimation)
-         && textSource.LinkAnimation != "None")
+        // Kept for compatibility — no longer called. Animation is now driven by NodeLinkModel.DataTopic.
+    }
+
+    /// <summary>
+    /// Subscribes to a <see cref="NodeLinkModel"/>'s DataTopic and drives its
+    /// <see cref="FlowLinkModel.FlowDirection"/> from the numeric data value.
+    /// Positive → Forward, negative → Reverse, zero → Paused, non-numeric → None.
+    /// </summary>
+    public void SetupLinkDataWatcher(NodeLinkModel link)
+    {
+        if (string.IsNullOrEmpty(link.DataTopic) || link.Animation == "None") return;
+
+        // Seed from existing cache value
+        var existing = BridgedDataCache.GetValue(link.DataTopic);
+        if (existing != null)
+            ApplyLinkDataValue(link, existing.ToString());
+
+        var topic = link.DataTopic;
+        var watcher = BridgedDataCache.Subscribe(topic, async sub =>
         {
-            link.DashPattern = "5,5";
-            link.AddAnimation(new AnimateModel()
-            {
-                AttributeName = "stroke-dashoffset",
-                From = "0",
-                To = "0",
-                Duration = "1s"
-            });
-        }
+            if (sub.Status.IsPending) return;
+            ApplyLinkDataValue(link, sub.Value?.ToString());
+            await Task.CompletedTask;
+        });
+        _linkWatchers.Add(watcher);
+    }
+
+    private static void ApplyLinkDataValue(NodeLinkModel link, string? value)
+    {
+        link.FlowDirection = (value != null && double.TryParse(value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var d))
+            ? (d > 0 ? Blazor.Diagrams.Core.Models.FlowDirection.Forward
+                     : d < 0 ? Blazor.Diagrams.Core.Models.FlowDirection.Reverse
+                              : Blazor.Diagrams.Core.Models.FlowDirection.Paused)
+            : Blazor.Diagrams.Core.Models.FlowDirection.None;
     }
 
     internal void AddPortToNode(NodeModel node, PortAlignment alignment)

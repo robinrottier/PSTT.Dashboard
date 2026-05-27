@@ -19,5 +19,8 @@ namespace PSTT.Dashboard.Models
         {
             Size = new Size(10,10);
         }
+
+        /// <summary>Visual style for this port. "Dot" (default), "Invisible", "Fine".</summary>
+        public string PortStyle { get; set; } = "Dot";
     }
 }

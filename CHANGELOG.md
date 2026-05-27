@@ -8,6 +8,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **FEAT-F Session C: PSTT link layer** — Links are now first-class model objects (`NodeLinkModel`) with their own Color, Width, DashPattern, DataTopic, Animation, AnimationSpeed, and FlowColor properties. All properties persist to `diagram.json`. When a link is selected in edit mode, the side panel shows a dedicated `LinkPropertyEditor`. New links automatically inherit the source node's `DataTopic` as a default.
+- **Data-driven link animation** — A link's `DataTopic` drives `FlowDirection` at runtime: positive value → Forward, negative → Reverse, zero → Paused. The marching-ants overlay from `FlowLinkWidget` (Session B) responds immediately to MQTT updates.
 - **FEAT-F Session B: FlowLinkModel + FlowLinkWidget** (Blazor.Diagrams layer): `FlowLinkModel` extends `LinkModel` with marching-ants animation (FlowDirection, FlowSpeed, FlowColor, FlowWidth, FlowDashSize). `FlowLinkWidget` renders a 3-layer SVG (base path + animated overlay + selection helper). Includes interactive `FlowLinkDemo` sample page and 17 unit tests.
 - **Data connection auto-reconnect**: The WASM client now automatically reconnects to the server SignalR hub after any network drop. SignalR's own exponential-backoff reconnect runs first; if that fails, the `RemoteCache` layer retries every 5 seconds independently.
 - **Click-to-reconnect UI**: The MQTT cloud status icon in the app bar is now a button. Clicking it (or the app icon) when offline immediately triggers a reconnect attempt. The tooltip shows "— Click to reconnect" when the connection is lost.
@@ -33,6 +35,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **`NodeModelSnapshot`**: New `Helpers/NodeModelSnapshot.cs` helper serialises/restores all `NpXxx`-decorated node properties as JSON. Used for grid-view Cancel (reverts live edits) and designed as the foundation for a future JSON property editor.
 
 ### Changed
+- **`TextNodeModel.LinkAnimation` removed** — Link animation is now a property of the link itself (via `NodeLinkModel`/`FlowLinkModel`), not the source node. Existing saved JSON with `LinkAnimation` is silently ignored on load.
 - Dashboard Properties is now displayed in the side panel tab instead of a modal dialog. The `DashboardPropertiesDialog` is retained as a thin wrapper for backward compatibility.
 - **Panel layout**: The edit side panel now spans the full viewport height, covering the page-tabs row. The Add Node / Data Explorer icon buttons are removed from the page-tabs toolbar and replaced with a single toggle button (Tune icon → open; × → close).
 - **Apply/Cancel at top of panel**: Node property Apply and Cancel buttons are now in the panel's subview toolbar (always visible), not at the bottom of the form. Grid view: Apply commits to undo history; Cancel reverts via snapshot. Buttons are disabled when no changes have been made.

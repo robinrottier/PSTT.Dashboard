@@ -172,6 +172,7 @@ else
                            ActiveTab="_sidePanelTab"
                            ActiveTabChanged="@(t => { _sidePanelTab = t; StateHasChanged(); })"
                            SelectedNode="_propertiesNode"
+                           SelectedLink="_propertiesLink"
                            OnNodeSaved="OnNodePropertiesSaved"
                            OnNodeClose="ClosePropertiesPanel"
                            OnAddNodeTypeSelected="OnAddNodeTypeSelected"

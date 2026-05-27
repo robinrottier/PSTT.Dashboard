@@ -14,6 +14,7 @@ public partial class EditSidePanel : IAsyncDisposable
     [Parameter] public SidePanelTab ActiveTab { get; set; } = SidePanelTab.NodeProps;
     [Parameter] public EventCallback<SidePanelTab> ActiveTabChanged { get; set; }
     [Parameter] public TextNodeModel? SelectedNode { get; set; }
+    [Parameter] public NodeLinkModel? SelectedLink { get; set; }
     [Parameter] public EventCallback OnNodeSaved { get; set; }
     [Parameter] public EventCallback OnNodeClose { get; set; }
     [Parameter] public EventCallback<string> OnAddNodeTypeSelected { get; set; }

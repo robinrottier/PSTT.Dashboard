@@ -1,4 +1,3 @@
-using Blazor.Diagrams.Core.Anchors;
 using Blazor.Diagrams.Core.Models;
 using Microsoft.AspNetCore.Components;
 using PSTT.Dashboard.Models;
@@ -32,13 +31,6 @@ public abstract class BaseNodeWithDataWidget<TNode> : BaseNodeWidget<TNode>
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
-        {
-            // Ensure link animations are applied once the SVG is in the DOM.
-            // Node widgets only mount after IsInteractive = true (guarded by @if in Display.razor),
-            // so firstRender reliably fires when the diagram canvas is rendered.
-            TriggerLinkAnimation();
-        }
         await base.OnAfterRenderAsync(firstRender);
     }
 
@@ -73,7 +65,7 @@ public abstract class BaseNodeWithDataWidget<TNode> : BaseNodeWidget<TNode>
             {
                 Node.DataValues[idx]       = v;
                 Node.DataUpdatedTimes[idx] = DateTime.Now;
-                if (idx == 0) { OnDataUpdated(); TriggerLinkAnimation(); }
+                if (idx == 0) { OnDataUpdated(); }
             }
 
             var watcher = AppState.BridgedDataCache.Subscribe(capturedTopic, async sub =>
@@ -89,10 +81,6 @@ public abstract class BaseNodeWithDataWidget<TNode> : BaseNodeWidget<TNode>
                     Node.DataUpdatedTimes[idx] = DateTime.Now;
                     OnDataReceivedCore(idx, key, value);
                     OnDataUpdated();
-                    if (idx == 0)
-                    {
-                        TriggerLinkAnimation();
-                    }
                     StateHasChanged();
                 });
                 await Task.CompletedTask;
@@ -105,37 +93,6 @@ public abstract class BaseNodeWithDataWidget<TNode> : BaseNodeWidget<TNode>
     /// Called for every topic index when a value is received.
     /// </summary>
     protected virtual void OnDataReceivedCore(int index, string topic, object? rawValue) { }
-
-    /// <summary>
-    /// Updates link animation direction on all outgoing links based on the current DataValue
-    /// and the node's LinkAnimation setting. Runs automatically on every data update.
-    /// </summary>
-    protected void TriggerLinkAnimation()
-    {
-        if (Node.LinkAnimation == null || Node.LinkAnimation == "None") return;
-        var val = Node.DataValues?[0]?.ToString();
-        if (val == null || !double.TryParse(val, out var d)) return;
-
-        if (Node.LinkAnimation == "Reverse") d = -d;
-
-        foreach (var port in Node.Ports)
-        {
-            foreach (var link in port.Links)
-            {
-                if (link is not LinkModel l || l.Animations == null || l.Animations[0] == null) continue;
-                var ani = l.Animations[0];
-                var anchor = link.Source as SinglePortAnchor;
-                if (anchor?.Port != port) continue;
-
-                var to = d > 0 ? "-10" : d < 0 ? "10" : "0";
-                if (to != ani.To)
-                {
-                    ani.To = to;
-                    l.Refresh();
-                }
-            }
-        }
-    }
 
     /// <summary>Called after any DataValue is updated. Override to react.</summary>
     protected virtual void OnDataUpdated() { }

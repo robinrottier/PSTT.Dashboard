@@ -54,6 +54,7 @@ public partial class Display : IDisposable
     private bool _isSidePanelOpen;
     private SidePanelTab _sidePanelTab = SidePanelTab.NodeProps;
     private TextNodeModel? _propertiesNode;
+    private NodeLinkModel? _propertiesLink;
 
     // Guards against concurrent dialog invocations (open, save-as, export, import)
     private bool _dialogActive;
@@ -562,7 +563,12 @@ public partial class Display : IDisposable
         {
             var selectedNodes = _diagram.GetSelectedModels().OfType<TextNodeModel>().ToList();
             _propertiesNode = selectedNodes.Count == 1 ? selectedNodes[0] : null;
-            if (_propertiesNode != null && _isSidePanelOpen)
+
+            var selectedLinks = _diagram.GetSelectedModels().OfType<NodeLinkModel>().ToList();
+            _propertiesLink = selectedLinks.Count == 1 ? selectedLinks[0] : null;
+            AppState.UpdateLinkSelection(_propertiesLink);
+
+            if ((_propertiesNode != null || _propertiesLink != null) && _isSidePanelOpen)
                 _sidePanelTab = SidePanelTab.NodeProps;
         }
 
@@ -578,9 +584,16 @@ public partial class Display : IDisposable
 
     private void OnLinkAdded(Blazor.Diagrams.Core.Models.Base.BaseLinkModel link)
     {
-        if (link is not LinkModel lm) return;
-        if ((link.Source?.Model is PortModel port ? port.Parent : link.Source?.Model) is NodeModel sourceNode)
-            AppState.CheckForLinkAnimation(sourceNode, lm);
+        if (link is NodeLinkModel nl)
+        {
+            // New links inherit the first DataTopic of their source node by default
+            var sourceNode = (link.Source?.Model is PortModel sp ? sp.Parent : link.Source?.Model) as TextNodeModel;
+            if (sourceNode?.DataTopics.Count > 0 && string.IsNullOrEmpty(nl.DataTopic))
+            {
+                nl.DataTopic = sourceNode.DataTopics[0];
+                AppState.SetupLinkDataWatcher(nl);
+            }
+        }
         if (!_suppressDirty) { AppState.MarkEdited(); PushUndoSnapshot(); }
     }
 

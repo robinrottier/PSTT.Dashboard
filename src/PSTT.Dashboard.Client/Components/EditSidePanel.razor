@@ -41,9 +41,11 @@
             </div>
         </div>
 
-        @if (ActiveTab == SidePanelTab.NodeProps && SelectedNode != null)
+        @if (ActiveTab == SidePanelTab.NodeProps && (SelectedNode != null || SelectedLink != null))
         {
             <div class="panel-subview-toolbar">
+                @if (SelectedNode != null)
+                {
                 <MudTooltip Text="Grid View" Placement="Placement.Bottom">
                     <MudIconButton Icon="@Icons.Material.Filled.GridView" Size="Size.Small"
                                    Color="@(!_subViewIsCustom ? Color.Primary : Color.Default)"
@@ -71,17 +73,27 @@
                     <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
                                OnClick="@(async () => await (_nodeEditor?.Save() ?? Task.CompletedTask))">Apply</MudButton>
                 }
+                }
+                else if (SelectedLink != null)
+                {
+                    <MudText Typo="Typo.caption" Class="ml-2 mt-1" Color="Color.Secondary">Link selected</MudText>
+                    <div style="flex:1;"></div>
+                }
             </div>
         }
 
         <div class="panel-content">
             @if (ActiveTab == SidePanelTab.NodeProps)
             {
-                @if (SelectedNode == null)
+                @if (SelectedLink != null)
+                {
+                    <LinkPropertyEditor Link="SelectedLink" AppState="AppState" />
+                }
+                else if (SelectedNode == null)
                 {
                     <div class="panel-placeholder">
                         <MudText Typo="Typo.body2" Color="Color.Secondary">
-                            Select a node to edit its properties.
+                            Select a node or link to edit its properties.
                         </MudText>
                     </div>
                 }
