@@ -7,10 +7,11 @@
 
     <MudSelect T="string" Value="Link.Animation"
                ValueChanged="@((string v) => { Link.Animation = v; OnChanged(); })"
-               Label="Animation" Variant="Variant.Outlined"
-               Margin="Margin.Dense" Dense="true">
-        <MudSelectItem Value="@("Flow")">Flow (marching ants)</MudSelectItem>
-        <MudSelectItem Value="@("None")">None (static)</MudSelectItem>
+               Label="Flow Animation" Variant="Variant.Outlined"
+               Margin="Margin.Dense" Dense="true"
+               HelperText="Animated overlay driven by Data Topic value">
+        <MudSelectItem Value="@("Flow")">Flow (marching ants overlay)</MudSelectItem>
+        <MudSelectItem Value="@("None")">None (static line)</MudSelectItem>
     </MudSelect>
 
     <MudTextField T="string" Value="@Link.DataTopic" Label="Data Topic"
@@ -19,7 +20,7 @@
                   ValueChanged="OnDataTopicChanged" />
 
     <MudNumericField T="double" Value="Link.FlowSpeed"
-                     ValueChanged="@((double v) => { Link.FlowSpeed = v; OnChanged(); })"
+                     ValueChanged="@((double v) => { Link.FlowSpeed = Math.Round(v, 2); OnChanged(); })"
                      Label="Animation Speed (s/cycle)"
                      Variant="Variant.Outlined" Margin="Margin.Dense" Min="0.1" Max="10.0" Step="0.1" />
 
@@ -29,7 +30,7 @@
 
     <ColorInputRow Value="@Link.FlowColor"
                    ValueChanged="@((string? v) => { Link.FlowColor = v; OnChanged(); })"
-                   Label="Flow Color" Placeholder="(line color)" />
+                   Label="Flow Overlay Color" Placeholder="(line color)" />
 
     <MudNumericField T="double" Value="Link.Width"
                      ValueChanged="@((double v) => { Link.Width = v; OnChanged(); })"
@@ -37,8 +38,8 @@
                      Variant="Variant.Outlined" Margin="Margin.Dense" Min="0.5" Max="20.0" Step="0.5" />
 
     <MudTextField T="string?" Value="@Link.DashPattern" Label="Dash Pattern"
-                  Variant="Variant.Outlined" Margin="Margin.Dense" Placeholder="e.g. 5,5"
-                  HelperText="SVG stroke-dasharray value, empty for solid"
+                  Variant="Variant.Outlined" Margin="Margin.Dense" Placeholder="e.g. 5,5 or 10,3,2,3"
+                  HelperText="SVG stroke-dasharray for the base line (empty = solid)"
                   ValueChanged="@((string? v) => { Link.DashPattern = v; OnChanged(); })" />
 </MudStack>
 

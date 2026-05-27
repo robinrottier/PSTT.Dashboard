@@ -593,12 +593,29 @@ public partial class Display : IDisposable
                 nl.DataTopic = sourceNode.DataTopics[0];
                 AppState.SetupLinkDataWatcher(nl);
             }
+
+            // Auto-select the new link so it appears in the properties panel
+            if (!_suppressDirty)
+            {
+                InvokeAsync(() =>
+                {
+                    _diagram?.SelectModel(nl, true);
+                    // OnSelectionChanged will set _propertiesLink and switch to NodeProps tab
+                });
+            }
         }
         if (!_suppressDirty) { AppState.MarkEdited(); PushUndoSnapshot(); }
     }
 
     private void OnLinkRemoved(Blazor.Diagrams.Core.Models.Base.BaseLinkModel link)
     {
+        // Clear the properties panel if the deleted link was being shown there
+        if (link == _propertiesLink)
+        {
+            _propertiesLink = null;
+            AppState.UpdateLinkSelection(null);
+            InvokeAsync(StateHasChanged);
+        }
         if (!_suppressDirty) { AppState.MarkEdited(); PushUndoSnapshot(); }
     }
 

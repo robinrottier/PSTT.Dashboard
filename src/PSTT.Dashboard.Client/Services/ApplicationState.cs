@@ -417,7 +417,18 @@ public class ApplicationState
             Links =
             {
                 DefaultRouter = new NormalRouter(),
-                DefaultPathGenerator = new SmoothPathGenerator()
+                DefaultPathGenerator = new SmoothPathGenerator(),
+                // Always create NodeLinkModel so user-drawn links are first-class PSTT objects
+                Factory = (_, source, targetAnchor) =>
+                {
+                    Anchor sourceAnchor = source switch
+                    {
+                        NodeModel node => new ShapeIntersectionAnchor(node),
+                        PortModel port => new SinglePortAnchor(port),
+                        _              => throw new NotImplementedException($"Unsupported link source: {source.GetType().Name}")
+                    };
+                    return new NodeLinkModel(sourceAnchor, targetAnchor);
+                }
             },
             AllowPanning = false,
         };
