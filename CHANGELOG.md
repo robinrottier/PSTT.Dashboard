@@ -11,6 +11,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Data connection auto-reconnect**: The WASM client now automatically reconnects to the server SignalR hub after any network drop. SignalR's own exponential-backoff reconnect runs first; if that fails, the `RemoteCache` layer retries every 5 seconds independently.
 - **Click-to-reconnect UI**: The MQTT cloud status icon in the app bar is now a button. Clicking it (or the app icon) when offline immediately triggers a reconnect attempt. The tooltip shows "— Click to reconnect" when the connection is lost.
 
+- **Flaky test fixed** (`MultiClient_DisconnectOneDoesNotAffectOther`): Thread-pool starvation under concurrent build+test load caused a fire-and-forget `SubscribeServerTopicAsync` task to never start within the 30-second timeout. Fixed by using `TaskCreationOptions.LongRunning` in `RemoteCache.AttachUpstream`, which creates a dedicated OS thread immediately instead of queuing to the shared pool. Verified: 10/10 runs pass (was ~1-in-3 failure).
+
 ### Fixed
 - **Stale data shown as connected**: After a SignalR disconnect, all subscribed cache entries were marked `Stale` but the MQTT status subscriber re-evaluated the last retained `"Connected"` value — leaving `IsMqttConnected = true` when the transport was actually down. Fixed by checking `sub.Status.IsStale` and setting status to `"Disconnected (reconnecting...)"` immediately.
 - **Missing `WithAutoReconnect()`**: `RemoteCacheBuilder` was never called with `.WithAutoReconnect()`, so the background retry loop never started after a disconnect. Data would stay stale until a full page reload.

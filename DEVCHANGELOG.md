@@ -1,3 +1,37 @@
+## 2026-05-29 — Fix flaky `MultiClient_DisconnectOneDoesNotAffectOther` test (thread-pool starvation)
+
+### Commit: 740a835 (libs/PSTT develop) — UTC timestamp: 2026-05-29
+
+---
+
+### 1 — `libs/PSTT/src/PSTT.Remote/RemoteCache.cs` — `AttachUpstream`: use `TaskCreationOptions.LongRunning`
+
+**Root cause:** `_ = SubscribeServerTopicAsync(col.Key)` queues a fire-and-forget task to the .NET thread pool. When `dotnet test PSTT.slnx -c Debug` runs, it simultaneously compiles all projects and executes five test assemblies in parallel (including PSTT.Remote.AspNetCore.Tests which runs for ~26 s). Under this concurrent load the thread pool saturates: all worker threads are occupied, the pool adds new threads only at ~1 thread/500 ms, and those are immediately claimed by other work. The subscribe task sits in the queue and never starts within the 30-second timeout — resulting in a "subscribe permanently lost" failure.
+
+**Diagnostic process:**
+- Running the failing test in isolation or with `--no-build` always passed → load-sensitive only.
+- Added `Console.Error.WriteLine` guards inside `SubscribeServerTopicAsync`, `SendMessageAsync`, `TcpTransport.SendAsync`, and `OnDisconnectedAsync`.
+- Reproduced failure under load: **none of the diagnostic lines appeared** — conclusively proving the task never started executing, not just that it was slow or raised an exception.
+- Diagnostic logging then removed (no residue in final commit).
+
+**Fix:** Replace `_ = SubscribeServerTopicAsync(col.Key)` with:
+```csharp
+_ = Task.Factory.StartNew(
+    () => SubscribeServerTopicAsync(col.Key),
+    CancellationToken.None,
+    TaskCreationOptions.LongRunning,
+    TaskScheduler.Default);
+```
+`LongRunning` causes the .NET runtime to create a **dedicated OS thread immediately** rather than queuing to the pool. The subscribe always starts within microseconds. For small loopback writes (20 bytes), `NetworkStream.WriteAsync` completes synchronously, so the dedicated thread completes almost immediately.
+
+**Trade-off:** Each subscribe creates one OS thread briefly. Acceptable: subscribes happen once per topic at startup and complete in microseconds for loopback/LAN writes.
+
+**Verification:** 10 consecutive runs of `dotnet test PSTT.slnx -c Debug` — 0 failures (was ~1 in 3 before fix).
+
+Also removed leftover diagnostic `Console.Error.WriteLine` calls from `SendMessageAsync` and `TcpTransport.SendAsync` that were added during investigation (they had no compile errors but were noise).
+
+---
+
 ## 2026-05-28 — Widget text rendering fixes + generic SupportsProperty refactor
 
 ### Commits: bc89907, b94ebc2, 875ddec — develop
