@@ -20,7 +20,7 @@
     <MudAppBar Elevation="0" Dense="false" Gutters="false">
         <!-- App icon — matches dashboard-icon.svg -->
         <MudIconButton Icon="@AppIcons.Dashboard" Color="Color.Primary" Size="Size.Large" Class="mr-1"
-                       OnClick='() => Nav.NavigateTo("/")' />
+                       OnClick="OnAppIconClicked" />
 
         <!-- App name + dashboard name.
              Wide: single line "App — Name" with ellipsis if overflow.
@@ -38,10 +38,11 @@
 
         <MudSpacer />
 
-        <!-- MQTT connection status indicator -->
+        <!-- MQTT connection status indicator — click to reconnect when offline -->
         <div class="toolbar-hide-xs d-flex align-center">
-            <MudTooltip Text="@AppState.MqttConnectionStatus">
-                <MudIcon Icon="@MqttStatusIcon" Color="@MqttStatusColor" Size="Size.Medium" Class="mr-3" />
+            <MudTooltip Text="@MqttStatusTooltip" Placement="Placement.Bottom">
+                <MudIconButton Icon="@MqttStatusIcon" Color="@MqttStatusColor" Size="Size.Medium" Class="mr-3"
+                               OnClick="OnMqttIconClicked" />
             </MudTooltip>
         </div>
 
@@ -242,6 +243,10 @@
         Nav.NavigateTo("/login");
     }
 
+    private string MqttStatusTooltip => AppState.IsMqttConnected
+        ? AppState.MqttConnectionStatus
+        : $"{AppState.MqttConnectionStatus} — Click to reconnect";
+
     private string MqttStatusIcon =>AppState.IsMqttConnected
         ? Icons.Material.Filled.CloudDone
         : AppState.MqttConnectionStatus.Contains("reconnect", StringComparison.OrdinalIgnoreCase)
@@ -253,6 +258,20 @@
         : AppState.MqttConnectionStatus.Contains("reconnect", StringComparison.OrdinalIgnoreCase)
             ? Color.Warning
             : Color.Error;
+
+    private async Task OnAppIconClicked()
+    {
+        if (!AppState.IsMqttConnected)
+            await MqttInit.ForceReconnectAsync();
+        else
+            Nav.NavigateTo("/");
+    }
+
+    private async Task OnMqttIconClicked()
+    {
+        if (!AppState.IsMqttConnected)
+            await MqttInit.ForceReconnectAsync();
+    }
 
     public void Dispose()
     {

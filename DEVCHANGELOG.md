@@ -1,4 +1,62 @@
-## 2025-05-14 — Edit panel UX improvements, layout restructure & bug fixes
+## 2026-05-27 — Data connection resilience & auto-reconnect
+
+### Commit: TBD — develop
+
+---
+
+### 1 — `SignalRClientTransport.cs` — auto-reconnect + `Reconnected` handler + double-start guard
+**File:** `libs/PSTT/src/PSTT.Remote/Transport/SignalR/SignalRClientTransport.cs`
+
+Three changes:
+
+**a. `.WithAutomaticReconnect()`** added to the `HubConnectionBuilder` in the string-URL constructor. SignalR will now attempt its own exponential-backoff reconnect before declaring the connection permanently closed.
+
+**b. `Reconnected` event handler**: When SignalR's own reconnect succeeds, the `Disconnected` callback is fired on the transport. This causes `RemoteCache.OnDisconnectedAsync` to (a) mark all subscribed keys as `Stale` and (b) start `AutoReconnectLoopAsync`, which calls `ConnectAsync` → `ResubscribeAllAsync` to re-send all subscription registrations to the (now-reconnected) hub. Without this, subscriptions set up before the drop were silently lost because each SignalR reconnect creates a new connection ID and the server forgets all subscriptions.
+
+**c. `ConnectAsync` double-start guard**: If `HubConnection.State` is `Connected` (SignalR already reconnected on its own), `StartAsync` is skipped (it would throw `InvalidOperationException`). If `Reconnecting` or `Connecting`, waits for the in-flight reconnect to finish before returning. After the guard returns, `RemoteCache.ConnectAsync` sets `_connected = true` and calls `ResubscribeAllAsync` regardless — so subscriptions are always re-sent.
+
+---
+
+### 2 — `Program.cs` (WASM) — `WithAutoReconnect` enabled
+**File:** `src/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp.Client/Program.cs`
+
+Added `.WithAutoReconnect(TimeSpan.FromSeconds(5))` to the `RemoteCacheBuilder` chain. This was the primary missing piece: `_autoReconnect` defaulted to `false`, so after any SignalR disconnect the `AutoReconnectLoopAsync` was never started by `OnDisconnectedAsync`. Data went stale and stayed stale until the user manually reloaded the page.
+
+---
+
+### 3 — `MqttInitializationService.cs` — stale-status handling + `ForceReconnectAsync`
+**File:** `src/PSTT.Dashboard.Client/Services/MqttInitializationService.cs`
+
+**a. Stale status**: The MQTT status topic subscriber now checks `sub.Status.IsStale`. When the SignalR/RemoteCache layer marks all keys as stale (on disconnect), the previously returned value `"Connected"` would have been re-evaluated — leading to `IsMqttConnected = true` even when the data transport was down. The fix: if `IsStale`, set connection status to `"Disconnected (reconnecting...)"` and return early.
+
+**b. `ForceReconnectAsync()`**: New public method. In WASM mode (browser), casts `AppState.DataCache` to `RemoteCache<string>` and calls `ConnectAsync()` directly. The double-start guard in the transport makes this safe to call at any time. Sets status to `"Reconnecting..."` before the attempt and updates to an error message on failure. No-op on Blazor Server (the circuit handles its own reconnect).
+
+---
+
+### 4 — `MainLayout.razor` — clickable MQTT icon + app-icon reconnect
+**File:** `src/PSTT.Dashboard.Client/Layout/MainLayout.razor`
+
+**a. MQTT cloud icon** changed from `MudIcon` (static) to `MudIconButton`. `OnMqttIconClicked` calls `MqttInit.ForceReconnectAsync()` when `!AppState.IsMqttConnected`. Tooltip updated to `"… — Click to reconnect"` when offline.
+
+**b. App icon** `OnClick` changed from `() => Nav.NavigateTo("/")` to `OnAppIconClicked()`. When offline, this also triggers `ForceReconnectAsync()`; when connected, it navigates to `/` as before. (In WASM SPA, `NavigateTo("/")` when already on `/` is a no-op, so the reconnect path is the useful behaviour.)
+
+**c. `MqttStatusTooltip`**: New computed property that appends `"— Click to reconnect"` when `!IsMqttConnected`.
+
+---
+
+### Summary of reconnect flow (post-fix)
+
+1. Transport drops → SignalR's `.WithAutomaticReconnect()` tries exponential backoff reconnect.
+   - If SignalR succeeds → `Reconnected` fires → `Disconnected` event fires → `OnDisconnectedAsync`: marks stale + `AutoReconnectLoop` → `ConnectAsync` (guard: already Connected, skips `StartAsync`) → `ResubscribeAllAsync` → data flows again.
+   - If SignalR gives up → `Closed` fires → `Disconnected` event fires → `OnDisconnectedAsync`: marks stale + `AutoReconnectLoop` → retries `ConnectAsync` every 5 s until success.
+2. In both cases, `IsMqttConnected` goes `false` (stale status), MQTT cloud icon goes red/amber.
+3. User can also tap the cloud icon or app icon to force an immediate reconnect attempt.
+
+⚠️ **Known caveat**: On mobile browsers, the OS may completely suspend background tabs including the WASM runtime and WebSocket keep-alive. After a long background period, SignalR may not fire `Closed` until the tab is foregrounded. When the tab is re-opened, the reconnect loop will eventually run and recover, but there may be a delay of up to one `_reconnectDelay` (5 s) before data resumes. Tapping the cloud icon immediately triggers a reconnect attempt.
+
+---
+
+
 
 ### Commit: 156dfb0 — develop
 

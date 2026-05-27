@@ -8,6 +8,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Data connection auto-reconnect**: The WASM client now automatically reconnects to the server SignalR hub after any network drop. SignalR's own exponential-backoff reconnect runs first; if that fails, the `RemoteCache` layer retries every 5 seconds independently.
+- **Click-to-reconnect UI**: The MQTT cloud status icon in the app bar is now a button. Clicking it (or the app icon) when offline immediately triggers a reconnect attempt. The tooltip shows "— Click to reconnect" when the connection is lost.
+
+### Fixed
+- **Stale data shown as connected**: After a SignalR disconnect, all subscribed cache entries were marked `Stale` but the MQTT status subscriber re-evaluated the last retained `"Connected"` value — leaving `IsMqttConnected = true` when the transport was actually down. Fixed by checking `sub.Status.IsStale` and setting status to `"Disconnected (reconnecting...)"` immediately.
+- **Missing `WithAutoReconnect()`**: `RemoteCacheBuilder` was never called with `.WithAutoReconnect()`, so the background retry loop never started after a disconnect. Data would stay stale until a full page reload.
+- **`Reconnected` subscriptions lost**: When SignalR's own reconnect succeeded, the `RemoteCache` was unaware (only `Closed` was handled, not `Reconnected`). All server-side topic subscriptions were silently dropped on each reconnect. Fixed by wiring `HubConnection.Reconnected` to re-trigger the `Disconnected` handler, causing `ResubscribeAllAsync` to run.
+- **`ConnectAsync` double-start**: After the above fix, `ConnectAsync` could call `HubConnection.StartAsync` on an already-connected hub, throwing `InvalidOperationException`. Added a state guard to skip `StartAsync` (or wait out an in-progress reconnect) while still running `ResubscribeAllAsync`.
+
+
 - **Combined Edit Side Panel**: Three floating edit panels (Add Node, Node Properties, Data Explorer) and the Dashboard Properties modal dialog have been replaced by a single docked right-side panel (`EditSidePanel`). The panel has five icon tabs (Node Props, Add Node, Data Explorer, Page Props, Dashboard Props), is resizable by dragging its left edge, and auto-opens when entering edit mode.
 - **Node Properties — grid/list sub-view**: The Node Props tab offers a compact two-column grid editor (`PropertyGridEditor`) driven by `[NpXxx]` attribute decorators on model properties, alongside the existing custom form view (`NodePropertyEditor`). Toggle between views with the grid/form icon in the panel toolbar.
 - **`NpColorAttribute`**: New `[NpColor(...)]` attribute for model properties, rendered as `<ColorInputRow>` in both `PropertyGridEditor` and `NodePropertyEditor`.
