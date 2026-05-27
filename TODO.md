@@ -152,7 +152,11 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] Admin interface: runtime monitoring, logs, connected clients, dashboard file management
 - [ ] We've lost the "restart" button ...might want to do a restart for other reasosns
 - [ ] Backend (docker) deployment of a new version shoul dbe detected by front end and a prompt to restart/reload offered
-- [ ] If backend has become incompatible (version change etc) then restart coul dbe forced
+- [ ] If backend has become incompatible (version change etc) then restart could be forced
+- [ ] An alternative docker deployment that is the SSR exe only (rather than the WASM exe in SSR mode).
+      It would be interesting to see the size and performance differences for this
+	  Can it be a runtime or biuld time option in a single docker image or would it have to be a seperate image? Not worried about deployment times
+	  by having a smaller SSR-only image, although can this be an option in the dockerfile or docker compose files?
 
 ### FEAT-M: Settings persistence _(done — settings now in data directory)_
 

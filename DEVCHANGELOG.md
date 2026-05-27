@@ -1,3 +1,48 @@
+## 2026-05-27 — Fix: correct `Reconnected` event wiring to avoid link rendering regression
+
+### Commit: TBD — develop
+
+---
+
+### 1 — `IRemoteTransport.cs` — new `Reconnected` event on interface
+**File:** `libs/PSTT/src/PSTT.Remote/Transport/IRemoteTransport.cs`
+
+Added `event Func<Task>? Reconnected` to the interface so transports can distinguish "brief drop + auto-recovered" (`Reconnected`) from "permanent disconnect" (`Closed` → `Disconnected`).
+
+---
+
+### 2 — `SignalRClientTransport.cs` — fire `Reconnected` (not `Disconnected`) on reconnect
+**File:** `libs/PSTT/src/PSTT.Remote/Transport/SignalR/SignalRClientTransport.cs`
+
+Previously `_connection.Reconnected` was wired to fire the transport's `Disconnected` event. This was the root cause of a regression: `RemoteCache.OnDisconnectedAsync` published `Status.Stale` for every subscribed key, which fired every widget's subscription callback simultaneously with `StateHasChanged()`. Blazor Diagrams port measurement runs in `OnAfterRenderAsync` via JS interop; this premature mass-render storm interrupted the measurement cycle — ports had no positions, so link SVG paths could not be calculated and links were invisible until the user clicked a port.
+
+Fix: `_connection.Reconnected` now fires the new `Reconnected` event on the transport. No stale is published; only subscriptions are re-sent.
+
+Also added stub `event Func<Task>? Reconnected;` to satisfy the interface.
+
+---
+
+### 3 — `RemoteCache.cs` — `OnReconnectedAsync` handler
+**File:** `libs/PSTT/src/PSTT.Remote/RemoteCache.cs`
+
+Added `OnReconnectedAsync()` private method: sets `_connected = true` and calls `ResubscribeAllAsync()` — no stale publish, no reconnect loop. This is the correct response to a brief auto-reconnect. Wired in the constructor via `_transport.Reconnected += OnReconnectedAsync`.
+
+---
+
+### 4 — Stub `Reconnected` on all other transports
+**Files:**
+- `libs/PSTT/src/PSTT.Remote.AspNetCore/SignalR/SignalRConnectionTransport.cs`
+- `libs/PSTT/src/PSTT.Remote/Transport/WebSocket/WebSocketConnectionTransport.cs`
+- `libs/PSTT/src/PSTT.Remote/Transport/WebSocket/WebSocketClientTransport.cs`
+- `libs/PSTT/src/PSTT.Remote/Transport/Tcp/TcpClientTransport.cs`
+- `libs/PSTT/src/PSTT.Remote/Transport/Tcp/TcpTransport.cs`
+
+All non-SignalR transports do not have their own reconnect mechanism, so `Reconnected` is declared but never fired.
+
+---
+
+**Effect:** Links are now drawn correctly on first render. Stale marking still occurs when the connection is permanently lost (via `Closed` → `Disconnected`). Auto-reconnect still works via `RemoteCache.AutoReconnectLoopAsync` and the `ConnectAsync` guard on the transport.
+
 ## 2026-05-27 — Data connection resilience & auto-reconnect
 
 ### Commit: 539197d — develop
