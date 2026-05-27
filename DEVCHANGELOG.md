@@ -1,6 +1,6 @@
 ## 2026-05-27 — Data connection resilience & auto-reconnect
 
-### Commit: TBD — develop
+### Commit: 539197d — develop
 
 ---
 
