@@ -147,8 +147,8 @@
                        OnClick="@(() => Node.DataTopics.Add(string.Empty))">Add Topic</MudButton>
             }
 
-            <!-- Text body (not shown for table nodes) -->
-            @if (Node is not TableNodeModel)
+            <!-- Text body (hidden for widget types that don't use it) -->
+            @if (Node.SupportsProperty(nameof(TextNodeModel.Text)))
             {
             <MudDivider Class="my-2" />
             <MudTextField @bind-Value="@Node.Text"

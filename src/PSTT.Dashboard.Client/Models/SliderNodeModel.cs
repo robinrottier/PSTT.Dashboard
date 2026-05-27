@@ -8,6 +8,7 @@ public class SliderNodeModel : TextNodeModel
     {
         NodeType = "Slider";
     }
+    public override bool SupportsProperty(string propertyName) => propertyName != nameof(Text) && base.SupportsProperty(propertyName);
 
     [NpNumeric("Min", Category = "Slider", Order = 1)]
     public double Min { get; set; } = 0;

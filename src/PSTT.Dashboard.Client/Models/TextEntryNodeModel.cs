@@ -8,6 +8,7 @@ public class TextEntryNodeModel : TextNodeModel
     {
         NodeType = "TextEntry";
     }
+    public override bool SupportsProperty(string propertyName) => propertyName != nameof(Text) && base.SupportsProperty(propertyName);
 
     [NpText("Placeholder", Category = "Text Entry", Order = 1, Placeholder = "Enter value…")]
     public string? Placeholder { get; set; }

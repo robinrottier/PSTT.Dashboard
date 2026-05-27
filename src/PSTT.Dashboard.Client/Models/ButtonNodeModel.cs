@@ -8,6 +8,7 @@ public class ButtonNodeModel : TextNodeModel
     {
         NodeType = "Button";
     }
+    public override bool SupportsProperty(string propertyName) => propertyName != nameof(Text) && base.SupportsProperty(propertyName);
 
     [NpText("Button Label", Category = "Button", Order = 1, Placeholder = "Press")]
     public string ButtonLabel { get; set; } = "Press";

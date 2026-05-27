@@ -5,6 +5,7 @@ namespace PSTT.Dashboard.Models;
 public class LogNodeModel : TextNodeModel
 {
     public LogNodeModel(Point? position = null) : base(position) { NodeType = "Log"; }
+    public override bool SupportsProperty(string propertyName) => propertyName != nameof(Text) && base.SupportsProperty(propertyName);
 
     [NpNumeric("Max Entries", Category = "Log", Order = 1, Min = 1, Max = 500)]
     public int MaxEntries { get; set; } = 20;

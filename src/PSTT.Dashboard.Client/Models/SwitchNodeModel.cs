@@ -8,6 +8,7 @@ public class SwitchNodeModel : TextNodeModel
     {
         NodeType = "Switch";
     }
+    public override bool SupportsProperty(string propertyName) => propertyName != nameof(Text) && base.SupportsProperty(propertyName);
 
     [NpText("Publish Topic", Category = "Switch", Order = 1, Placeholder = "Defaults to Data Topic if empty")]
     public string? PublishTopic { get; set; }

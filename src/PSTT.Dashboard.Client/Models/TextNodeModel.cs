@@ -49,6 +49,13 @@ namespace PSTT.Dashboard.Models
         [NpText("Text", Category = "Common", Order = 4, Lines = 4, Placeholder = "Use {0} for data value")]
         public string? Text { get; set; }
 
+        /// <summary>
+        /// Returns <c>false</c> if this node type does not support editing the named property.
+        /// Used by NodePropertyEditor to show/hide property fields.
+        /// Override in derived models to suppress base-class properties irrelevant to the widget.
+        /// </summary>
+        public virtual bool SupportsProperty(string propertyName) => true;
+
         /// <summary>Background color for the node</summary>
         [NpColor("Background", Category = "Common", Order = 5, ShowClear = true)]
         public string? BackgroundColor { get; set; }
