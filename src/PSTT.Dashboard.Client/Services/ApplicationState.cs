@@ -51,7 +51,8 @@ public class ApplicationState
     public bool IsInteractive { get; private set; } = false;
 
     private BlazorDiagram? _diagram;
-    private readonly List<IDisposable> _linkWatchers = new();
+    // Keyed by link.Id so re-calling SetupLinkDataWatcher disposes the old watcher first
+    private readonly Dictionary<string, IDisposable> _linkWatchers = new();
 
     // Link selection state
     public NodeLinkModel? SelectedLink { get; private set; }
@@ -494,7 +495,7 @@ public class ApplicationState
                 foreach (var portData in nodeData.Ports ?? [])
                 {
                     var alignment = Enum.Parse<PortAlignment>(portData.Alignment);
-                    AddPortToNode(node, alignment);
+                    AddPortToNode(node, alignment, portData.PortStyle);
                 }
 
                 if (!readOnly)
@@ -613,7 +614,7 @@ public class ApplicationState
 
     public void ResetDiagram()
     {
-        foreach (var w in _linkWatchers) w.Dispose();
+        foreach (var w in _linkWatchers.Values) w.Dispose();
         _linkWatchers.Clear();
         SelectedLink = null;
         _diagram = null;
@@ -729,19 +730,29 @@ public class ApplicationState
         diagram.Controls.AddFor(node).Add(new ResizeControl(new BottomRightResizerProvider()));
     }
 
-    public void CheckForLinkAnimation(NodeModel sourceNode, LinkModel link)
-    {
-        // Kept for compatibility — no longer called. Animation is now driven by NodeLinkModel.DataTopic.
-    }
+    public void CheckForLinkAnimation(NodeModel sourceNode, LinkModel link) { }
 
     /// <summary>
     /// Subscribes to a <see cref="NodeLinkModel"/>'s DataTopic and drives its
     /// <see cref="FlowLinkModel.FlowDirection"/> from the numeric data value.
     /// Positive → Forward, negative → Reverse, zero → Paused, non-numeric → None.
+    /// Calling this again on the same link safely replaces the previous subscription.
     /// </summary>
     public void SetupLinkDataWatcher(NodeLinkModel link)
     {
-        if (string.IsNullOrEmpty(link.DataTopic) || link.Animation == "None") return;
+        // Dispose any existing watcher for this link
+        if (_linkWatchers.TryGetValue(link.Id, out var old))
+        {
+            old.Dispose();
+            _linkWatchers.Remove(link.Id);
+        }
+
+        if (string.IsNullOrEmpty(link.DataTopic) || link.Animation == "None")
+        {
+            if (link.Animation == "None")
+                link.FlowDirection = Blazor.Diagrams.Core.Models.FlowDirection.None;
+            return;
+        }
 
         // Seed from existing cache value
         var existing = BridgedDataCache.GetValue(link.DataTopic);
@@ -755,7 +766,7 @@ public class ApplicationState
             ApplyLinkDataValue(link, sub.Value?.ToString());
             await Task.CompletedTask;
         });
-        _linkWatchers.Add(watcher);
+        _linkWatchers[link.Id] = watcher;
     }
 
     private static void ApplyLinkDataValue(NodeLinkModel link, string? value)
@@ -767,11 +778,14 @@ public class ApplicationState
             : Blazor.Diagrams.Core.Models.FlowDirection.None;
     }
 
-    internal void AddPortToNode(NodeModel node, PortAlignment alignment)
+    internal void AddPortToNode(NodeModel node, PortAlignment alignment, string? portStyle = null)
     {
         if (node != null)
         {
-            node.AddPort(new NodePortModel(node, alignment));
+            var port = new NodePortModel(node, alignment);
+            if (!string.IsNullOrEmpty(portStyle))
+                port.PortStyle = portStyle;
+            node.AddPort(port);
         }
     }
 }

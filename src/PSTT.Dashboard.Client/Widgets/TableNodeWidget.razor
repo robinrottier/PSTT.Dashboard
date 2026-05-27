@@ -121,7 +121,7 @@
 
     @foreach (var port in Node.Ports)
     {
-        <PortRenderer @key="port" Port="port" Style="@PortStyle(port as NodePortModel)" />
+        <PortRenderer @key="port" Port="port" Style="@PortStyle(port as NodePortModel)" Class="@PortClass(port as NodePortModel)" />
     }
 </div>
 

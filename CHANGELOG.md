@@ -8,6 +8,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **FEAT-F Session D: Port style on links** — Ports on both ends of a selected link now show style selectors (Dot / Fine / Invisible) in the link properties panel. "Invisible" hides the port dot in view mode while keeping the link attachment point intact; in edit mode the port is shown translucent so users can still drag from it. "Fine" renders a smaller rectangular tick instead of the default filled circle.
+- **Port style persists** — Port style is now saved to `diagram.json` and restored on reload.
+- **Data-driven link watcher fix** — Changing a link's DataTopic in the properties panel no longer leaks the old MQTT watcher. The link watcher is now keyed by link ID so the previous subscription is properly disposed before the new one is started.
+
 - **FEAT-F Session C: PSTT link layer** — Links are now first-class model objects (`NodeLinkModel`) with their own Color, Width, DashPattern, DataTopic, Animation, AnimationSpeed, and FlowColor properties. All properties persist to `diagram.json`. When a link is selected in edit mode, the side panel shows a dedicated `LinkPropertyEditor`. New links automatically inherit the source node's `DataTopic` as a default.
 - **Data-driven link animation** — A link's `DataTopic` drives `FlowDirection` at runtime: positive value → Forward, negative → Reverse, zero → Paused. The marching-ants overlay from `FlowLinkWidget` (Session B) responds immediately to MQTT updates.
 - **FEAT-F Session B: FlowLinkModel + FlowLinkWidget** (Blazor.Diagrams layer): `FlowLinkModel` extends `LinkModel` with marching-ants animation (FlowDirection, FlowSpeed, FlowColor, FlowWidth, FlowDashSize). `FlowLinkWidget` renders a 3-layer SVG (base path + animated overlay + selection helper). Includes interactive `FlowLinkDemo` sample page and 17 unit tests.

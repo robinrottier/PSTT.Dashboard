@@ -16,7 +16,7 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 		- [ ] "marching ants" would refer to a style where 2 thin lines drawn at edge of line and then the "ants" are dashes moving — Session D
 		- [ ] range of styles for the line: simple dashes, marching ants, arrows, maybe others — Session D
 	- [x] selected "speed" up/down arrows produced rounding errors — ✓ fixed: `Math.Round(v, 2)` applied
-	- [ ] where or how do I set the port properties (size, shape)?? — Session D (port style properties on each port)
+	- [x] where or how do I set the port properties (size, shape)?? — ✓ done: port style (Dot/Fine/Invisible) shown in link properties when link connects to ports
 
 - [ ] Editor side panel:
 	- [ ] Dashboard and page properties edit could also have the "form" vs "grid" options — requires NpXxx attributes on DiagramState/PageState models

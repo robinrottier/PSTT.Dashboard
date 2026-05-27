@@ -45,7 +45,7 @@
                 // in view mode, hide ports that have no links
                 if (port.Links.Count > 0 || AppState.IsEditMode)
                 {
-                    <PortRenderer @key="port" Port="port" Style="@PortStyleFor(port)" />
+                    <PortRenderer @key="port" Port="port" Style="@PortStyleFor(port)" Class="@PortClassFor(port)" />
                 }
             }
         </div>
@@ -97,8 +97,20 @@
         if (AppState.IsEditMode) AppState.TriggerEditProperties();
     }
 
-    private static string PortStyleFor(Blazor.Diagrams.Core.Models.PortModel port) =>
-        port is NodePortModel mp ? $"width:{(int)mp.Size.Width}px; height:{(int)mp.Size.Height}px;" : "";
+    private static string PortStyleFor(Blazor.Diagrams.Core.Models.PortModel port)
+    {
+        if (port is not NodePortModel mp) return "";
+        var size = mp.PortStyle == "Fine" ? 5 : (int)mp.Size.Width;
+        return $"width:{size}px; height:{size}px;";
+    }
+
+    private static string PortClassFor(Blazor.Diagrams.Core.Models.PortModel port) =>
+        port is NodePortModel mp ? mp.PortStyle switch
+        {
+            "Invisible" => "port-invisible",
+            "Fine"      => "port-fine",
+            _           => string.Empty
+        } : string.Empty;
 
     private string TitlePosition =>
         string.IsNullOrEmpty(Node.TitlePosition) ? "Above" : Node.TitlePosition;

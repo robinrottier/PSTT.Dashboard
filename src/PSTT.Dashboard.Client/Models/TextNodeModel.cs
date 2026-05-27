@@ -119,7 +119,7 @@ namespace PSTT.Dashboard.Models
             data.Metadata = Metadata.Count > 0 ? new Dictionary<string, string>(Metadata) : null;
             data.DataTopics = DataTopics.Count > 0 ? new List<string>(DataTopics) : null;
             data.Ports = Ports.Any()
-                ? Ports.Select(p => new NodePortData { Id = p.Id, Alignment = p.Alignment.ToString() }).ToList()
+                ? Ports.Select(p => new NodePortData { Id = p.Id, Alignment = p.Alignment.ToString(), PortStyle = (p as NodePortModel)?.PortStyle }).ToList()
                 : null;
         }
 

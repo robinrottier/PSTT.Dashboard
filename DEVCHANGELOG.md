@@ -1,4 +1,82 @@
-## 2026-05-27 — FEAT-F Session C: PSTT Link Model, Persistence + Link Property Editor
+## 2026-05-27 — FEAT-F Session D: Watcher leak fix, port style rendering + editor
+
+### Commit: (see below) — UTC timestamp: 2026-05-27 — Branch: develop
+
+---
+
+### 1 — `ApplicationState.cs` — Fix `_linkWatchers` resource leak
+
+`_linkWatchers` was `List<IDisposable>`. If the user changed a link's DataTopic in the
+properties panel, `SetupLinkDataWatcher` was called again, adding a new watcher but never
+disposing the old one. Changed to `Dictionary<string, IDisposable>` keyed by `link.Id`.
+
+- `SetupLinkDataWatcher` now disposes + removes any existing entry for the same link ID
+  before subscribing a fresh watcher.
+- When `Animation == "None"`, also resets `FlowDirection` to `None` (stops animation).
+- `ResetDiagram` iterates `.Values` on the dictionary (no functional change, just aligned
+  to the new type).
+
+---
+
+### 2 — `ApplicationState.cs` — Port style applied on diagram load
+
+`AddPortToNode` now accepts an optional `string? portStyle` parameter. When set, it assigns
+`port.PortStyle` before the port is added to the node. `CreateDiagramFromPageData` passes
+`portData.PortStyle` from the serialised state, so ports reload with their saved style.
+
+---
+
+### 3 — `TextNodeModel.cs` — Port style serialisation
+
+Port serialisation (in `FillBaseData`) previously only saved `Id` and `Alignment`. Now
+also saves `PortStyle` via `(p as NodePortModel)?.PortStyle` → `NodePortData.PortStyle`.
+Round-trip complete: edit → save → reload preserves port style.
+
+---
+
+### 4 — `BaseNodeWidget.cs` — `PortStyle()` respects "Fine"; new `PortClass()` helper
+
+`PortStyle()` now returns `width:5px; height:5px` for "Fine" ports (was the same 10px as Dot).
+New `PortClass()` returns `"port-invisible"` / `"port-fine"` / `""` based on `NodePortModel.PortStyle`.
+All widgets using `BaseNodeWidget` (Log, TreeView, Table) updated to pass `Class="@PortClass(...)"`.
+
+---
+
+### 5 — `StandardNodeLayout.razor` — Port class + size routing
+
+`PortStyleFor()` now returns 5px for "Fine" style.
+New `PortClassFor()` returns the appropriate CSS class name.
+`PortRenderer` now receives both `Style` and `Class`.
+
+---
+
+### 6 — `app.css` — Port style CSS rules
+
+```css
+.diagram-port.port-invisible { opacity: 0; }          /* hidden in view mode */
+.diagram-port.port-fine { border-radius: 2px; }       /* rectangular Fine tick */
+.dashboard-edit-mode .diagram-port.port-invisible { opacity: 0.3; }   /* show in edit */
+.dashboard-edit-mode .diagram-port.port-invisible:hover { opacity: 1; }
+```
+
+---
+
+### 7 — `Display.razor` — `dashboard-edit-mode` CSS class on canvas
+
+The `div.dashboard-canvas` now gets class `dashboard-edit-mode` when `AppState.IsEditMode`.
+This enables the CSS rule that reveals Invisible ports as translucent during editing, making
+drag-to-connect discoverable without changing the view-mode appearance.
+
+---
+
+### 8 — `LinkPropertyEditor.razor` — Source/target port style selectors
+
+When the selected link connects to PSTT ports (`NodePortModel`), the editor now shows
+`MudSelect` dropdowns for Source Port Style and/or Target Port Style (Dot / Fine / Invisible).
+Changing a port style calls `port.Refresh()` to immediately re-render the port without
+requiring a page reload.
+
+
 
 ### Commit: (see below) — UTC timestamp: 2026-05-27 — Branch: develop
 
