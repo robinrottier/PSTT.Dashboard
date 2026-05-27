@@ -1,6 +1,53 @@
+## 2026-05-28 — Widget text rendering fixes + generic SupportsProperty refactor
+
+### Commits: bc89907, b94ebc2, 875ddec — develop
+
+---
+
+### 1 — `BaseNodeWithDataWidget.cs` — encode static template parts in `FormatHtml()`
+**File:** `src/PSTT.Dashboard.Client/Widgets/BaseNodeWithDataWidget.cs`
+
+Previously, `FormatHtml()` HTML-encoded only data values; the static portions of the template string (everything between `{N}` placeholders) were passed raw into a `MarkupString`. This meant `<br>` in a static segment should have rendered as an HTML line break — but empirically it showed as literal `<br>` text (possibly a Blazor MarkupString context issue).
+
+Fix: iterate matches and HTML-encode BOTH static segments and data values. Newlines (`\n`, entered via Enter key in the property text box) are NOT encoded by `HtmlEncode`, so they pass through and `white-space:pre-wrap` on the container renders them as line breaks.
+
+Effect: text properties work as documented — plain text, no HTML, Enter key for line breaks.
+
+Updated helper text in `NodePropertyEditor.razor`: `"Text is displayed as-is (no HTML). Press Enter for line breaks."`
+
+---
+
+### 2 — `BatteryNodeWidget.razor`, `GaugeNodeWidget.razor` — switch to `FormatHtml()` + `pre-wrap`
+**Files:** `src/PSTT.Dashboard.Client/Widgets/BatteryNodeWidget.razor`, `src/PSTT.Dashboard.Client/Widgets/GaugeNodeWidget.razor`
+
+Both widgets used `@FormatText()` (plain string, no `MarkupString`, no `pre-wrap` CSS). Line breaks in text properties were silently discarded. Switched both to `@FormatHtml()` with `style="white-space:pre-wrap"`, consistent with `MudNodeWidget` (the Text widget base).
+
+GaugeNodeWidget had two text render sites — both updated.
+
+---
+
+### 3 — `TextNodeModel.cs` + 11 model files — generic `SupportsProperty(string)` mechanism
+**Files:** `src/PSTT.Dashboard.Client/Models/TextNodeModel.cs`, `LogNodeModel.cs`, `TableNodeModel.cs`, `SwitchNodeModel.cs`, `SliderNodeModel.cs`, `TreeViewNodeModel.cs`, `IFrameNodeModel.cs`, `ButtonNodeModel.cs`, `ButtonGroupNodeModel.cs`, `DropDownNodeModel.cs`, `RadioGroupNodeModel.cs`, `TextEntryNodeModel.cs`
+
+Added `public virtual bool SupportsProperty(string propertyName) => true;` to `TextNodeModel`.
+
+11 node models that do not render `Node.Text` override it:
+```csharp
+public override bool SupportsProperty(string name) => name != nameof(Text) && base.SupportsProperty(name);
+```
+
+`NodePropertyEditor.razor` conditions the Text field on `Node.SupportsProperty(nameof(TextNodeModel.Text))`.
+
+Design: `base.SupportsProperty(name)` chaining allows deeper hierarchies to add their own exclusions. `nameof()` is used for refactor safety. The method is deliberately parameterized (`string name`) rather than a boolean flag, so future exclusions (DataTopics, LinkAnimation, etc.) can be added without new virtual members.
+
+---
+
+### 4 — Test investigation: `MultiClient_DisconnectOneDoesNotAffectOther`
+Ran the test 5× in isolation — passed every time (658–687 ms each). Ran all 46 Remote tests together — all passed. Confirmed this is a pre-existing intermittent failure under parallel test load, **not a regression** from the reconnect changes. The TCP transport's `Reconnected` event is declared but never fired, so `OnReconnectedAsync` cannot be triggered in TCP-based tests.
+
 ## 2026-05-27 — Fix: correct `Reconnected` event wiring to avoid link rendering regression
 
-### Commit: TBD — develop
+### Commit: 075389f / e399226 — develop
 
 ---
 
