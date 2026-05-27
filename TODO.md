@@ -102,6 +102,9 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] Links as proper model objects with a properties editor: color, thickness, dash style
 	- [ ] Data-driven link styling — color/intensity driven by a topic value
 	- [ ] remove link animation from current widget joined to the link and build it into the link itself 
+- [ ] Link options: 
+	- [ ] More stylinging, colour, thickness.
+	- [ ] Animations... moving dashes moving arrows, color changes etc
 - [ ] POrt options:
 	- [ ] Arrow heads to show flow direction
 	- [ ] Not at all or single ended - or much finer than current black blob.
