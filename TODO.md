@@ -105,15 +105,21 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] Link options: 
 	- [ ] More stylinging, colour, thickness.
 	- [ ] Animations... moving dashes moving arrows, color changes etc
+	- [ ] Victron has a nice animation with the line being 2 thin outer lines and a thicker inner line that animates with a "marching ants" effect.
+	      This is probably the most visually effective way to show flow direction and intensity.
+		  The "ants" could be simple rectanlge or arrow heads
+		  The denisty and speed of ants reflected in data topic value (e.g. flow rate or power level)
+		  Colour also
 - [ ] POrt options:
-	- [ ] Arrow heads to show flow direction
+	- [ ] Current dots seems too heavy and positionn is difficult. The are fill rouns circles, half round would be a good option,
+	- [ ] Also coulud be arrow head,  with topic value being flow direction directs arrow head direction, and which end
 	- [ ] Not at all or single ended - or much finer than current black blob.
-	- [ ] Diffenent view in edit mode as has to be visible
+	- [ ] Diffenent view in edit mode as has to be visible and allow attaching line when dragging
 - [ ] Link port to centre of widget aswell as edge ports (blozor diagrams supports this).
 - [ ] Mutiple edge ports per side spaced properly or on top of each other? (implement in blazor diagrams)
 - [ ] Draggable Bezier control points
 - [ ] Fork/junction points between links
-
+It shopudnt be
 ### FEAT-G: Grouping / layout containers
 - [ ] "Group" box — labeled background rectangle that visually wraps related nodes
 - [ ] Moving a group moves all contained nodes
