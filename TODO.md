@@ -7,16 +7,7 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 ## BUGS
 
 - [ ] New link features:
-	- [x] Deleted a link whilst it was in properties editor and it stayed there — ✓ fixed: `OnLinkRemoved` now clears `_propertiesLink`
-	- [x] Created a new link by dragging — link now auto-selected and shown in properties editor — ✓ fixed: `OnLinkAdded` calls `SelectModel` after drag
-	- [x] New link not selectable / not known to dashboard layer — ✓ fixed: link factory now creates `NodeLinkModel` for all drag-created links
-	- [ ] The "dash pattern" and "marching ants" seems confused properties — helper text clarified; full style redesign deferred to Session D
-		- [ ] "dash pattern" should simply set the dash length to space between dashes _(SVG stroke-dasharray label clarified)_
-		- [ ] animation then controls how the dashes move (forward/reverse) _(now labelled "Flow Animation")_
-		- [ ] "marching ants" would refer to a style where 2 thin lines drawn at edge of line and then the "ants" are dashes moving — Session D
-		- [ ] range of styles for the line: simple dashes, marching ants, arrows, maybe others — Session D
-	- [x] selected "speed" up/down arrows produced rounding errors — ✓ fixed: `Math.Round(v, 2)` applied
-	- [x] where or how do I set the port properties (size, shape)?? — ✓ done: port style (Dot/Fine/Invisible) shown in link properties when link connects to ports
+	- [ ] 
 
 - [ ] Editor side panel:
 	- [ ] Dashboard and page properties edit could also have the "form" vs "grid" options — requires NpXxx attributes on DiagramState/PageState models
