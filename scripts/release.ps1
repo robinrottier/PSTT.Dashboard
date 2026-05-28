@@ -864,6 +864,7 @@ function Step-PrepSubmodules {
         Assert-Cmd git @('fetch', 'origin') "git fetch failed in PSTT"
         Write-Step "Merging PSTT develop → main..."
         Assert-Cmd git @('checkout', 'main') "git checkout main failed in PSTT"
+        Assert-Cmd git @('merge', 'origin/main', '--no-edit') "git merge origin/main failed in PSTT"
         Assert-Cmd git @('merge', 'origin/develop', '--no-edit') "Merge develop → main failed in PSTT submodule"
         if ($IsDryRun) { Write-Warn "DRYRUN: skipping PSTT main push" }
         else { Assert-Cmd git @('push', 'origin', 'main') "git push PSTT main failed" }
@@ -877,6 +878,7 @@ function Step-PrepSubmodules {
         Assert-Cmd git @('fetch', 'origin') "git fetch failed in Blazor.Diagrams"
         Write-Step "Merging Blazor.Diagrams develop → main..."
         Assert-Cmd git @('checkout', 'main') "git checkout main failed in Blazor.Diagrams"
+        Assert-Cmd git @('merge', 'origin/main', '--no-edit') "git merge origin/main failed in Blazor.Diagrams"
         Assert-Cmd git @('merge', 'origin/develop', '--no-edit') "Merge develop → main failed in Blazor.Diagrams submodule"
         if ($IsDryRun) { Write-Warn "DRYRUN: skipping Blazor.Diagrams main push" }
         else { Assert-Cmd git @('push', 'origin', 'main') "git push Blazor.Diagrams main failed" }
