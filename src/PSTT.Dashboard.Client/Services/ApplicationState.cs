@@ -537,6 +537,12 @@ public class ApplicationState
                     if (linkData.AnimationSpeed.HasValue)           link.FlowSpeed = linkData.AnimationSpeed.Value;
                     if (!string.IsNullOrEmpty(linkData.DataTopic))  link.DataTopic = linkData.DataTopic;
                     if (!string.IsNullOrEmpty(linkData.Animation))  link.Animation = linkData.Animation;
+                    if (linkData.FlowSize.HasValue)                 link.FlowSize    = linkData.FlowSize.Value;
+                    if (linkData.FlowGapSize.HasValue)              link.FlowGapSize = linkData.FlowGapSize.Value;
+                    if (linkData.LineWidth.HasValue)                link.LineWidth   = linkData.LineWidth.Value;
+                    if (!string.IsNullOrEmpty(linkData.FlowShape) &&
+                        Enum.TryParse<Blazor.Diagrams.Core.Models.FlowShape>(linkData.FlowShape, out var fs))
+                        link.FlowShape = fs;
 
                     diagram.Links.Add(link);
                     link.Locked = readOnly;
@@ -600,6 +606,11 @@ public class ApplicationState
                 if (nl.FlowSpeed != 1.0)                 linkData.AnimationSpeed = nl.FlowSpeed;
                 if (!string.IsNullOrEmpty(nl.DataTopic)) linkData.DataTopic = nl.DataTopic;
                 if (nl.Animation != "Flow")              linkData.Animation = nl.Animation;
+                if (nl.FlowSize != 10.0)                 linkData.FlowSize    = nl.FlowSize;
+                if (nl.FlowGapSize != 10.0)              linkData.FlowGapSize = nl.FlowGapSize;
+                if (nl.LineWidth.HasValue)               linkData.LineWidth   = nl.LineWidth;
+                if (nl.FlowShape != Blazor.Diagrams.Core.Models.FlowShape.Dash)
+                    linkData.FlowShape = nl.FlowShape.ToString();
             }
 
             if (!string.IsNullOrEmpty(linkData.Source) && !string.IsNullOrEmpty(linkData.Target))

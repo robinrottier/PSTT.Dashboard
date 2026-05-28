@@ -1,4 +1,66 @@
-## 2026-05-27 — FEAT-F Session D: Watcher leak fix, port style rendering + editor
+## 2026-05-29 — Blazor.Diagrams submodule update: FlowShape + new FlowLink properties
+
+### Commit: (see below) — UTC timestamp: 2026-05-29 — Branch: develop
+
+---
+
+### 1 — `libs/Blazor.Diagrams` — Switch submodule from `main` to `develop`
+
+The Blazor.Diagrams submodule was tracking `main` (detached HEAD). Switched to `develop`
+branch (commit `31aa45a`) which contains significant FlowLink improvements committed since
+the `v0.1.2` tag:
+
+- `FlowDashSize` renamed to `FlowSize` (size of each unit in px)
+- New `FlowGapSize` (gap between units, default 10 px) — previously gap was always equal to dash size
+- New `FlowShape` enum: `Dash`, `Rectangle`, `Arrow`, `Chevron`, `DblChevron`, `TripleChevron`
+- New `LineWidth` (double?) — per-link override for the solid base line width; `0` hides the line (shapes only)
+- New `ResolvedLineWidth` computed property; `FlowShapeCount` marked `[Obsolete]` (widget now auto-derives count from path length)
+- `FlowLinkWidget` updated: Arrow/Chevron variants use `animateMotion`; count derived from path length for uniform spacing
+
+`.gitmodules` updated to set `branch = develop` for Blazor.Diagrams (matches PSTT pattern).
+
+---
+
+### 2 — `scripts/release.ps1` — Blazor.Diagrams handled like PSTT in release workflow
+
+`Step-PrepSubmodules` now merges `develop → main` and pushes for **both** PSTT and
+Blazor.Diagrams submodules, then pins both in `.gitmodules` to `main` in a single commit.
+
+`Step-RestoreSubmodules` now restores **both** submodules to `develop` tracking post-release.
+
+Step descriptions updated accordingly.
+
+---
+
+### 3 — `LinkData` — New FlowLink properties persisted
+
+Added to `LinkData` (in `DashboardModel.cs`):
+- `FlowShape?` (string — enum name, e.g. "Arrow")
+- `FlowSize?` (double) — serialized only when != 10 (default)
+- `FlowGapSize?` (double) — serialized only when != 10 (default)
+- `LineWidth?` (double?) — serialized when set
+
+---
+
+### 4 — `ApplicationState.cs` — Serialize and restore new properties
+
+`GetPageData()` serializes `FlowShape`, `FlowSize`, `FlowGapSize`, `LineWidth` on `NodeLinkModel`.
+`CreateDiagramFromPageData()` applies all four from `LinkData` when present.
+`FlowShape` is round-tripped via `Enum.TryParse<FlowShape>` from the string name.
+
+---
+
+### 5 — `LinkPropertyEditor.razor` — New controls for FlowShape + sizes
+
+Added to the link properties panel:
+- **Flow Shape** dropdown: Dash / Rectangle / Arrow / Chevron / DblChevron / TripleChevron
+- **Flow Unit Size (px)**: size of each moving dash or shape
+- **Flow Gap Size (px)**: gap between each unit
+- **Base Line Width Override**: separate override for the solid base line (0 = hide base line, shapes only)
+
+`@using Blazor.Diagrams.Core.Models` added for the `FlowShape` enum reference.
+
+
 
 ### Commit: (see below) — UTC timestamp: 2026-05-27 — Branch: develop
 

@@ -281,6 +281,10 @@ public class LinkData
     public string? Animation { get; set; }       // "None" | "Flow"
     public double? AnimationSpeed { get; set; }
     public string? FlowColor { get; set; }
+    public string? FlowShape { get; set; }       // FlowShape enum name e.g. "Dash","Arrow","Chevron"...
+    public double? FlowSize { get; set; }        // size of each moving unit (px)
+    public double? FlowGapSize { get; set; }     // gap between units (px)
+    public double? LineWidth { get; set; }       // base line width override (null = use Width)
 
     // Data
     public string? DataTopic { get; set; }

@@ -19,11 +19,11 @@
       12. push-changelog  Commit + push the changelog update
       13. push-pstt       Push unpushed PSTT commits to origin; wait for PSTT CI to pass
       14. push-blazor-diagrams  Push unpushed Blazor.Diagrams commits to origin; wait for CI
-      15. prep-submodules Merge PSTT develop→main; pin submodule to PSTT main
+      15. prep-submodules Merge PSTT + Blazor.Diagrams develop→main; pin submodules to main
       16. pr              Create PR → main, wait for CI checks, merge
       17. tag             Create annotated tag on origin/main and push it
       18. merge-back      Git Flow: merge main back into develop so the tag is reachable from develop (MinVer)
-      19. restore-submodules Restore PSTT submodule back to develop tracking [skip ci]
+      19. restore-submodules Restore PSTT + Blazor.Diagrams submodules to develop tracking [skip ci]
       20. wait-workflows  Wait for release workflows triggered by the tag
       21. post-deploy     SSH deploy: docker compose pull + up -d (skipped if DEPLOY_HOST not set)
 
@@ -314,9 +314,9 @@ $StepDesc = @{
     'push-changelog'       = 'Commit and push changelog'
     'push-pstt'            = 'Push PSTT commits to origin and wait for PSTT CI'
     'push-blazor-diagrams' = 'Push Blazor.Diagrams commits to origin and wait for CI'
-    'prep-submodules'      = 'Merge PSTT develop→main; pin submodule to PSTT main'
+    'prep-submodules'      = 'Merge PSTT + Blazor.Diagrams develop→main; pin submodules to main'
     'pr'                   = 'Create PR → wait for CI → merge'
-    'restore-submodules'   = 'Restore PSTT submodule to develop tracking'
+    'restore-submodules'   = 'Restore PSTT + Blazor.Diagrams submodules to develop tracking'
     'merge-back'           = 'Git Flow: merge main back into develop (makes release tag reachable by MinVer)'
     'tag'                  = 'Create and push release tag'
     'wait-workflows'       = 'Wait for release workflows'
@@ -856,6 +856,7 @@ function Step-PushBlazorDiagrams {
 
 # ─── Step: prep-submodules ───────────────────────────────────────────────────
 function Step-PrepSubmodules {
+    # ── PSTT ──────────────────────────────────────────────────────────────────
     $psttPath = Join-Path $RepoRoot 'libs' 'PSTT'
     Push-Location $psttPath
     try {
@@ -868,24 +869,39 @@ function Step-PrepSubmodules {
         else { Assert-Cmd git @('push', 'origin', 'main') "git push PSTT main failed" }
     } finally { Pop-Location }
 
-    Write-Step "Pinning Dashboard submodule pointer to PSTT main..."
-    Assert-Cmd git @('config', '-f', '.gitmodules', 'submodule.libs/PSTT.branch', 'main') "Failed to update .gitmodules"
-    Assert-Cmd git @('add', '.gitmodules', 'libs/PSTT') "git add failed"
+    # ── Blazor.Diagrams ───────────────────────────────────────────────────────
+    $bdPath = Join-Path $RepoRoot 'libs' 'Blazor.Diagrams'
+    Push-Location $bdPath
+    try {
+        Write-Step "Fetching Blazor.Diagrams remotes..."
+        Assert-Cmd git @('fetch', 'origin') "git fetch failed in Blazor.Diagrams"
+        Write-Step "Merging Blazor.Diagrams develop → main..."
+        Assert-Cmd git @('checkout', 'main') "git checkout main failed in Blazor.Diagrams"
+        Assert-Cmd git @('merge', 'origin/develop', '--no-edit') "Merge develop → main failed in Blazor.Diagrams submodule"
+        if ($IsDryRun) { Write-Warn "DRYRUN: skipping Blazor.Diagrams main push" }
+        else { Assert-Cmd git @('push', 'origin', 'main') "git push Blazor.Diagrams main failed" }
+    } finally { Pop-Location }
+
+    Write-Step "Pinning Dashboard submodule pointers to main..."
+    Assert-Cmd git @('config', '-f', '.gitmodules', 'submodule.libs/PSTT.branch', 'main') "Failed to update .gitmodules (PSTT)"
+    Assert-Cmd git @('config', '-f', '.gitmodules', 'submodule.libs/Blazor.Diagrams.branch', 'main') "Failed to update .gitmodules (Blazor.Diagrams)"
+    Assert-Cmd git @('add', '.gitmodules', 'libs/PSTT', 'libs/Blazor.Diagrams') "git add failed"
     # Nothing staged = submodule already pinned at the right commit; treat as success
     git diff --cached --quiet
     if ($LASTEXITCODE -ne 0) {
-        Assert-Cmd git @('commit', '-m', 'chore: pre-release — pin PSTT submodule to main') "git commit failed"
+        Assert-Cmd git @('commit', '-m', 'chore: pre-release — pin submodules to main') "git commit failed"
         if ($IsDryRun) { Write-Warn "DRYRUN: skipping push of submodule prep commit"; return }
         $branch = if ($script:CurrentBranch) { $script:CurrentBranch } else { Get-CmdOutput git @('rev-parse', '--abbrev-ref', 'HEAD') }
         Assert-Cmd git @('push', 'origin', $branch) "git push failed after submodule prep"
     } else {
-        Write-Warn "Submodule pointer already up to date — nothing to commit"
+        Write-Warn "Submodule pointers already up to date — nothing to commit"
     }
-    Write-Ok "PSTT submodule pinned to main — ready for release PR"
+    Write-Ok "Submodules pinned to main — ready for release PR"
 }
 
 # ─── Step: restore-submodules ────────────────────────────────────────────────
 function Step-RestoreSubmodules {
+    # ── PSTT ──────────────────────────────────────────────────────────────────
     $psttPath = Join-Path $RepoRoot 'libs' 'PSTT'
     Push-Location $psttPath
     try {
@@ -895,14 +911,25 @@ function Step-RestoreSubmodules {
         Assert-Cmd git @('pull', '--rebase', 'origin', 'develop') "git pull develop failed in PSTT"
     } finally { Pop-Location }
 
+    # ── Blazor.Diagrams ───────────────────────────────────────────────────────
+    $bdPath = Join-Path $RepoRoot 'libs' 'Blazor.Diagrams'
+    Push-Location $bdPath
+    try {
+        Write-Step "Switching Blazor.Diagrams submodule back to develop..."
+        Assert-Cmd git @('fetch', 'origin') "git fetch failed in Blazor.Diagrams"
+        Assert-Cmd git @('checkout', 'develop') "git checkout develop failed in Blazor.Diagrams"
+        Assert-Cmd git @('pull', '--rebase', 'origin', 'develop') "git pull develop failed in Blazor.Diagrams"
+    } finally { Pop-Location }
+
     Write-Step "Restoring .gitmodules branch tracking to develop..."
-    Assert-Cmd git @('config', '-f', '.gitmodules', 'submodule.libs/PSTT.branch', 'develop') "Failed to update .gitmodules"
-    Assert-Cmd git @('add', '.gitmodules', 'libs/PSTT') "git add failed"
-    Assert-Cmd git @('commit', '-m', "chore: post-release — restore PSTT submodule to develop [skip ci]") "git commit failed"
+    Assert-Cmd git @('config', '-f', '.gitmodules', 'submodule.libs/PSTT.branch', 'develop') "Failed to update .gitmodules (PSTT)"
+    Assert-Cmd git @('config', '-f', '.gitmodules', 'submodule.libs/Blazor.Diagrams.branch', 'develop') "Failed to update .gitmodules (Blazor.Diagrams)"
+    Assert-Cmd git @('add', '.gitmodules', 'libs/PSTT', 'libs/Blazor.Diagrams') "git add failed"
+    Assert-Cmd git @('commit', '-m', "chore: post-release — restore submodules to develop [skip ci]") "git commit failed"
     if ($IsDryRun) { Write-Warn "DRYRUN: skipping push of submodule restore commit"; return }
     $branch = if ($script:CurrentBranch) { $script:CurrentBranch } else { Get-CmdOutput git @('rev-parse', '--abbrev-ref', 'HEAD') }
     Assert-Cmd git @('push', 'origin', $branch) "git push failed after submodule restore"
-    Write-Ok "PSTT submodule restored to develop tracking"
+    Write-Ok "Submodules restored to develop tracking"
 }
 
 # ─── Step: pr ────────────────────────────────────────────────────────────────
