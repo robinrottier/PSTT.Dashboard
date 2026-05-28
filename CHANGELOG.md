@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [v0.1.12] - 2026-05-29
+
 ### Added
 - **Flow shape selector** — Links now support animated shapes beyond marching-ants dashes: Arrow (filled triangle), Chevron, Double Chevron, and Triple Chevron. Arrow/Chevron shapes use SVG `animateMotion` so they travel along the link path and correctly orient to the curve. All shapes are selectable in the Link Properties panel.
 - **Flow unit size and gap controls** — `Flow Unit Size` and `Flow Gap Size` are now independently configurable in the link properties panel (previously both were tied to a single `FlowDashSize` value).
