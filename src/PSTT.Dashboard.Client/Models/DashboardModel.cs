@@ -275,7 +275,6 @@ public class LinkData
     // Visual properties
     public string? Color { get; set; }
     public double? Width { get; set; }
-    public string? DashPattern { get; set; }
 
     // Animation
     public string? Animation { get; set; }       // "None" | "Flow"

@@ -69,11 +69,6 @@
                      Clearable="true"
                      HelperText="Set to 0 to hide the base line (shapes only). Empty = use Line Width." />
 
-    <MudTextField T="string?" Value="@Link.DashPattern" Label="Dash Pattern"
-                  Variant="Variant.Outlined" Margin="Margin.Dense" Placeholder="e.g. 5,5 or 10,3,2,3"
-                  HelperText="SVG stroke-dasharray for the base line (empty = solid)"
-                  ValueChanged="@((string? v) => { Link.DashPattern = v; OnChanged(); })" />
-
     @if (_sourcePort != null)
     {
         <MudSelect T="string" Value="@_sourcePort.PortStyle"

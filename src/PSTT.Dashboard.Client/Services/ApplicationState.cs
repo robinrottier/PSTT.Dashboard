@@ -533,7 +533,7 @@ public class ApplicationState
                     // Apply persisted visual properties
                     if (!string.IsNullOrEmpty(linkData.Color))     link.Color     = linkData.Color;
                     if (linkData.Width.HasValue)                    link.Width     = linkData.Width.Value;
-                    if (!string.IsNullOrEmpty(linkData.DashPattern)) link.DashPattern = linkData.DashPattern;                    if (!string.IsNullOrEmpty(linkData.FlowColor))  link.FlowColor = linkData.FlowColor;
+                    if (!string.IsNullOrEmpty(linkData.FlowColor))  link.FlowColor = linkData.FlowColor;
                     if (linkData.AnimationSpeed.HasValue)           link.FlowSpeed = linkData.AnimationSpeed.Value;
                     if (!string.IsNullOrEmpty(linkData.DataTopic))  link.DataTopic = linkData.DataTopic;
                     if (!string.IsNullOrEmpty(linkData.Animation))  link.Animation = linkData.Animation;
@@ -601,7 +601,6 @@ public class ApplicationState
             {
                 if (!string.IsNullOrEmpty(nl.Color))     linkData.Color     = nl.Color;
                 if (nl.Width != 2.0)                     linkData.Width     = nl.Width;
-                if (!string.IsNullOrEmpty(nl.DashPattern)) linkData.DashPattern = nl.DashPattern;
                 if (!string.IsNullOrEmpty(nl.FlowColor)) linkData.FlowColor = nl.FlowColor;
                 if (nl.FlowSpeed != 1.0)                 linkData.AnimationSpeed = nl.FlowSpeed;
                 if (!string.IsNullOrEmpty(nl.DataTopic)) linkData.DataTopic = nl.DataTopic;
