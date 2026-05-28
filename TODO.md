@@ -8,25 +8,10 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 - [ ] New link features:
 	- [ ] Link properties review. They should be as follows:
-		- [ ] Animation: None, Forward, Reverse.
-		      Whether to animate or not and if reverse simply means to interpret the dat value oppositely
-		- [ ] AnimationSpeed
-		- [ ] Shape: Block, Arrow.
-		      Basic shape that will be drawn along the line. Default is block (same as a dash)
-		- [ ] ShapePattern: length/spacing of shape drawn on line. 2 digit csv (other shape type may have different meanings)
-		- [ ] Width
-		      width of line in pixels
-		- [ ] BorderWidth
-		      within line width this sets solid line drawn outside shape drawing /animation
-			  thus "walking ants" is acheived with BorderWidth of 1 and ShapePattern of 5,5 ...so the ants appear inside the line
 		- [ ] SourcePortSyle, EndPortStyle
 		      None, Fine, Dot, HalfRound, Arrow
 			  shape to draw on port
-		- [ ] LineColor: base line color for dash, broder
-		- [ ] BackColor: color for space between shapes
 	- [ ] When port syle is changed its likely the "end" of the line needs to be adjusted so the line appears to join the widget 
-
-
 
 - [ ] Editor side panel:
 	- [ ] Dashboard and page properties edit could also have the "form" vs "grid" options — requires NpXxx attributes on DiagramState/PageState models
