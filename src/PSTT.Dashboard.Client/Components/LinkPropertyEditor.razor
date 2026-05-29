@@ -15,13 +15,22 @@
         <MudSelectItem Value="@("FlowReverse")">Flow reversed (data driven: − = forward, + = reverse)</MudSelectItem>
         <MudSelectItem Value="@("Forward")">Forward (always)</MudSelectItem>
         <MudSelectItem Value="@("Reverse")">Reverse (always)</MudSelectItem>
-        <MudSelectItem Value="@("None")">None (static line)</MudSelectItem>
+        <MudSelectItem Value="@("None")">None (static flow line)</MudSelectItem>
     </MudSelect>
 
     <MudTextField T="string" Value="@Link.DataTopic" Label="Data Topic"
                   Variant="Variant.Outlined" Margin="Margin.Dense"
                   HelperText="Numeric value drives direction (+ = forward, - = reverse)"
                   ValueChanged="OnDataTopicChanged" />
+
+    @if (Link.Animation is "Flow" or "FlowReverse")
+    {
+        <MudNumericField T="double?" Value="Link.FlowThreshold"
+                         ValueChanged="@((double? v) => { Link.FlowThreshold = v; OnChanged(); })"
+                         Label="Flow Threshold (minimum |value| to animate)"
+                         Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" Step="0.1"
+                         HelperText="Values within ±threshold show a static line instead of animating (0 = only exact zero pauses)" />
+    }
 
     <MudSelect T="FlowShape" Value="Link.FlowShape"
                ValueChanged="@((FlowShape v) => { Link.FlowShape = v; OnChanged(); })"

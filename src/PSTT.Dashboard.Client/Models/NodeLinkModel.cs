@@ -19,8 +19,14 @@ public class NodeLinkModel : FlowLinkModel
     public string? DataTopic { get; set; }
 
     /// <summary>
-    /// Persistent animation style: "None" (static link) or "Flow" (marching-ants, default).
-    /// Flow only activates when <see cref="DataTopic"/> is set.
+    /// Persistent animation style: "None" (static, not animated), "Flow" (data-driven, default),
+    /// "FlowReverse" (data-driven, reversed polarity), "Forward" or "Reverse" (fixed direction).
     /// </summary>
     public string Animation { get; set; } = "Flow";
+
+    /// <summary>
+    /// Dead-band threshold for data-driven modes. When |value| ≤ FlowThreshold the overlay is
+    /// shown as a static (non-animated) line. Null or 0 means only exactly zero pauses.
+    /// </summary>
+    public double? FlowThreshold { get; set; }
 }
