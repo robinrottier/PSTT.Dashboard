@@ -7,6 +7,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [v0.1.13] - 2026-05-29
+
+### Fixed
+- **Port positioning** — Links now connect precisely to the node boundary when ports are set to Invisible or Fine. The previous inline port-size CSS hack (wrong `margin:-10px` for 10px ports) has been replaced with correct CSS overrides in `app.css`.
+- **Link animation: Forward/Reverse options restored** — The link property editor now has four animation modes: Flow (data-driven), Forward (always), Reverse (always), None. Changing the mode takes effect immediately.
+- **Duplicate links prevented** — Drawing a new link between two ports that are already connected is now blocked; the in-progress link is silently discarded. If duplicate links appear in saved diagram data they are overwritten by the later entry on load (with a console warning).
+
+### Added
+- **FlowMarker** — Links have a new "Flow Marker" property (None / Arrow / Circle / Square). The marker is automatically placed at the downstream end of the link, switching sides as the flow direction changes.
+- **Flow Width control** — The link property editor now exposes `FlowWidth` (width of the animated overlay, defaults to half of Line Width).
+
+### Changed
+- **Link width simplified** — `FlowLinkModel.LineWidth` has been removed from both the submodule and the dashboard. Use `Width` (the inherited `LinkModel.Width`) to set the solid base line width. Setting `Width = 0` hides the base line. The old "Base Line Width Override" field in the property editor is replaced by the clearable "Flow Width" field.
+
 ## [v0.1.12] - 2026-05-29
 
 ## [v0.1.12] - 2026-05-29

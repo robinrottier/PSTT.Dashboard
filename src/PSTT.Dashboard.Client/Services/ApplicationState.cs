@@ -4,6 +4,7 @@ using Blazor.Diagrams.Core.Anchors;
 using Blazor.Diagrams.Core.Controls.Default;
 using Blazor.Diagrams.Core.Geometry;
 using Blazor.Diagrams.Core.Models;
+using Blazor.Diagrams.Core.Models.Base;
 using Blazor.Diagrams.Core.PathGenerators;
 using Blazor.Diagrams.Core.Positions.Resizing;
 using Blazor.Diagrams.Core.Routers;
@@ -445,6 +446,7 @@ public class ApplicationState
             CanvasBackgroundColor = page.BackgroundColor ?? string.Empty;
 
         var diagram = new BlazorDiagram(options);
+        diagram.Links.Added += OnInteractiveLinkAdded;
         diagram.RegisterComponent<TextNodeModel, MudNodeWidget>();
         diagram.RegisterComponent<GaugeNodeModel, GaugeNodeWidget>();
         diagram.RegisterComponent<SwitchNodeModel, SwitchNodeWidget>();
@@ -539,10 +541,22 @@ public class ApplicationState
                     if (!string.IsNullOrEmpty(linkData.Animation))  link.Animation = linkData.Animation;
                     if (linkData.FlowSize.HasValue)                 link.FlowSize    = linkData.FlowSize.Value;
                     if (linkData.FlowGapSize.HasValue)              link.FlowGapSize = linkData.FlowGapSize.Value;
-                    if (linkData.LineWidth.HasValue)                link.LineWidth   = linkData.LineWidth.Value;
+                    if (linkData.FlowWidth.HasValue)                link.FlowWidth   = linkData.FlowWidth.Value;
+                    if (!string.IsNullOrEmpty(linkData.FlowMarker) && linkData.FlowMarker != "None")
+                        link.FlowMarker = ParseFlowMarker(linkData.FlowMarker);
                     if (!string.IsNullOrEmpty(linkData.FlowShape) &&
                         Enum.TryParse<Blazor.Diagrams.Core.Models.FlowShape>(linkData.FlowShape, out var fs))
                         link.FlowShape = fs;
+
+                    // Guard against duplicate links in saved data — overwrite the earlier one
+                    Model? srcModel = sourcePort ?? (Model?)sourceNode;
+                    Model? tgtModel = targetPort ?? (Model?)targetNode;
+                    var existingDuplicate = diagram.Links.FirstOrDefault(l => LinkConnectsSameEndpoints(l, srcModel, tgtModel));
+                    if (existingDuplicate != null)
+                    {
+                        Console.WriteLine($"[Dashboard] Duplicate link in saved data ({linkData.Source}:{linkData.SourcePort} → {linkData.Target}:{linkData.TargetPort}). Overwriting with later entry.");
+                        diagram.Links.Remove(existingDuplicate);
+                    }
 
                     diagram.Links.Add(link);
                     link.Locked = readOnly;
@@ -607,7 +621,11 @@ public class ApplicationState
                 if (nl.Animation != "Flow")              linkData.Animation = nl.Animation;
                 if (nl.FlowSize != 10.0)                 linkData.FlowSize    = nl.FlowSize;
                 if (nl.FlowGapSize != 10.0)              linkData.FlowGapSize = nl.FlowGapSize;
-                if (nl.LineWidth.HasValue)               linkData.LineWidth   = nl.LineWidth;
+                if (nl.FlowWidth.HasValue)               linkData.FlowWidth   = nl.FlowWidth;
+                if (nl.FlowMarker != null)               linkData.FlowMarker  = nl.FlowMarker == Blazor.Diagrams.Core.Models.LinkMarker.Arrow ? "Arrow"
+                                                                                              : nl.FlowMarker == Blazor.Diagrams.Core.Models.LinkMarker.Circle ? "Circle"
+                                                                                              : nl.FlowMarker == Blazor.Diagrams.Core.Models.LinkMarker.Square ? "Square"
+                                                                                              : null;
                 if (nl.FlowShape != Blazor.Diagrams.Core.Models.FlowShape.Dash)
                     linkData.FlowShape = nl.FlowShape.ToString();
             }
@@ -757,10 +775,14 @@ public class ApplicationState
             _linkWatchers.Remove(link.Id);
         }
 
-        if (string.IsNullOrEmpty(link.DataTopic) || link.Animation == "None")
+        if (string.IsNullOrEmpty(link.DataTopic) || link.Animation is "None" or "Forward" or "Reverse")
         {
-            if (link.Animation == "None")
-                link.FlowDirection = Blazor.Diagrams.Core.Models.FlowDirection.None;
+            link.FlowDirection = link.Animation switch
+            {
+                "Forward" => Blazor.Diagrams.Core.Models.FlowDirection.Forward,
+                "Reverse" => Blazor.Diagrams.Core.Models.FlowDirection.Reverse,
+                _         => Blazor.Diagrams.Core.Models.FlowDirection.None,
+            };
             return;
         }
 
@@ -786,6 +808,51 @@ public class ApplicationState
                      : d < 0 ? Blazor.Diagrams.Core.Models.FlowDirection.Reverse
                               : Blazor.Diagrams.Core.Models.FlowDirection.Paused)
             : Blazor.Diagrams.Core.Models.FlowDirection.None;
+    }
+
+    private static Blazor.Diagrams.Core.Models.LinkMarker? ParseFlowMarker(string? value) =>
+        value switch
+        {
+            "Arrow"  => Blazor.Diagrams.Core.Models.LinkMarker.Arrow,
+            "Circle" => Blazor.Diagrams.Core.Models.LinkMarker.Circle,
+            "Square" => Blazor.Diagrams.Core.Models.LinkMarker.Square,
+            _        => null,
+        };
+
+    private static Model? GetAnchorModel(Anchor? anchor) => anchor switch
+    {
+        SinglePortAnchor spa     => spa.Port,
+        ShapeIntersectionAnchor sia => sia.Node,
+        _                        => null,
+    };
+
+    private static bool LinkConnectsSameEndpoints(BaseLinkModel link, Model? src, Model? tgt)
+    {
+        if (src == null || tgt == null) return false;
+        var sp = GetAnchorModel(link.Source);
+        var tp = GetAnchorModel(link.Target);
+        if (sp == null || tp == null) return false;
+        return (sp == src && tp == tgt) || (sp == tgt && tp == src);
+    }
+
+    private void OnInteractiveLinkAdded(BaseLinkModel link)
+    {
+        if (!link.IsAttached)
+            link.TargetAttached += OnInteractiveLinkTargetAttached;
+    }
+
+    private void OnInteractiveLinkTargetAttached(BaseLinkModel link)
+    {
+        link.TargetAttached -= OnInteractiveLinkTargetAttached;
+        if (_diagram == null) return;
+
+        var src = GetAnchorModel(link.Source);
+        var tgt = GetAnchorModel(link.Target);
+        if (_diagram.Links.Any(l => l != link && LinkConnectsSameEndpoints(l, src, tgt)))
+        {
+            _diagram.Links.Remove(link);
+            Console.WriteLine("[Dashboard] Duplicate link rejected: a link already exists between these ports.");
+        }
     }
 
     internal void AddPortToNode(NodeModel node, PortAlignment alignment, string? portStyle = null)

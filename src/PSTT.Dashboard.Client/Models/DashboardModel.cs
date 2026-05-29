@@ -277,13 +277,14 @@ public class LinkData
     public double? Width { get; set; }
 
     // Animation
-    public string? Animation { get; set; }       // "None" | "Flow"
+    public string? Animation { get; set; }       // "None" | "Flow" | "Forward" | "Reverse"
     public double? AnimationSpeed { get; set; }
     public string? FlowColor { get; set; }
     public string? FlowShape { get; set; }       // FlowShape enum name e.g. "Dash","Arrow","Chevron"...
     public double? FlowSize { get; set; }        // size of each moving unit (px)
     public double? FlowGapSize { get; set; }     // gap between units (px)
-    public double? LineWidth { get; set; }       // base line width override (null = use Width)
+    public double? FlowWidth { get; set; }       // flow overlay width (null = half of Width)
+    public string? FlowMarker { get; set; }      // "None" | "Arrow" | "Circle" | "Square"
 
     // Data
     public string? DataTopic { get; set; }

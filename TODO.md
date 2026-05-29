@@ -6,6 +6,10 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 ## BUGS
 
+- [ ] **FlowLink: hidden-port line extension** _(CSS fix applied — monitor for remaining offset issues)_
+	- Port sizing now set correctly in CSS (10px with -5px margin), replacing inline style hack.
+	- Invisible ports should now line up correctly on the node boundary.
+
 - [ ] New link features:
 	- [ ] Link properties review. They should be as follows:
 		- [ ] SourcePortSyle, EndPortStyle
@@ -111,6 +115,8 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 	- [x] remove link animation from current widget joined to the link and build it into the link itself — ✓ done (Session C)
 	- [x] links have set of properties (Color, Width, DashPattern, DataTopic, Animation, AnimationSpeed, FlowColor) — ✓ done (Session C)
 		- [x] Properties editor (LinkPropertyEditor) shown in side panel when link selected — ✓ done (Session C)
+	- [ ] **FlowLink width properties simplification** — ✓ done: `LineWidth` removed from `FlowLinkModel`; `Width` (inherited) is the base line width; `FlowWidth` controls animation overlay width. Both exposed in property editor.
+	- [ ] **FlowLink: data-direction-aware marker (arrow)** — ✓ done: `FlowMarker` property added to `FlowLinkModel`; placement follows `FlowDirection` automatically. Exposed in link property editor (None/Arrow/Circle/Square).
 - [ ] Behaviours:
 	- [ ] as current drag from a port starts a new link, drop on end port to finish it or drop on canvas to leave it unattached
 	- [x] a new link inherits data topic from widget at start point but can be changed in link properties — ✓ done (Session C)

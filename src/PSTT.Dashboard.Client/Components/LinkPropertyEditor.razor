@@ -7,11 +7,13 @@
     <MudText Typo="Typo.subtitle2" Class="mb-1">Link Properties</MudText>
 
     <MudSelect T="string" Value="Link.Animation"
-               ValueChanged="@((string v) => { Link.Animation = v; OnChanged(); })"
+               ValueChanged="@((string v) => { Link.Animation = v; OnAnimationChanged(); })"
                Label="Flow Animation" Variant="Variant.Outlined"
                Margin="Margin.Dense" Dense="true"
                HelperText="Animated overlay driven by Data Topic value">
-        <MudSelectItem Value="@("Flow")">Flow (animated overlay)</MudSelectItem>
+        <MudSelectItem Value="@("Flow")">Flow (data driven: + = forward, − = reverse)</MudSelectItem>
+        <MudSelectItem Value="@("Forward")">Forward (always)</MudSelectItem>
+        <MudSelectItem Value="@("Reverse")">Reverse (always)</MudSelectItem>
         <MudSelectItem Value="@("None")">None (static line)</MudSelectItem>
     </MudSelect>
 
@@ -59,15 +61,27 @@
 
     <MudNumericField T="double" Value="Link.Width"
                      ValueChanged="@((double v) => { Link.Width = v; OnChanged(); })"
-                     Label="Line Width"
-                     Variant="Variant.Outlined" Margin="Margin.Dense" Min="0.5" Max="20.0" Step="0.5" />
+                     Label="Line Width (px)"
+                     Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" Max="20.0" Step="0.5"
+                     HelperText="Width of the solid base line. Set to 0 to hide it." />
 
-    <MudNumericField T="double?" Value="Link.LineWidth"
-                     ValueChanged="@((double? v) => { Link.LineWidth = v; OnChanged(); })"
-                     Label="Base Line Width Override"
+    <MudNumericField T="double?" Value="Link.FlowWidth"
+                     ValueChanged="@((double? v) => { Link.FlowWidth = v; OnChanged(); })"
+                     Label="Flow Width (px)"
                      Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" Max="20.0" Step="0.5"
                      Clearable="true"
-                     HelperText="Set to 0 to hide the base line (shapes only). Empty = use Line Width." />
+                     HelperText="Width of the animated overlay. Empty = half of Line Width (0 width = hidden)." />
+
+    <MudSelect T="string" Value="@FlowMarkerName"
+               ValueChanged="@((string v) => { Link.FlowMarker = ParseFlowMarker(v); OnChanged(); })"
+               Label="Flow Marker" Variant="Variant.Outlined"
+               Margin="Margin.Dense" Dense="true"
+               HelperText="Arrow marker placed at the downstream end (follows flow direction)">
+        <MudSelectItem Value="@("None")">None</MudSelectItem>
+        <MudSelectItem Value="@("Arrow")">Arrow ▶</MudSelectItem>
+        <MudSelectItem Value="@("Circle")">Circle ●</MudSelectItem>
+        <MudSelectItem Value="@("Square")">Square ■</MudSelectItem>
+    </MudSelect>
 
     @if (_sourcePort != null)
     {
@@ -102,11 +116,31 @@
     private NodePortModel? _sourcePort => Link.Source?.Model as NodePortModel;
     private NodePortModel? _targetPort => Link.Target?.Model as NodePortModel;
 
+    private string FlowMarkerName => Link.FlowMarker == Blazor.Diagrams.Core.Models.LinkMarker.Arrow  ? "Arrow"
+                                   : Link.FlowMarker == Blazor.Diagrams.Core.Models.LinkMarker.Circle ? "Circle"
+                                   : Link.FlowMarker == Blazor.Diagrams.Core.Models.LinkMarker.Square ? "Square"
+                                   : "None";
+
+    private static Blazor.Diagrams.Core.Models.LinkMarker? ParseFlowMarker(string value) =>
+        value switch
+        {
+            "Arrow"  => Blazor.Diagrams.Core.Models.LinkMarker.Arrow,
+            "Circle" => Blazor.Diagrams.Core.Models.LinkMarker.Circle,
+            "Square" => Blazor.Diagrams.Core.Models.LinkMarker.Square,
+            _        => null,
+        };
+
     private void OnChanged()
     {
         Link.Refresh();
         AppState.MarkEdited();
         OnLinkChanged.InvokeAsync();
+    }
+
+    private void OnAnimationChanged()
+    {
+        AppState.SetupLinkDataWatcher(Link);
+        OnChanged();
     }
 
     private void OnDataTopicChanged(string value)
@@ -119,7 +153,8 @@
     private void OnPortStyleChanged(NodePortModel port, string style)
     {
         port.PortStyle = style;
-        port.Refresh();
+        port.Refresh();          // sets _shouldRender=true in PortRenderer
+        port.Parent.Refresh();   // re-renders node widget → passes updated CSS class to PortRenderer
         AppState.MarkEdited();
         OnLinkChanged.InvokeAsync();
     }
