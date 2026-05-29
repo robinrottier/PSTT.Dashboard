@@ -63,14 +63,14 @@
                      ValueChanged="@((double v) => { Link.Width = v; OnChanged(); })"
                      Label="Line Width (px)"
                      Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" Max="20.0" Step="0.5"
-                     HelperText="Width of the solid base line. Set to 0 to hide it (shapes only)." />
+                     HelperText="Width of the solid base line. Set to 0 to hide it." />
 
     <MudNumericField T="double?" Value="Link.FlowWidth"
                      ValueChanged="@((double? v) => { Link.FlowWidth = v; OnChanged(); })"
                      Label="Flow Width (px)"
-                     Variant="Variant.Outlined" Margin="Margin.Dense" Min="0.5" Max="20.0" Step="0.5"
+                     Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" Max="20.0" Step="0.5"
                      Clearable="true"
-                     HelperText="Width of the animated overlay. Empty = auto (half of Line Width)." />
+                     HelperText="Width of the animated overlay. Empty = half of Line Width (0 width = hidden)." />
 
     <MudSelect T="string" Value="@FlowMarkerName"
                ValueChanged="@((string v) => { Link.FlowMarker = ParseFlowMarker(v); OnChanged(); })"
