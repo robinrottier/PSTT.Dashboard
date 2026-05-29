@@ -4,6 +4,7 @@ using Blazor.Diagrams.Core.Anchors;
 using Blazor.Diagrams.Core.Controls.Default;
 using Blazor.Diagrams.Core.Geometry;
 using Blazor.Diagrams.Core.Models;
+using Blazor.Diagrams.Core.Models.Base;
 using Blazor.Diagrams.Core.PathGenerators;
 using Blazor.Diagrams.Core.Positions.Resizing;
 using Blazor.Diagrams.Core.Routers;
@@ -445,6 +446,7 @@ public class ApplicationState
             CanvasBackgroundColor = page.BackgroundColor ?? string.Empty;
 
         var diagram = new BlazorDiagram(options);
+        diagram.Links.Added += OnInteractiveLinkAdded;
         diagram.RegisterComponent<TextNodeModel, MudNodeWidget>();
         diagram.RegisterComponent<GaugeNodeModel, GaugeNodeWidget>();
         diagram.RegisterComponent<SwitchNodeModel, SwitchNodeWidget>();
@@ -545,6 +547,16 @@ public class ApplicationState
                     if (!string.IsNullOrEmpty(linkData.FlowShape) &&
                         Enum.TryParse<Blazor.Diagrams.Core.Models.FlowShape>(linkData.FlowShape, out var fs))
                         link.FlowShape = fs;
+
+                    // Guard against duplicate links in saved data — overwrite the earlier one
+                    Model? srcModel = sourcePort ?? (Model?)sourceNode;
+                    Model? tgtModel = targetPort ?? (Model?)targetNode;
+                    var existingDuplicate = diagram.Links.FirstOrDefault(l => LinkConnectsSameEndpoints(l, srcModel, tgtModel));
+                    if (existingDuplicate != null)
+                    {
+                        Console.WriteLine($"[Dashboard] Duplicate link in saved data ({linkData.Source}:{linkData.SourcePort} → {linkData.Target}:{linkData.TargetPort}). Overwriting with later entry.");
+                        diagram.Links.Remove(existingDuplicate);
+                    }
 
                     diagram.Links.Add(link);
                     link.Locked = readOnly;
@@ -806,6 +818,42 @@ public class ApplicationState
             "Square" => Blazor.Diagrams.Core.Models.LinkMarker.Square,
             _        => null,
         };
+
+    private static Model? GetAnchorModel(Anchor? anchor) => anchor switch
+    {
+        SinglePortAnchor spa     => spa.Port,
+        ShapeIntersectionAnchor sia => sia.Node,
+        _                        => null,
+    };
+
+    private static bool LinkConnectsSameEndpoints(BaseLinkModel link, Model? src, Model? tgt)
+    {
+        if (src == null || tgt == null) return false;
+        var sp = GetAnchorModel(link.Source);
+        var tp = GetAnchorModel(link.Target);
+        if (sp == null || tp == null) return false;
+        return (sp == src && tp == tgt) || (sp == tgt && tp == src);
+    }
+
+    private void OnInteractiveLinkAdded(BaseLinkModel link)
+    {
+        if (!link.IsAttached)
+            link.TargetAttached += OnInteractiveLinkTargetAttached;
+    }
+
+    private void OnInteractiveLinkTargetAttached(BaseLinkModel link)
+    {
+        link.TargetAttached -= OnInteractiveLinkTargetAttached;
+        if (_diagram == null) return;
+
+        var src = GetAnchorModel(link.Source);
+        var tgt = GetAnchorModel(link.Target);
+        if (_diagram.Links.Any(l => l != link && LinkConnectsSameEndpoints(l, src, tgt)))
+        {
+            _diagram.Links.Remove(link);
+            Console.WriteLine("[Dashboard] Duplicate link rejected: a link already exists between these ports.");
+        }
+    }
 
     internal void AddPortToNode(NodeModel node, PortAlignment alignment, string? portStyle = null)
     {

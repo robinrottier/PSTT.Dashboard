@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 - **Port positioning** — Links now connect precisely to the node boundary when ports are set to Invisible or Fine. The previous inline port-size CSS hack (wrong `margin:-10px` for 10px ports) has been replaced with correct CSS overrides in `app.css`.
 - **Link animation: Forward/Reverse options restored** — The link property editor now has four animation modes: Flow (data-driven), Forward (always), Reverse (always), None. Changing the mode takes effect immediately.
+- **Duplicate links prevented** — Drawing a new link between two ports that are already connected is now blocked; the in-progress link is silently discarded. If duplicate links appear in saved diagram data they are overwritten by the later entry on load (with a console warning).
 
 ### Added
 - **FlowMarker** — Links have a new "Flow Marker" property (None / Arrow / Circle / Square). The marker is automatically placed at the downstream end of the link, switching sides as the flow direction changes.

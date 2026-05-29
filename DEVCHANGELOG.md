@@ -1,3 +1,29 @@
+## 2026-05-29 — Duplicate link prevention
+
+### Commit: (pending) — UTC timestamp: 2026-05-29 — Branch: develop
+
+---
+
+### 1 — Bug fix: Prevent duplicate links between same ports
+
+**Files**: `src/PSTT.Dashboard.Client/Services/ApplicationState.cs`
+
+**Problem**: Blazor.Diagrams allowed the user to draw a second link between ports that already had a connection. Both links shared identical SVG paths so the duplicate was invisible — until one link was edited (e.g. changing colour), revealing the original link underneath. This was the root cause of the orange-colour bug reported this session.
+
+**Implementation** (dashboard only, no submodule changes required):
+
+- Added `using Blazor.Diagrams.Core.Models.Base;` for `BaseLinkModel` and `Model`.
+- Subscribed to `diagram.Links.Added` immediately after diagram creation. For in-progress (unattached) links the handler subscribes to the link's `TargetAttached` event.
+- `OnInteractiveLinkTargetAttached`: fires when the user drops a link onto a target port. Checks all existing links using `LinkConnectsSameEndpoints`. If a duplicate is found, calls `diagram.Links.Remove(link)` to discard the new link silently. Logs to console.
+- `OnInteractiveLinkTargetAttached` unsubscribes itself immediately to avoid repeated firing.
+- **Deserialization guard**: before each `diagram.Links.Add(link)` in `CreateDiagramFromState`, the new link's endpoints are compared against all already-added links. If a duplicate is found, the existing link is removed first (overwrite semantics), a console warning is logged, and then the new link is added.
+- `GetAnchorModel(Anchor?)` — helper that extracts the `Model` from a `SinglePortAnchor` (returns `PortModel`) or `ShapeIntersectionAnchor` (returns `NodeModel`), returning null for floating anchors.
+- `LinkConnectsSameEndpoints` — symmetric comparison (A→B matches B→A).
+
+**Caveats**: No UI snackbar notification is shown to the user yet — the duplicate is simply dropped silently (console log only). A toast notification could be added later if desired.
+
+---
+
 ## 2026-05-29 — FlowLink fixes: port positioning, width simplification, animation options, FlowMarker
 
 ### Commit: (pending) — UTC timestamp: 2026-05-29 — Branch: develop
