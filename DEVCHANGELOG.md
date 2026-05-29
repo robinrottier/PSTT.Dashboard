@@ -1,8 +1,70 @@
-## 2026-05-29 — Blazor.Diagrams submodule update: FlowShape + new FlowLink properties
+## 2026-05-29 — FlowLink fixes: port positioning, width simplification, animation options, FlowMarker
 
-### Commit: (see below) — UTC timestamp: 2026-05-29 — Branch: develop
+### Commit: (pending) — UTC timestamp: 2026-05-29 — Branch: develop
 
 ---
+
+### 1 — Bug #1: Port positioning fix (CSS margin correction)
+
+**Files**: `src/PSTT.Dashboard.Client/wwwroot/app.css`, `src/PSTT.Dashboard.Client/Widgets/BaseNodeWidget.cs`, `src/PSTT.Dashboard.Client/Widgets/StandardNodeLayout.razor`
+
+**Root cause**: The default blazor-diagrams CSS sets `margin:-10px` on `.diagram-port` (designed for 20px ports). PSTT was overriding width/height to 10px via inline C# styles, but the margin stayed at -10px — causing ports to not sit correctly on the node boundary. For invisible ports, the link appeared to end a few pixels short of the node edge.
+
+**Fix**: Removed the inline size override in `PortStyleFor()` (StandardNodeLayout) and `PortStyle()` (BaseNodeWidget) — both now return an empty string. Added CSS overrides in `app.css`:
+- `.default-node .diagram-port`: `width:10px; height:10px; margin:-5px`
+- `.default-node .diagram-port.port-fine`: `width:5px; height:5px; margin:-2.5px`
+
+This correctly positions ports on the node boundary. Invisible ports (opacity:0) remain the same DOM size as dot ports, so link endpoints are accurate.
+
+---
+
+### 2 — Bug #2: Add Forward/Reverse animation options to property editor
+
+**Files**: `src/PSTT.Dashboard.Client/Components/LinkPropertyEditor.razor`, `src/PSTT.Dashboard.Client/Services/ApplicationState.cs`
+
+The `Animation` field only had "Flow" and "None". Added "Forward (always)" and "Reverse (always)" options:
+- **LinkPropertyEditor.razor**: 4-option `MudSelect` (Flow / Forward / Reverse / None); renamed helper text to clarify data-driven vs static modes.
+- **ApplicationState.cs** `SetupLinkDataWatcher`: extended the early-return condition to `link.Animation is "None" or "Forward" or "Reverse"`; the direction is assigned via a switch. No MQTT subscription is needed when animation is always-on.
+- **Also fixed (rubber duck finding)**: changing Animation now calls `SetupLinkDataWatcher` immediately via new `OnAnimationChanged()` method, so the direction takes effect live without requiring a page reload.
+
+---
+
+### 3 — Bug #3: Width property simplification
+
+**Files**: `libs/Blazor.Diagrams` (submodule commit `94a496b`), `src/PSTT.Dashboard.Client/Models/DashboardModel.cs`, `src/PSTT.Dashboard.Client/Services/ApplicationState.cs`, `src/PSTT.Dashboard.Client/Components/LinkPropertyEditor.razor`
+
+- **Submodule**: Removed `FlowLinkModel.LineWidth`, `_lineWidth`, and `ResolvedLineWidth` (kept `ResolvedLineWidth` as `[Obsolete]` returning `Width` for binary compatibility). `FlowLinkWidget.razor` now uses `FlowLink.Width` directly for the base line stroke.
+- **DashboardModel.cs** `LinkData`: Removed `LineWidth`; added `FlowWidth` (double?) and `FlowMarker` (string).
+- **ApplicationState.cs**: Load/save updated — removes `LineWidth`, adds `FlowWidth`; see also Bug #4 for FlowMarker.
+- **LinkPropertyEditor.razor**: Removed "Base Line Width Override" field; added clearable "Flow Width" field with helper text "auto = half of Line Width".
+- Old saves with `LineWidth` in JSON will silently ignore it (System.Text.Json default).
+
+---
+
+### 4 — Bug #4: FlowMarker (data-direction-aware arrow)
+
+**Files**: `libs/Blazor.Diagrams` (submodule commit `94a496b`), `src/PSTT.Dashboard.Client/Models/DashboardModel.cs`, `src/PSTT.Dashboard.Client/Services/ApplicationState.cs`, `src/PSTT.Dashboard.Client/Components/LinkPropertyEditor.razor`
+
+- **Submodule** `FlowLinkModel`: New `FlowMarker` (LinkMarker?) property. When non-null, it manages `SourceMarker`/`TargetMarker` from `BaseLinkModel` automatically:
+  - Forward → TargetMarker = FlowMarker, SourceMarker = null
+  - Reverse → SourceMarker = FlowMarker, TargetMarker = null
+  - None/Paused → both unchanged (FlowMarker being non-null is the only trigger)
+  - Setting FlowMarker = null clears both markers. When FlowMarker is null, direction changes leave manual markers untouched (rubber duck finding addressed).
+- **Dashboard**: Serialized as string "Arrow"/"Circle"/"Square"/null. `ParseFlowMarker()` static helper in both `LinkPropertyEditor.razor` and `ApplicationState.cs` converts strings to `LinkMarker` instances.
+- **LinkPropertyEditor.razor**: "Flow Marker" MudSelect dropdown (None/Arrow/Circle/Square).
+- `FlowLinkWidget.razor` already renders `SourceMarker`/`TargetMarker` — no widget changes needed.
+
+---
+
+### Tests
+
+All 208 submodule tests pass. All 70 dashboard client tests pass. All 14 server tests pass.
+
+Submodule `FlowLinkModelTests.cs`: removed 4 `LineWidth_*` tests, updated `DefaultValues_ShouldBeCorrect`, added 8 `FlowMarker_*` tests.
+
+---
+
+## 2026-05-29 — Blazor.Diagrams submodule update: FlowShape + new FlowLink properties
 
 ### 1 — `libs/Blazor.Diagrams` — Switch submodule from `main` to `develop`
 

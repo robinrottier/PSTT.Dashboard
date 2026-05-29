@@ -539,7 +539,9 @@ public class ApplicationState
                     if (!string.IsNullOrEmpty(linkData.Animation))  link.Animation = linkData.Animation;
                     if (linkData.FlowSize.HasValue)                 link.FlowSize    = linkData.FlowSize.Value;
                     if (linkData.FlowGapSize.HasValue)              link.FlowGapSize = linkData.FlowGapSize.Value;
-                    if (linkData.LineWidth.HasValue)                link.LineWidth   = linkData.LineWidth.Value;
+                    if (linkData.FlowWidth.HasValue)                link.FlowWidth   = linkData.FlowWidth.Value;
+                    if (!string.IsNullOrEmpty(linkData.FlowMarker) && linkData.FlowMarker != "None")
+                        link.FlowMarker = ParseFlowMarker(linkData.FlowMarker);
                     if (!string.IsNullOrEmpty(linkData.FlowShape) &&
                         Enum.TryParse<Blazor.Diagrams.Core.Models.FlowShape>(linkData.FlowShape, out var fs))
                         link.FlowShape = fs;
@@ -607,7 +609,11 @@ public class ApplicationState
                 if (nl.Animation != "Flow")              linkData.Animation = nl.Animation;
                 if (nl.FlowSize != 10.0)                 linkData.FlowSize    = nl.FlowSize;
                 if (nl.FlowGapSize != 10.0)              linkData.FlowGapSize = nl.FlowGapSize;
-                if (nl.LineWidth.HasValue)               linkData.LineWidth   = nl.LineWidth;
+                if (nl.FlowWidth.HasValue)               linkData.FlowWidth   = nl.FlowWidth;
+                if (nl.FlowMarker != null)               linkData.FlowMarker  = nl.FlowMarker == Blazor.Diagrams.Core.Models.LinkMarker.Arrow ? "Arrow"
+                                                                                              : nl.FlowMarker == Blazor.Diagrams.Core.Models.LinkMarker.Circle ? "Circle"
+                                                                                              : nl.FlowMarker == Blazor.Diagrams.Core.Models.LinkMarker.Square ? "Square"
+                                                                                              : null;
                 if (nl.FlowShape != Blazor.Diagrams.Core.Models.FlowShape.Dash)
                     linkData.FlowShape = nl.FlowShape.ToString();
             }
@@ -757,10 +763,14 @@ public class ApplicationState
             _linkWatchers.Remove(link.Id);
         }
 
-        if (string.IsNullOrEmpty(link.DataTopic) || link.Animation == "None")
+        if (string.IsNullOrEmpty(link.DataTopic) || link.Animation is "None" or "Forward" or "Reverse")
         {
-            if (link.Animation == "None")
-                link.FlowDirection = Blazor.Diagrams.Core.Models.FlowDirection.None;
+            link.FlowDirection = link.Animation switch
+            {
+                "Forward" => Blazor.Diagrams.Core.Models.FlowDirection.Forward,
+                "Reverse" => Blazor.Diagrams.Core.Models.FlowDirection.Reverse,
+                _         => Blazor.Diagrams.Core.Models.FlowDirection.None,
+            };
             return;
         }
 
@@ -787,6 +797,15 @@ public class ApplicationState
                               : Blazor.Diagrams.Core.Models.FlowDirection.Paused)
             : Blazor.Diagrams.Core.Models.FlowDirection.None;
     }
+
+    private static Blazor.Diagrams.Core.Models.LinkMarker? ParseFlowMarker(string? value) =>
+        value switch
+        {
+            "Arrow"  => Blazor.Diagrams.Core.Models.LinkMarker.Arrow,
+            "Circle" => Blazor.Diagrams.Core.Models.LinkMarker.Circle,
+            "Square" => Blazor.Diagrams.Core.Models.LinkMarker.Square,
+            _        => null,
+        };
 
     internal void AddPortToNode(NodeModel node, PortAlignment alignment, string? portStyle = null)
     {

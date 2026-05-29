@@ -50,7 +50,23 @@ html, body, .mud-layout, .mud-main-content, main, .page, .sidebar, .dashboard-ca
    .port-invisible: link attaches correctly but port dot is hidden in view mode.
    .port-fine:      a small tick/dot instead of the default filled circle.
    In edit mode (dashboard-edit-mode), invisible ports are shown faintly
-   so users can still drag from them. */
+   so users can still drag from them.
+
+   The default blazor-diagrams CSS uses 20px ports with margin:-10px.
+   PSTT uses 10px ports, so we override both size and margin here.
+   port-fine uses 5px; port-invisible keeps the same size as dot (opacity only). */
+
+.default-node .diagram-port {
+    width: 10px;
+    height: 10px;
+    margin: -5px;
+}
+
+.default-node .diagram-port.port-fine {
+    width: 5px;
+    height: 5px;
+    margin: -2.5px;
+}
 
 .diagram-port.port-invisible {
     opacity: 0;

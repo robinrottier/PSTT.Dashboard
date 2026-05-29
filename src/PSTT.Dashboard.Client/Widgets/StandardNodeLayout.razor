@@ -97,12 +97,7 @@
         if (AppState.IsEditMode) AppState.TriggerEditProperties();
     }
 
-    private static string PortStyleFor(Blazor.Diagrams.Core.Models.PortModel port)
-    {
-        if (port is not NodePortModel mp) return "";
-        var size = mp.PortStyle == "Fine" ? 5 : (int)mp.Size.Width;
-        return $"width:{size}px; height:{size}px;";
-    }
+    private static string PortStyleFor(Blazor.Diagrams.Core.Models.PortModel port) => string.Empty;
 
     private static string PortClassFor(Blazor.Diagrams.Core.Models.PortModel port) =>
         port is NodePortModel mp ? mp.PortStyle switch

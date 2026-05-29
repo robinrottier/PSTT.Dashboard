@@ -31,12 +31,7 @@ public abstract class BaseNodeWidget<TNode> : ComponentBase, IDisposable
         (Node.Group  != null  ? " grouped"  : "") +
         (Node.Selected        ? " selected" : "");
 
-    protected static string PortStyle(NodePortModel? port)
-    {
-        if (port == null) return string.Empty;
-        var size = port.PortStyle == "Fine" ? 5 : (int)port.Size.Width;
-        return $"width:{size}px; height:{size}px;";
-    }
+    protected static string PortStyle(NodePortModel? port) => string.Empty;
 
     protected static string PortClass(NodePortModel? port) =>
         port?.PortStyle switch
