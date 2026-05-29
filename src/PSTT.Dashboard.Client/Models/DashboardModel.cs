@@ -285,6 +285,7 @@ public class LinkData
     public double? FlowGapSize { get; set; }     // gap between units (px)
     public double? FlowWidth { get; set; }       // flow overlay width (null = half of Width)
     public string? FlowMarker { get; set; }      // "None" | "Arrow" | "Circle" | "Square"
+    public double? FlowThreshold { get; set; }   // minimum |value| to animate; below → static line
 
     // Data
     public string? DataTopic { get; set; }
