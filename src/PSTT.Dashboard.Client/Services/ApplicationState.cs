@@ -763,7 +763,8 @@ public class ApplicationState
     /// <summary>
     /// Subscribes to a <see cref="NodeLinkModel"/>'s DataTopic and drives its
     /// <see cref="FlowLinkModel.FlowDirection"/> from the numeric data value.
-    /// Positive → Forward, negative → Reverse, zero → Paused, non-numeric → None.
+    /// Normal (Flow): Positive → Forward, negative → Reverse, zero → Paused, non-numeric → None.
+    /// Reversed (FlowReverse): Positive → Reverse, negative → Forward, zero → Paused, non-numeric → None.
     /// Calling this again on the same link safely replaces the previous subscription.
     /// </summary>
     public void SetupLinkDataWatcher(NodeLinkModel link)
@@ -803,11 +804,17 @@ public class ApplicationState
 
     private static void ApplyLinkDataValue(NodeLinkModel link, string? value)
     {
-        link.FlowDirection = (value != null && double.TryParse(value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var d))
-            ? (d > 0 ? Blazor.Diagrams.Core.Models.FlowDirection.Forward
-                     : d < 0 ? Blazor.Diagrams.Core.Models.FlowDirection.Reverse
-                              : Blazor.Diagrams.Core.Models.FlowDirection.Paused)
-            : Blazor.Diagrams.Core.Models.FlowDirection.None;
+        if (value == null || !double.TryParse(value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var d))
+        {
+            link.FlowDirection = Blazor.Diagrams.Core.Models.FlowDirection.None;
+            return;
+        }
+        var flipped = link.Animation == "FlowReverse";
+        link.FlowDirection = d > 0
+            ? (flipped ? Blazor.Diagrams.Core.Models.FlowDirection.Reverse : Blazor.Diagrams.Core.Models.FlowDirection.Forward)
+            : d < 0
+                ? (flipped ? Blazor.Diagrams.Core.Models.FlowDirection.Forward : Blazor.Diagrams.Core.Models.FlowDirection.Reverse)
+                : Blazor.Diagrams.Core.Models.FlowDirection.Paused;
     }
 
     private static Blazor.Diagrams.Core.Models.LinkMarker? ParseFlowMarker(string? value) =>
