@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [v0.1.13] - 2026-05-29
+
 ### Fixed
 - **Port positioning** — Links now connect precisely to the node boundary when ports are set to Invisible or Fine. The previous inline port-size CSS hack (wrong `margin:-10px` for 10px ports) has been replaced with correct CSS overrides in `app.css`.
 - **Link animation: Forward/Reverse options restored** — The link property editor now has four animation modes: Flow (data-driven), Forward (always), Reverse (always), None. Changing the mode takes effect immediately.
