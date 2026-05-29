@@ -153,7 +153,8 @@
     private void OnPortStyleChanged(NodePortModel port, string style)
     {
         port.PortStyle = style;
-        port.Refresh();
+        port.Refresh();          // sets _shouldRender=true in PortRenderer
+        port.Parent.Refresh();   // re-renders node widget → passes updated CSS class to PortRenderer
         AppState.MarkEdited();
         OnLinkChanged.InvokeAsync();
     }
