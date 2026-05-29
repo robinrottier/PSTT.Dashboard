@@ -16,6 +16,7 @@ var hubUrl = builder.HostEnvironment.BaseAddress.TrimEnd('/') + "/cachehub";
 var remoteCache = new RemoteCacheBuilder<string>()
     .WithSignalRTransport(hubUrl)
     .WithUtf8Encoding()
+    .WithAutoReconnect(TimeSpan.FromSeconds(5))
     .Build();
 builder.Services.AddSingleton<ICache<string,string>>(remoteCache);
 builder.Services.AddSingleton(remoteCache);

@@ -8,6 +8,7 @@ public class DropDownNodeModel : TextNodeModel
     {
         NodeType = "DropDown";
     }
+    public override bool SupportsProperty(string propertyName) => propertyName != nameof(Text) && base.SupportsProperty(propertyName);
 
     /// <summary>Comma-separated list of options to show in the dropdown.</summary>
     [NpText("Options (comma-separated)", Category = "Drop Down", Order = 1, Placeholder = "On,Off,Auto")]

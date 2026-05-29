@@ -261,6 +261,8 @@ public class NodePortData
 {
     [FileId] public string Id { get; set; } = string.Empty;
     public string Alignment { get; set; } = string.Empty;
+    /// <summary>Visual style: "Dot" (default), "Invisible", "Fine".</summary>
+    public string? PortStyle { get; set; }
 }
 
 public class LinkData
@@ -269,4 +271,20 @@ public class LinkData
     public string? SourcePort { get; set; }   // port alignment string — must NOT be remapped
     [FileId] public string Target { get; set; } = string.Empty;
     public string? TargetPort { get; set; }   // port alignment string — must NOT be remapped
+
+    // Visual properties
+    public string? Color { get; set; }
+    public double? Width { get; set; }
+
+    // Animation
+    public string? Animation { get; set; }       // "None" | "Flow"
+    public double? AnimationSpeed { get; set; }
+    public string? FlowColor { get; set; }
+    public string? FlowShape { get; set; }       // FlowShape enum name e.g. "Dash","Arrow","Chevron"...
+    public double? FlowSize { get; set; }        // size of each moving unit (px)
+    public double? FlowGapSize { get; set; }     // gap between units (px)
+    public double? LineWidth { get; set; }       // base line width override (null = use Width)
+
+    // Data
+    public string? DataTopic { get; set; }
 }

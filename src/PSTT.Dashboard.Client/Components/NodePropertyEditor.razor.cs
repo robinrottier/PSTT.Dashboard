@@ -14,6 +14,7 @@ public partial class NodePropertyEditor
     [Parameter] public TextNodeModel Node { get; set; } = default!;
     [Parameter] public EventCallback OnSaved { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public bool AutoCloseOnCancel { get; set; } = true;
     [Inject] private IDialogService DialogService { get; set; } = default!;
     [Inject] private ApplicationState AppState { get; set; } = default!;
 
@@ -109,7 +110,7 @@ public partial class NodePropertyEditor
         Node.Metadata[newKey] = "";
     }
 
-    private async Task Save()
+    public async Task Save()
     {
         Node.Size    = new Blazor.Diagrams.Core.Geometry.Size(Width, Height);
         Node.FontSize = FontSize > 0 ? FontSize : null;
@@ -122,14 +123,15 @@ public partial class NodePropertyEditor
         await OnSaved.InvokeAsync();
     }
 
-    private async Task Cancel()
+    public async Task Cancel()
     {
         // Revert local state
         Width    = _savedWidth;
         Height   = _savedHeight;
         FontSize = _savedFontSize;
 
-        await OnClose.InvokeAsync();
+        if (AutoCloseOnCancel)
+            await OnClose.InvokeAsync();
     }
 
     /// <summary>
@@ -139,7 +141,7 @@ public partial class NodePropertyEditor
     private IEnumerable<string> GetNodeSpecificCategories() =>
         Node.GetType().GetProperties()
             .Select(p => p.GetCustomAttribute<NodePropertyAttribute>()?.Category)
-            .Where(c => !string.IsNullOrEmpty(c))
+            .Where(c => !string.IsNullOrEmpty(c) && c != "Common")
             .Distinct()!;
 
     // ── Table widget: discover defs from live data ────────────────────────────

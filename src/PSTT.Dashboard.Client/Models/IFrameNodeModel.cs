@@ -8,6 +8,7 @@ public class IFrameNodeModel : TextNodeModel
     {
         NodeType = "IFrame";
     }
+    public override bool SupportsProperty(string propertyName) => propertyName != nameof(Text) && base.SupportsProperty(propertyName);
 
     [NpText("URL", Category = "IFrame", Order = 1, Placeholder = "https://example.com")]
     public string? SourceUrl { get; set; }

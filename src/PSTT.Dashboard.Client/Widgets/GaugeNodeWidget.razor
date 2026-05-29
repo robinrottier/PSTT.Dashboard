@@ -8,7 +8,7 @@
         <div style="flex:1;min-height:0;min-width:0;">
             @if (Node.TextPosition == "Above" && !string.IsNullOrEmpty(Node.Text))
             {
-                <div style="text-align:center;font-size:0.75rem;padding:1px 4px;word-break:break-word;">@FormatText()</div>
+                <div style="text-align:center;font-size:0.75rem;padding:1px 4px;word-break:break-word;white-space:pre-wrap;">@FormatHtml()</div>
             }
             <svg viewBox="0 0 120 75" style="width:100%;height:auto;display:block;">
                 <!-- Background track arc (full 180° semicircle, radius 55, centred at 60,65) -->
@@ -28,7 +28,7 @@
             </svg>
             @if (Node.TextPosition != "Above" && !string.IsNullOrEmpty(Node.Text))
             {
-                <div style="text-align:center;font-size:0.75rem;padding:1px 4px;word-break:break-word;">@FormatText()</div>
+                <div style="text-align:center;font-size:0.75rem;padding:1px 4px;word-break:break-word;white-space:pre-wrap;">@FormatHtml()</div>
             }
         </div>
     </ExtraContent>

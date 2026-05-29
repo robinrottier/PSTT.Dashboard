@@ -8,6 +8,7 @@ public class ButtonGroupNodeModel : TextNodeModel
     {
         NodeType = "ButtonGroup";
     }
+    public override bool SupportsProperty(string propertyName) => propertyName != nameof(Text) && base.SupportsProperty(propertyName);
 
     /// <summary>
     /// Newline-separated list of buttons. Each line: "Label=Value".

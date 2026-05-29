@@ -1,0 +1,16 @@
+@using System.Reflection
+@using PSTT.Dashboard.Models
+
+<DynamicComponent Type="ComponentType" Parameters="@BuildParams()" />
+
+@code {
+    [Parameter] public Type ComponentType { get; set; } = default!;
+    [Parameter] public object? Model { get; set; }
+    [Parameter] public PropertyInfo? Prop { get; set; }
+
+    private Dictionary<string, object> BuildParams() => new()
+    {
+        ["Node"] = (Model as TextNodeModel)!,
+        ["Value"] = (Prop?.GetValue(Model) ?? new object()),
+    };
+}

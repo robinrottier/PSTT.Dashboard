@@ -45,7 +45,28 @@ html, body, .mud-layout, .mud-main-content, main, .page, .sidebar, .dashboard-ca
 }
 
 
-/* Ensure MudDrawer / side panels can shrink */
-.mud-drawer {
-    min-width: 0 !important;
+
+/* ── Port style classes ──────────────────────────────────────────────
+   .port-invisible: link attaches correctly but port dot is hidden in view mode.
+   .port-fine:      a small tick/dot instead of the default filled circle.
+   In edit mode (dashboard-edit-mode), invisible ports are shown faintly
+   so users can still drag from them. */
+
+.diagram-port.port-invisible {
+    opacity: 0;
+    transition: opacity 0.15s ease;
 }
+
+.diagram-port.port-fine {
+    border-radius: 2px;
+}
+
+/* Edit-mode: show invisible ports as translucent; full opacity on hover */
+.dashboard-edit-mode .diagram-port.port-invisible {
+    opacity: 0.3;
+}
+
+.dashboard-edit-mode .diagram-port.port-invisible:hover {
+    opacity: 1;
+}
+

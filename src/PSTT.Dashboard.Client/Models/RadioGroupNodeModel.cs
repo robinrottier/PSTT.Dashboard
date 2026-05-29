@@ -8,6 +8,7 @@ public class RadioGroupNodeModel : TextNodeModel
     {
         NodeType = "RadioGroup";
     }
+    public override bool SupportsProperty(string propertyName) => propertyName != nameof(Text) && base.SupportsProperty(propertyName);
 
     /// <summary>
     /// Newline-separated list of radio options. Each line: "Label=Value".

@@ -7,6 +7,64 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [v0.1.12] - 2026-05-29
+
+## [v0.1.12] - 2026-05-29
+
+### Added
+- **Flow shape selector** — Links now support animated shapes beyond marching-ants dashes: Arrow (filled triangle), Chevron, Double Chevron, and Triple Chevron. Arrow/Chevron shapes use SVG `animateMotion` so they travel along the link path and correctly orient to the curve. All shapes are selectable in the Link Properties panel.
+- **Flow unit size and gap controls** — `Flow Unit Size` and `Flow Gap Size` are now independently configurable in the link properties panel (previously both were tied to a single `FlowDashSize` value).
+- **Base line width override** — A per-link "Base Line Width Override" allows hiding the solid base line (set to 0) so only the moving shapes render — useful for a clean arrow-only animation style.
+
+### Changed
+- **Blazor.Diagrams submodule on `develop`** — The submodule now tracks the `develop` branch (matching the PSTT submodule pattern). `FlowDashSize` has been renamed to `FlowSize`; a new separate `FlowGapSize` property controls the gap between units. The default widget auto-derives shape count from path length for uniform spacing regardless of link length.
+- **Release workflow updated** — `release.ps1` `prep-submodules` and `restore-submodules` steps now merge/restore both the PSTT and Blazor.Diagrams submodules (develop↔main) symmetrically.
+
+- **FEAT-F Session C: PSTT link layer** — Links are now first-class model objects (`NodeLinkModel`) with their own Color, Width, DashPattern, DataTopic, Animation, AnimationSpeed, and FlowColor properties. All properties persist to `diagram.json`. When a link is selected in edit mode, the side panel shows a dedicated `LinkPropertyEditor`. New links automatically inherit the source node's `DataTopic` as a default.
+- **Data-driven link animation** — A link's `DataTopic` drives `FlowDirection` at runtime: positive value → Forward, negative → Reverse, zero → Paused. The marching-ants overlay from `FlowLinkWidget` (Session B) responds immediately to MQTT updates.
+- **FEAT-F Session B: FlowLinkModel + FlowLinkWidget** (Blazor.Diagrams layer): `FlowLinkModel` extends `LinkModel` with marching-ants animation (FlowDirection, FlowSpeed, FlowColor, FlowWidth, FlowDashSize). `FlowLinkWidget` renders a 3-layer SVG (base path + animated overlay + selection helper). Includes interactive `FlowLinkDemo` sample page and 17 unit tests.
+- **Data connection auto-reconnect**: The WASM client now automatically reconnects to the server SignalR hub after any network drop. SignalR's own exponential-backoff reconnect runs first; if that fails, the `RemoteCache` layer retries every 5 seconds independently.
+- **Click-to-reconnect UI**: The MQTT cloud status icon in the app bar is now a button. Clicking it (or the app icon) when offline immediately triggers a reconnect attempt. The tooltip shows "— Click to reconnect" when the connection is lost.
+
+- **Flaky test fixed** (`MultiClient_DisconnectOneDoesNotAffectOther`): Thread-pool starvation under concurrent build+test load caused a fire-and-forget `SubscribeServerTopicAsync` task to never start within the 30-second timeout. Fixed by using `TaskCreationOptions.LongRunning` in `RemoteCache.AttachUpstream`, which creates a dedicated OS thread immediately instead of queuing to the shared pool. Verified: 10/10 runs pass (was ~1-in-3 failure).
+
+### Fixed
+- **Stale data shown as connected**: After a SignalR disconnect, all subscribed cache entries were marked `Stale` but the MQTT status subscriber re-evaluated the last retained `"Connected"` value — leaving `IsMqttConnected = true` when the transport was actually down. Fixed by checking `sub.Status.IsStale` and setting status to `"Disconnected (reconnecting...)"` immediately.
+- **Missing `WithAutoReconnect()`**: `RemoteCacheBuilder` was never called with `.WithAutoReconnect()`, so the background retry loop never started after a disconnect. Data would stay stale until a full page reload.
+- **`Reconnected` subscriptions lost**: When SignalR's own reconnect succeeded, the `RemoteCache` was unaware (only `Closed` was handled, not `Reconnected`). All server-side topic subscriptions were silently dropped on each reconnect. Fixed by wiring `HubConnection.Reconnected` to re-trigger the `Disconnected` handler, causing `ResubscribeAllAsync` to run.
+- **`ConnectAsync` double-start**: After the above fix, `ConnectAsync` could call `HubConnection.StartAsync` on an already-connected hub, throwing `InvalidOperationException`. Added a state guard to skip `StartAsync` (or wait out an in-progress reconnect) while still running `ResubscribeAllAsync`.
+- **Links not drawn on first render**: The initial connection resilience fix incorrectly wired `HubConnection.Reconnected` → `Disconnected` on the transport. This caused `RemoteCache` to publish `Status.Stale` for every subscribed key when SignalR's auto-reconnect fired (including brief reconnects during app startup on mobile). The mass `StateHasChanged()` storm on all widgets interrupted Blazor Diagrams' port measurement cycle — links had no positions and were invisible. Fixed by adding a distinct `Reconnected` event to the transport interface; `OnReconnectedAsync` only resubscribes, never marks data stale.
+
+
+- **Combined Edit Side Panel**: Three floating edit panels (Add Node, Node Properties, Data Explorer) and the Dashboard Properties modal dialog have been replaced by a single docked right-side panel (`EditSidePanel`). The panel has five icon tabs (Node Props, Add Node, Data Explorer, Page Props, Dashboard Props), is resizable by dragging its left edge, and auto-opens when entering edit mode.
+- **Node Properties — grid/list sub-view**: The Node Props tab offers a compact two-column grid editor (`PropertyGridEditor`) driven by `[NpXxx]` attribute decorators on model properties, alongside the existing custom form view (`NodePropertyEditor`). Toggle between views with the grid/form icon in the panel toolbar.
+- **`NpColorAttribute`**: New `[NpColor(...)]` attribute for model properties, rendered as `<ColorInputRow>` in both `PropertyGridEditor` and `NodePropertyEditor`.
+- **`TextNodeModel` property decorators**: Seven `TextNodeModel` properties (TitlePosition, IconColor, Text, BackgroundColor, BackgroundImageUrl, BackgroundObjectFit, FontSize) now carry `[NpXxx]` attribute decorators so they appear automatically in the new grid view.
+- **`TextNodeModel.NodeTitle`**: New `NodeTitle` wrapper property exposes the node's Title through the `NpXxx` attribute system so it appears as the first row in the grid view editor.
+- **Page Properties tab**: Edit the active page name and background colour inline from the side panel (no separate dialog needed).
+- **Page reorder buttons**: Page Properties tab now has ◁ ▷ buttons to move the current page left or right in the tab order.
+- **Side panel width persistence**: Panel width (200–800 px) is saved to `localStorage` and restored on next load.
+- **`NodeModelSnapshot`**: New `Helpers/NodeModelSnapshot.cs` helper serialises/restores all `NpXxx`-decorated node properties as JSON. Used for grid-view Cancel (reverts live edits) and designed as the foundation for a future JSON property editor.
+
+### Changed
+- **`TextNodeModel.LinkAnimation` removed** — Link animation is now a property of the link itself (via `NodeLinkModel`/`FlowLinkModel`), not the source node. Existing saved JSON with `LinkAnimation` is silently ignored on load.
+- Dashboard Properties is now displayed in the side panel tab instead of a modal dialog. The `DashboardPropertiesDialog` is retained as a thin wrapper for backward compatibility.
+- **Panel layout**: The edit side panel now spans the full viewport height, covering the page-tabs row. The Add Node / Data Explorer icon buttons are removed from the page-tabs toolbar and replaced with a single toggle button (Tune icon → open; × → close).
+- **Apply/Cancel at top of panel**: Node property Apply and Cancel buttons are now in the panel's subview toolbar (always visible), not at the bottom of the form. Grid view: Apply commits to undo history; Cancel reverts via snapshot. Buttons are disabled when no changes have been made.
+- Node property grid-view changes are reflected live on the canvas as properties are edited.
+
+### Fixed
+- Data Explorer tab crash: `OnAdornmentClick` EventCallback type mismatch (`EventCallback` vs `EventCallback<MouseEventArgs>`) caused an unhandled exception when opening the tab.
+- Page property changes (title, background colour) were not undoable; they now push an undo snapshot before applying.
+- Seven `TextNodeModel` common properties appeared twice in the grid view editor (once in the manually-coded section and once via NpXxx attribute rendering).
+- Node property font-size and other properties would reset back to their default a moment after editing due to `StateHasChanged` overwriting local form state; now fixed by `AutoCloseOnCancel` and the grid/form split.
+
+### Fixed
+- **Grid view changes now update the canvas**: `PropertyGridEditor` now fires an `OnChanged` callback after each property mutation; `EditSidePanel` uses this to call `Node.Refresh()` and mark the diagram dirty.
+- **Node property Save now records undo and marks dirty**: `OnNodePropertiesSaved()` in Display now correctly calls `PushUndoSnapshot()` and `AppState.MarkEdited()` — previously changes were lost on close and could not be undone.
+- **No duplicate properties in custom form**: `GetNodeSpecificCategories()` now excludes the "Common" category, preventing the seven `TextNodeModel` NpXxx-decorated properties from being rendered twice in the custom form.
+- **Removed redundant `max-height:70vh`** from `NodePropertyEditor`'s wrapper div — the panel's own scroll container makes this unnecessary.
+
 ## [v0.1.11] - 2026-05-06
 
 ### Added

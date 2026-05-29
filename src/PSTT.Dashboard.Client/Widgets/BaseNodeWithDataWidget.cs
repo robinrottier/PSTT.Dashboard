@@ -1,4 +1,3 @@
-using Blazor.Diagrams.Core.Anchors;
 using Blazor.Diagrams.Core.Models;
 using Microsoft.AspNetCore.Components;
 using PSTT.Dashboard.Models;
@@ -32,13 +31,6 @@ public abstract class BaseNodeWithDataWidget<TNode> : BaseNodeWidget<TNode>
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
-        {
-            // Ensure link animations are applied once the SVG is in the DOM.
-            // Node widgets only mount after IsInteractive = true (guarded by @if in Display.razor),
-            // so firstRender reliably fires when the diagram canvas is rendered.
-            TriggerLinkAnimation();
-        }
         await base.OnAfterRenderAsync(firstRender);
     }
 
@@ -73,7 +65,7 @@ public abstract class BaseNodeWithDataWidget<TNode> : BaseNodeWidget<TNode>
             {
                 Node.DataValues[idx]       = v;
                 Node.DataUpdatedTimes[idx] = DateTime.Now;
-                if (idx == 0) { OnDataUpdated(); TriggerLinkAnimation(); }
+                if (idx == 0) { OnDataUpdated(); }
             }
 
             var watcher = AppState.BridgedDataCache.Subscribe(capturedTopic, async sub =>
@@ -89,10 +81,6 @@ public abstract class BaseNodeWithDataWidget<TNode> : BaseNodeWidget<TNode>
                     Node.DataUpdatedTimes[idx] = DateTime.Now;
                     OnDataReceivedCore(idx, key, value);
                     OnDataUpdated();
-                    if (idx == 0)
-                    {
-                        TriggerLinkAnimation();
-                    }
                     StateHasChanged();
                 });
                 await Task.CompletedTask;
@@ -105,37 +93,6 @@ public abstract class BaseNodeWithDataWidget<TNode> : BaseNodeWidget<TNode>
     /// Called for every topic index when a value is received.
     /// </summary>
     protected virtual void OnDataReceivedCore(int index, string topic, object? rawValue) { }
-
-    /// <summary>
-    /// Updates link animation direction on all outgoing links based on the current DataValue
-    /// and the node's LinkAnimation setting. Runs automatically on every data update.
-    /// </summary>
-    protected void TriggerLinkAnimation()
-    {
-        if (Node.LinkAnimation == null || Node.LinkAnimation == "None") return;
-        var val = Node.DataValues?[0]?.ToString();
-        if (val == null || !double.TryParse(val, out var d)) return;
-
-        if (Node.LinkAnimation == "Reverse") d = -d;
-
-        foreach (var port in Node.Ports)
-        {
-            foreach (var link in port.Links)
-            {
-                if (link is not LinkModel l || l.Animations == null || l.Animations[0] == null) continue;
-                var ani = l.Animations[0];
-                var anchor = link.Source as SinglePortAnchor;
-                if (anchor?.Port != port) continue;
-
-                var to = d > 0 ? "-10" : d < 0 ? "10" : "0";
-                if (to != ani.To)
-                {
-                    ani.To = to;
-                    l.Refresh();
-                }
-            }
-        }
-    }
 
     /// <summary>Called after any DataValue is updated. Override to react.</summary>
     protected virtual void OnDataUpdated() { }
@@ -187,20 +144,24 @@ public abstract class BaseNodeWithDataWidget<TNode> : BaseNodeWidget<TNode>
         new(@"\{(\d+)(?::([^}]*))?\}", RegexOptions.Compiled);
 
     /// <summary>
-    /// Renders <see cref="TextNodeModel.Text"/> as a <see cref="MarkupString"/> so that
-    /// HTML tags in the static template (e.g. <c>&lt;b&gt;</c>, <c>&lt;br&gt;</c>) are
-    /// interpreted by the browser rather than displayed as literal text.
-    ///
-    /// Data values substituted for <c>{0}</c>, <c>{1}</c>, etc. are HTML-encoded before
-    /// insertion to prevent injection from MQTT payloads authored outside the dashboard.
+    /// Renders <see cref="TextNodeModel.Text"/> substituting data values for <c>{0}</c>,
+    /// <c>{1}</c>, etc. Both the static template and substituted values are HTML-encoded,
+    /// so angle brackets and special characters appear as literal text.
+    /// Newlines (Enter in the text field) are preserved as line breaks via CSS white-space:pre-wrap.
+    /// Supports C# format specs, e.g. {0:F2}.
     /// </summary>
     protected MarkupString FormatHtml()
     {
         if (string.IsNullOrEmpty(Node.Text)) return new MarkupString(string.Empty);
         try
         {
-            var html = _formatTokenRegex.Replace(Node.Text, m =>
+            var sb = new System.Text.StringBuilder();
+            int lastIndex = 0;
+            foreach (Match m in _formatTokenRegex.Matches(Node.Text))
             {
+                // Encode the static segment before this token so HTML tags appear as literal text
+                sb.Append(System.Net.WebUtility.HtmlEncode(Node.Text[lastIndex..m.Index]));
+
                 int idx = int.Parse(m.Groups[1].Value);
                 string? spec = m.Groups[2].Success && m.Groups[2].Length > 0 ? m.Groups[2].Value : null;
                 object? raw = idx < Node.DataValues.Length ? Node.DataValues[idx] : null;
@@ -212,9 +173,12 @@ public abstract class BaseNodeWithDataWidget<TNode> : BaseNodeWidget<TNode>
                         : (raw?.ToString() ?? string.Empty);
                 }
                 catch { formatted = raw?.ToString() ?? string.Empty; }
-                return System.Net.WebUtility.HtmlEncode(formatted);
-            });
-            return new MarkupString(html);
+                sb.Append(System.Net.WebUtility.HtmlEncode(formatted));
+                lastIndex = m.Index + m.Length;
+            }
+            // Encode the trailing static segment
+            sb.Append(System.Net.WebUtility.HtmlEncode(Node.Text[lastIndex..]));
+            return new MarkupString(sb.ToString());
         }
         catch { return new MarkupString(System.Net.WebUtility.HtmlEncode(Node.Text)); }
     }

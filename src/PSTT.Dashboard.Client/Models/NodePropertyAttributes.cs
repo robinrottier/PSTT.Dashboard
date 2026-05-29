@@ -75,3 +75,11 @@ public sealed class NpCustomAttribute(string displayName, Type componentType) : 
 {
     public Type ComponentType { get; } = componentType;
 }
+
+/// <summary>CSS color value input with color swatch preview and picker dialogs.</summary>
+public sealed class NpColorAttribute(string displayName) : NodePropertyAttribute(displayName)
+{
+    /// <summary>When true, shows a clear button to set the value to null.</summary>
+    public bool ShowClear { get; set; } = true;
+    public string? Placeholder { get; set; }
+}

@@ -1,0 +1,126 @@
+@using PSTT.Dashboard.Models
+@using PSTT.Dashboard.Services
+@using MudBlazor
+@using Blazor.Diagrams.Core.Models
+
+<MudStack Spacing="2" Class="pa-2">
+    <MudText Typo="Typo.subtitle2" Class="mb-1">Link Properties</MudText>
+
+    <MudSelect T="string" Value="Link.Animation"
+               ValueChanged="@((string v) => { Link.Animation = v; OnChanged(); })"
+               Label="Flow Animation" Variant="Variant.Outlined"
+               Margin="Margin.Dense" Dense="true"
+               HelperText="Animated overlay driven by Data Topic value">
+        <MudSelectItem Value="@("Flow")">Flow (animated overlay)</MudSelectItem>
+        <MudSelectItem Value="@("None")">None (static line)</MudSelectItem>
+    </MudSelect>
+
+    <MudTextField T="string" Value="@Link.DataTopic" Label="Data Topic"
+                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                  HelperText="Numeric value drives direction (+ = forward, - = reverse)"
+                  ValueChanged="OnDataTopicChanged" />
+
+    <MudSelect T="FlowShape" Value="Link.FlowShape"
+               ValueChanged="@((FlowShape v) => { Link.FlowShape = v; OnChanged(); })"
+               Label="Flow Shape" Variant="Variant.Outlined"
+               Margin="Margin.Dense" Dense="true">
+        <MudSelectItem Value="FlowShape.Dash">Dash (marching ants)</MudSelectItem>
+        <MudSelectItem Value="FlowShape.Rectangle">Rectangle (flat caps)</MudSelectItem>
+        <MudSelectItem Value="FlowShape.Arrow">Arrow (filled triangle)</MudSelectItem>
+        <MudSelectItem Value="FlowShape.Chevron">Chevron (&gt;)</MudSelectItem>
+        <MudSelectItem Value="FlowShape.DblChevron">Double Chevron (&gt;&gt;)</MudSelectItem>
+        <MudSelectItem Value="FlowShape.TripleChevron">Triple Chevron (&gt;&gt;&gt;)</MudSelectItem>
+    </MudSelect>
+
+    <MudNumericField T="double" Value="Link.FlowSpeed"
+                     ValueChanged="@((double v) => { Link.FlowSpeed = Math.Round(v, 2); OnChanged(); })"
+                     Label="Animation Speed (s/cycle)"
+                     Variant="Variant.Outlined" Margin="Margin.Dense" Min="0.1" Max="10.0" Step="0.1" />
+
+    <MudNumericField T="double" Value="Link.FlowSize"
+                     ValueChanged="@((double v) => { Link.FlowSize = v; OnChanged(); })"
+                     Label="Flow Unit Size (px)"
+                     Variant="Variant.Outlined" Margin="Margin.Dense" Min="1" Max="100" Step="1"
+                     HelperText="Length of each moving dash or shape" />
+
+    <MudNumericField T="double" Value="Link.FlowGapSize"
+                     ValueChanged="@((double v) => { Link.FlowGapSize = v; OnChanged(); })"
+                     Label="Flow Gap Size (px)"
+                     Variant="Variant.Outlined" Margin="Margin.Dense" Min="1" Max="100" Step="1"
+                     HelperText="Gap between each moving unit" />
+
+    <ColorInputRow Value="@Link.Color"
+                   ValueChanged="@((string? v) => { Link.Color = v; OnChanged(); })"
+                   Label="Line Color" Placeholder="(default)" />
+
+    <ColorInputRow Value="@Link.FlowColor"
+                   ValueChanged="@((string? v) => { Link.FlowColor = v; OnChanged(); })"
+                   Label="Flow Overlay Color" Placeholder="(line color)" />
+
+    <MudNumericField T="double" Value="Link.Width"
+                     ValueChanged="@((double v) => { Link.Width = v; OnChanged(); })"
+                     Label="Line Width"
+                     Variant="Variant.Outlined" Margin="Margin.Dense" Min="0.5" Max="20.0" Step="0.5" />
+
+    <MudNumericField T="double?" Value="Link.LineWidth"
+                     ValueChanged="@((double? v) => { Link.LineWidth = v; OnChanged(); })"
+                     Label="Base Line Width Override"
+                     Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" Max="20.0" Step="0.5"
+                     Clearable="true"
+                     HelperText="Set to 0 to hide the base line (shapes only). Empty = use Line Width." />
+
+    @if (_sourcePort != null)
+    {
+        <MudSelect T="string" Value="@_sourcePort.PortStyle"
+                   ValueChanged="@((string v) => OnPortStyleChanged(_sourcePort, v))"
+                   Label="Source Port Style" Variant="Variant.Outlined"
+                   Margin="Margin.Dense" Dense="true">
+            <MudSelectItem Value="@("Dot")">Dot (default)</MudSelectItem>
+            <MudSelectItem Value="@("Fine")">Fine (small tick)</MudSelectItem>
+            <MudSelectItem Value="@("Invisible")">Invisible (hidden)</MudSelectItem>
+        </MudSelect>
+    }
+
+    @if (_targetPort != null)
+    {
+        <MudSelect T="string" Value="@_targetPort.PortStyle"
+                   ValueChanged="@((string v) => OnPortStyleChanged(_targetPort, v))"
+                   Label="Target Port Style" Variant="Variant.Outlined"
+                   Margin="Margin.Dense" Dense="true">
+            <MudSelectItem Value="@("Dot")">Dot (default)</MudSelectItem>
+            <MudSelectItem Value="@("Fine")">Fine (small tick)</MudSelectItem>
+            <MudSelectItem Value="@("Invisible")">Invisible (hidden)</MudSelectItem>
+        </MudSelect>
+    }
+</MudStack>
+
+@code {
+    [Parameter] public NodeLinkModel Link { get; set; } = default!;
+    [Parameter] public EventCallback OnLinkChanged { get; set; }
+    [Parameter] public ApplicationState AppState { get; set; } = default!;
+
+    private NodePortModel? _sourcePort => Link.Source?.Model as NodePortModel;
+    private NodePortModel? _targetPort => Link.Target?.Model as NodePortModel;
+
+    private void OnChanged()
+    {
+        Link.Refresh();
+        AppState.MarkEdited();
+        OnLinkChanged.InvokeAsync();
+    }
+
+    private void OnDataTopicChanged(string value)
+    {
+        Link.DataTopic = value;
+        AppState.SetupLinkDataWatcher(Link);
+        OnChanged();
+    }
+
+    private void OnPortStyleChanged(NodePortModel port, string style)
+    {
+        port.PortStyle = style;
+        port.Refresh();
+        AppState.MarkEdited();
+        OnLinkChanged.InvokeAsync();
+    }
+}

@@ -1,0 +1,162 @@
+@using PSTT.Dashboard.Models
+@using PSTT.Dashboard.Services
+@using PSTT.Dashboard.Components
+
+@if (IsOpen)
+{
+    <div class="edit-side-panel" style="width:@(_panelWidth)px;">
+        <div class="resize-handle" @onmousedown="OnResizeMouseDown"></div>
+        <div class="panel-header">
+            <div class="panel-tabs">
+                <MudTooltip Text="Node Properties" Placement="Placement.Left">
+                    <MudIconButton Icon="@Icons.Material.Filled.Tune" Size="Size.Small"
+                                   Color="@(ActiveTab == SidePanelTab.NodeProps ? Color.Primary : Color.Default)"
+                                   OnClick="@(() => SetTab(SidePanelTab.NodeProps))" />
+                </MudTooltip>
+                <MudTooltip Text="Page Properties" Placement="Placement.Left">
+                    <MudIconButton Icon="@Icons.Material.Filled.Article" Size="Size.Small"
+                                   Color="@(ActiveTab == SidePanelTab.PageProps ? Color.Primary : Color.Default)"
+                                   OnClick="@(() => SetTab(SidePanelTab.PageProps))" />
+                </MudTooltip>
+                <MudTooltip Text="Dashboard Properties" Placement="Placement.Left">
+                    <MudIconButton Icon="@Icons.Material.Filled.Dashboard" Size="Size.Small"
+                                   Color="@(ActiveTab == SidePanelTab.DashboardProps ? Color.Primary : Color.Default)"
+                                   OnClick="@(() => SetTab(SidePanelTab.DashboardProps))" />
+                </MudTooltip>
+                <MudDivider Vertical="true" FlexItem="true" Class="mx-1" />
+                <MudTooltip Text="Add Node" Placement="Placement.Left">
+                    <MudIconButton Icon="@Icons.Material.Filled.AddBox" Size="Size.Small"
+                                   Color="@(ActiveTab == SidePanelTab.AddNode ? Color.Primary : Color.Default)"
+                                   OnClick="@(() => SetTab(SidePanelTab.AddNode))" />
+                </MudTooltip>
+                <MudTooltip Text="Data Explorer" Placement="Placement.Left">
+                    <MudIconButton Icon="@Icons.Material.Filled.ManageSearch" Size="Size.Small"
+                                   Color="@(ActiveTab == SidePanelTab.DataExplorer ? Color.Primary : Color.Default)"
+                                   OnClick="@(() => SetTab(SidePanelTab.DataExplorer))" />
+                </MudTooltip>
+            </div>
+            <div class="panel-actions">
+                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                               OnClick="@(() => IsOpenChanged.InvokeAsync(false))" />
+            </div>
+        </div>
+
+        @if (ActiveTab == SidePanelTab.NodeProps && (SelectedNode != null || SelectedLink != null))
+        {
+            <div class="panel-subview-toolbar">
+                @if (SelectedNode != null)
+                {
+                <MudTooltip Text="Grid View" Placement="Placement.Bottom">
+                    <MudIconButton Icon="@Icons.Material.Filled.GridView" Size="Size.Small"
+                                   Color="@(!_subViewIsCustom ? Color.Primary : Color.Default)"
+                                   OnClick="@(() => _subViewIsCustom = false)" />
+                </MudTooltip>
+                <MudTooltip Text="Form View" Placement="Placement.Bottom">
+                    <MudIconButton Icon="@Icons.Material.Filled.ViewAgenda" Size="Size.Small"
+                                   Color="@(_subViewIsCustom ? Color.Primary : Color.Default)"
+                                   OnClick="@(() => _subViewIsCustom = true)" />
+                </MudTooltip>
+                <div style="flex:1;"></div>
+                @if (!_subViewIsCustom)
+                {
+                    <MudButton Size="Size.Small" Variant="Variant.Text"
+                               Disabled="@(!_gridHasPendingChanges)"
+                               OnClick="GridCancel">Cancel</MudButton>
+                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
+                               Disabled="@(!_gridHasPendingChanges)"
+                               OnClick="GridApply">Apply</MudButton>
+                }
+                else
+                {
+                    <MudButton Size="Size.Small" Variant="Variant.Text"
+                               OnClick="@(async () => await (_nodeEditor?.Cancel() ?? Task.CompletedTask))">Cancel</MudButton>
+                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
+                               OnClick="@(async () => await (_nodeEditor?.Save() ?? Task.CompletedTask))">Apply</MudButton>
+                }
+                }
+                else if (SelectedLink != null)
+                {
+                    <MudText Typo="Typo.caption" Class="ml-2 mt-1" Color="Color.Secondary">Link selected</MudText>
+                    <div style="flex:1;"></div>
+                }
+            </div>
+        }
+
+        <div class="panel-content">
+            @if (ActiveTab == SidePanelTab.NodeProps)
+            {
+                @if (SelectedLink != null)
+                {
+                    <LinkPropertyEditor Link="SelectedLink" AppState="AppState" />
+                }
+                else if (SelectedNode == null)
+                {
+                    <div class="panel-placeholder">
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Select a node or link to edit its properties.
+                        </MudText>
+                    </div>
+                }
+                else if (!_subViewIsCustom)
+                {
+                    <PropertyGridEditor Model="SelectedNode" OnChanged="OnGridPropertyChanged" />
+                }
+                else
+                {
+                    <NodePropertyEditor @ref="_nodeEditor"
+                                        Node="SelectedNode"
+                                        OnSaved="OnNodeSaved"
+                                        OnClose="OnNodeClose"
+                                        AutoCloseOnCancel="false" />
+                }
+            }
+            else if (ActiveTab == SidePanelTab.AddNode)
+            {
+                <div style="padding:8px;">
+                    <AddNodePanelContent OnNodeTypeSelected="OnAddNodeTypeSelected" />
+                </div>
+            }
+            else if (ActiveTab == SidePanelTab.DataExplorer)
+            {
+                <DataExplorerPanel AppState="AppState"
+                                   Embedded="true"
+                                   HasSelectedNode="HasSelectedNode"
+                                   SelectedNodeTopics="SelectedNodeTopics"
+                                   OnTopicAssigned="OnTopicAssigned"
+                                   OnCreateNodeWithTopic="OnCreateNodeWithTopic" />
+            }
+            else if (ActiveTab == SidePanelTab.PageProps)
+            {
+                <div style="padding:8px;">
+                    <MudTextField @bind-Value="_editPageName" Label="Page Name"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    <div class="mt-2">
+                        <ColorInputRow @bind-Value="_editPageBg" Label="Background Color" ShowClear="true" />
+                    </div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+                        <div style="display:flex;gap:2px;">
+                            <MudTooltip Text="Move Page Left">
+                                <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" Size="Size.Small"
+                                               Disabled="@(!CanMovePageLeft)"
+                                               OnClick="@(async () => await OnMovePageLeft.InvokeAsync())" />
+                            </MudTooltip>
+                            <MudTooltip Text="Move Page Right">
+                                <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small"
+                                               Disabled="@(!CanMovePageRight)"
+                                               OnClick="@(async () => await OnMovePageRight.InvokeAsync())" />
+                            </MudTooltip>
+                        </div>
+                        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary"
+                                   OnClick="ApplyPageProps">Apply</MudButton>
+                    </div>
+                </div>
+            }
+            else if (ActiveTab == SidePanelTab.DashboardProps)
+            {
+                <div style="padding:8px;">
+                    <DashboardPropertiesContent />
+                </div>
+            }
+        </div>
+    </div>
+}

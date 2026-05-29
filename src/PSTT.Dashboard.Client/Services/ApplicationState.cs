@@ -1,4 +1,5 @@
 using Blazor.Diagrams;
+using Blazor.Diagrams.Components;
 using Blazor.Diagrams.Core.Anchors;
 using Blazor.Diagrams.Core.Controls.Default;
 using Blazor.Diagrams.Core.Geometry;
@@ -50,6 +51,17 @@ public class ApplicationState
     public bool IsInteractive { get; private set; } = false;
 
     private BlazorDiagram? _diagram;
+    // Keyed by link.Id so re-calling SetupLinkDataWatcher disposes the old watcher first
+    private readonly Dictionary<string, IDisposable> _linkWatchers = new();
+
+    // Link selection state
+    public NodeLinkModel? SelectedLink { get; private set; }
+
+    public void UpdateLinkSelection(NodeLinkModel? link)
+    {
+        SelectedLink = link;
+        NotifyStateChangedAsync();
+    }
 
     // Multi-page support
     public List<string> PageNames { get; private set; } = ["Page 1"];
@@ -406,7 +418,18 @@ public class ApplicationState
             Links =
             {
                 DefaultRouter = new NormalRouter(),
-                DefaultPathGenerator = new SmoothPathGenerator()
+                DefaultPathGenerator = new SmoothPathGenerator(),
+                // Always create NodeLinkModel so user-drawn links are first-class PSTT objects
+                Factory = (_, source, targetAnchor) =>
+                {
+                    Anchor sourceAnchor = source switch
+                    {
+                        NodeModel node => new ShapeIntersectionAnchor(node),
+                        PortModel port => new SinglePortAnchor(port),
+                        _              => throw new NotImplementedException($"Unsupported link source: {source.GetType().Name}")
+                    };
+                    return new NodeLinkModel(sourceAnchor, targetAnchor);
+                }
             },
             AllowPanning = false,
         };
@@ -438,6 +461,7 @@ public class ApplicationState
         diagram.RegisterComponent<ButtonGroupNodeModel, ButtonGroupNodeWidget>();
         diagram.RegisterComponent<RadioGroupNodeModel, RadioGroupNodeWidget>();
         diagram.RegisterComponent<TableNodeModel, TableNodeWidget>();
+        diagram.RegisterComponent<Blazor.Diagrams.Core.Models.FlowLinkModel, FlowLinkWidget>();
 
         if (page != null)
         {
@@ -471,7 +495,7 @@ public class ApplicationState
                 foreach (var portData in nodeData.Ports ?? [])
                 {
                     var alignment = Enum.Parse<PortAlignment>(portData.Alignment);
-                    AddPortToNode(node, alignment);
+                    AddPortToNode(node, alignment, portData.PortStyle);
                 }
 
                 if (!readOnly)
@@ -504,9 +528,25 @@ public class ApplicationState
                         ? new SinglePortAnchor(targetPort)
                         : new ShapeIntersectionAnchor(targetNode);
 
-                    var link = diagram.Links.Add(new LinkModel(sourceAnchor, targetAnchor));
+                    var link = new NodeLinkModel(sourceAnchor, targetAnchor);
+
+                    // Apply persisted visual properties
+                    if (!string.IsNullOrEmpty(linkData.Color))     link.Color     = linkData.Color;
+                    if (linkData.Width.HasValue)                    link.Width     = linkData.Width.Value;
+                    if (!string.IsNullOrEmpty(linkData.FlowColor))  link.FlowColor = linkData.FlowColor;
+                    if (linkData.AnimationSpeed.HasValue)           link.FlowSpeed = linkData.AnimationSpeed.Value;
+                    if (!string.IsNullOrEmpty(linkData.DataTopic))  link.DataTopic = linkData.DataTopic;
+                    if (!string.IsNullOrEmpty(linkData.Animation))  link.Animation = linkData.Animation;
+                    if (linkData.FlowSize.HasValue)                 link.FlowSize    = linkData.FlowSize.Value;
+                    if (linkData.FlowGapSize.HasValue)              link.FlowGapSize = linkData.FlowGapSize.Value;
+                    if (linkData.LineWidth.HasValue)                link.LineWidth   = linkData.LineWidth.Value;
+                    if (!string.IsNullOrEmpty(linkData.FlowShape) &&
+                        Enum.TryParse<Blazor.Diagrams.Core.Models.FlowShape>(linkData.FlowShape, out var fs))
+                        link.FlowShape = fs;
+
+                    diagram.Links.Add(link);
                     link.Locked = readOnly;
-                    CheckForLinkAnimation(sourceNode, link);
+                    SetupLinkDataWatcher(link);
                 }
             }
         }
@@ -557,6 +597,21 @@ public class ApplicationState
                 linkData.Target = targetNode.Id;
             }
 
+            if (link is NodeLinkModel nl)
+            {
+                if (!string.IsNullOrEmpty(nl.Color))     linkData.Color     = nl.Color;
+                if (nl.Width != 2.0)                     linkData.Width     = nl.Width;
+                if (!string.IsNullOrEmpty(nl.FlowColor)) linkData.FlowColor = nl.FlowColor;
+                if (nl.FlowSpeed != 1.0)                 linkData.AnimationSpeed = nl.FlowSpeed;
+                if (!string.IsNullOrEmpty(nl.DataTopic)) linkData.DataTopic = nl.DataTopic;
+                if (nl.Animation != "Flow")              linkData.Animation = nl.Animation;
+                if (nl.FlowSize != 10.0)                 linkData.FlowSize    = nl.FlowSize;
+                if (nl.FlowGapSize != 10.0)              linkData.FlowGapSize = nl.FlowGapSize;
+                if (nl.LineWidth.HasValue)               linkData.LineWidth   = nl.LineWidth;
+                if (nl.FlowShape != Blazor.Diagrams.Core.Models.FlowShape.Dash)
+                    linkData.FlowShape = nl.FlowShape.ToString();
+            }
+
             if (!string.IsNullOrEmpty(linkData.Source) && !string.IsNullOrEmpty(linkData.Target))
                 page.Links.Add(linkData);
         }
@@ -569,6 +624,9 @@ public class ApplicationState
 
     public void ResetDiagram()
     {
+        foreach (var w in _linkWatchers.Values) w.Dispose();
+        _linkWatchers.Clear();
+        SelectedLink = null;
         _diagram = null;
     }
 
@@ -682,28 +740,62 @@ public class ApplicationState
         diagram.Controls.AddFor(node).Add(new ResizeControl(new BottomRightResizerProvider()));
     }
 
-    public void CheckForLinkAnimation(NodeModel sourceNode, LinkModel link)
+    public void CheckForLinkAnimation(NodeModel sourceNode, LinkModel link) { }
+
+    /// <summary>
+    /// Subscribes to a <see cref="NodeLinkModel"/>'s DataTopic and drives its
+    /// <see cref="FlowLinkModel.FlowDirection"/> from the numeric data value.
+    /// Positive → Forward, negative → Reverse, zero → Paused, non-numeric → None.
+    /// Calling this again on the same link safely replaces the previous subscription.
+    /// </summary>
+    public void SetupLinkDataWatcher(NodeLinkModel link)
     {
-        if (sourceNode is TextNodeModel textSource
-         && !string.IsNullOrWhiteSpace(textSource.LinkAnimation)
-         && textSource.LinkAnimation != "None")
+        // Dispose any existing watcher for this link
+        if (_linkWatchers.TryGetValue(link.Id, out var old))
         {
-            link.DashPattern = "5,5";
-            link.AddAnimation(new AnimateModel()
-            {
-                AttributeName = "stroke-dashoffset",
-                From = "0",
-                To = "0",
-                Duration = "1s"
-            });
+            old.Dispose();
+            _linkWatchers.Remove(link.Id);
         }
+
+        if (string.IsNullOrEmpty(link.DataTopic) || link.Animation == "None")
+        {
+            if (link.Animation == "None")
+                link.FlowDirection = Blazor.Diagrams.Core.Models.FlowDirection.None;
+            return;
+        }
+
+        // Seed from existing cache value
+        var existing = BridgedDataCache.GetValue(link.DataTopic);
+        if (existing != null)
+            ApplyLinkDataValue(link, existing.ToString());
+
+        var topic = link.DataTopic;
+        var watcher = BridgedDataCache.Subscribe(topic, async sub =>
+        {
+            if (sub.Status.IsPending) return;
+            ApplyLinkDataValue(link, sub.Value?.ToString());
+            await Task.CompletedTask;
+        });
+        _linkWatchers[link.Id] = watcher;
     }
 
-    internal void AddPortToNode(NodeModel node, PortAlignment alignment)
+    private static void ApplyLinkDataValue(NodeLinkModel link, string? value)
+    {
+        link.FlowDirection = (value != null && double.TryParse(value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var d))
+            ? (d > 0 ? Blazor.Diagrams.Core.Models.FlowDirection.Forward
+                     : d < 0 ? Blazor.Diagrams.Core.Models.FlowDirection.Reverse
+                              : Blazor.Diagrams.Core.Models.FlowDirection.Paused)
+            : Blazor.Diagrams.Core.Models.FlowDirection.None;
+    }
+
+    internal void AddPortToNode(NodeModel node, PortAlignment alignment, string? portStyle = null)
     {
         if (node != null)
         {
-            node.AddPort(new NodePortModel(node, alignment));
+            var port = new NodePortModel(node, alignment);
+            if (!string.IsNullOrEmpty(portStyle))
+                port.PortStyle = portStyle;
+            node.AddPort(port);
         }
     }
 }

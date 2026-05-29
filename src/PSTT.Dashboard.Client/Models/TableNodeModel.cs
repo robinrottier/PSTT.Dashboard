@@ -8,6 +8,7 @@ public class TableNodeModel : TextNodeModel
     {
         NodeType = "Table";
     }
+    public override bool SupportsProperty(string propertyName) => propertyName != nameof(Text) && base.SupportsProperty(propertyName);
 
     /// <summary>
     /// How table data is sourced.

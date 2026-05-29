@@ -1,3 +1,755 @@
+## 2026-05-29 — Blazor.Diagrams submodule update: FlowShape + new FlowLink properties
+
+### Commit: (see below) — UTC timestamp: 2026-05-29 — Branch: develop
+
+---
+
+### 1 — `libs/Blazor.Diagrams` — Switch submodule from `main` to `develop`
+
+The Blazor.Diagrams submodule was tracking `main` (detached HEAD). Switched to `develop`
+branch (commit `31aa45a`) which contains significant FlowLink improvements committed since
+the `v0.1.2` tag:
+
+- `FlowDashSize` renamed to `FlowSize` (size of each unit in px)
+- New `FlowGapSize` (gap between units, default 10 px) — previously gap was always equal to dash size
+- New `FlowShape` enum: `Dash`, `Rectangle`, `Arrow`, `Chevron`, `DblChevron`, `TripleChevron`
+- New `LineWidth` (double?) — per-link override for the solid base line width; `0` hides the line (shapes only)
+- New `ResolvedLineWidth` computed property; `FlowShapeCount` marked `[Obsolete]` (widget now auto-derives count from path length)
+- `FlowLinkWidget` updated: Arrow/Chevron variants use `animateMotion`; count derived from path length for uniform spacing
+
+`.gitmodules` updated to set `branch = develop` for Blazor.Diagrams (matches PSTT pattern).
+
+---
+
+### 2 — `scripts/release.ps1` — Blazor.Diagrams handled like PSTT in release workflow
+
+`Step-PrepSubmodules` now merges `develop → main` and pushes for **both** PSTT and
+Blazor.Diagrams submodules, then pins both in `.gitmodules` to `main` in a single commit.
+
+`Step-RestoreSubmodules` now restores **both** submodules to `develop` tracking post-release.
+
+Step descriptions updated accordingly.
+
+---
+
+### 3 — `LinkData` — New FlowLink properties persisted
+
+Added to `LinkData` (in `DashboardModel.cs`):
+- `FlowShape?` (string — enum name, e.g. "Arrow")
+- `FlowSize?` (double) — serialized only when != 10 (default)
+- `FlowGapSize?` (double) — serialized only when != 10 (default)
+- `LineWidth?` (double?) — serialized when set
+
+---
+
+### 4 — `ApplicationState.cs` — Serialize and restore new properties
+
+`GetPageData()` serializes `FlowShape`, `FlowSize`, `FlowGapSize`, `LineWidth` on `NodeLinkModel`.
+`CreateDiagramFromPageData()` applies all four from `LinkData` when present.
+`FlowShape` is round-tripped via `Enum.TryParse<FlowShape>` from the string name.
+
+---
+
+### 5 — `LinkPropertyEditor.razor` — New controls for FlowShape + sizes
+
+Added to the link properties panel:
+- **Flow Shape** dropdown: Dash / Rectangle / Arrow / Chevron / DblChevron / TripleChevron
+- **Flow Unit Size (px)**: size of each moving dash or shape
+- **Flow Gap Size (px)**: gap between each unit
+- **Base Line Width Override**: separate override for the solid base line (0 = hide base line, shapes only)
+
+`@using Blazor.Diagrams.Core.Models` added for the `FlowShape` enum reference.
+
+
+
+### Commit: (see below) — UTC timestamp: 2026-05-27 — Branch: develop
+
+---
+
+### 1 — `ApplicationState.cs` — Fix `_linkWatchers` resource leak
+
+`_linkWatchers` was `List<IDisposable>`. If the user changed a link's DataTopic in the
+properties panel, `SetupLinkDataWatcher` was called again, adding a new watcher but never
+disposing the old one. Changed to `Dictionary<string, IDisposable>` keyed by `link.Id`.
+
+- `SetupLinkDataWatcher` now disposes + removes any existing entry for the same link ID
+  before subscribing a fresh watcher.
+- When `Animation == "None"`, also resets `FlowDirection` to `None` (stops animation).
+- `ResetDiagram` iterates `.Values` on the dictionary (no functional change, just aligned
+  to the new type).
+
+---
+
+### 2 — `ApplicationState.cs` — Port style applied on diagram load
+
+`AddPortToNode` now accepts an optional `string? portStyle` parameter. When set, it assigns
+`port.PortStyle` before the port is added to the node. `CreateDiagramFromPageData` passes
+`portData.PortStyle` from the serialised state, so ports reload with their saved style.
+
+---
+
+### 3 — `TextNodeModel.cs` — Port style serialisation
+
+Port serialisation (in `FillBaseData`) previously only saved `Id` and `Alignment`. Now
+also saves `PortStyle` via `(p as NodePortModel)?.PortStyle` → `NodePortData.PortStyle`.
+Round-trip complete: edit → save → reload preserves port style.
+
+---
+
+### 4 — `BaseNodeWidget.cs` — `PortStyle()` respects "Fine"; new `PortClass()` helper
+
+`PortStyle()` now returns `width:5px; height:5px` for "Fine" ports (was the same 10px as Dot).
+New `PortClass()` returns `"port-invisible"` / `"port-fine"` / `""` based on `NodePortModel.PortStyle`.
+All widgets using `BaseNodeWidget` (Log, TreeView, Table) updated to pass `Class="@PortClass(...)"`.
+
+---
+
+### 5 — `StandardNodeLayout.razor` — Port class + size routing
+
+`PortStyleFor()` now returns 5px for "Fine" style.
+New `PortClassFor()` returns the appropriate CSS class name.
+`PortRenderer` now receives both `Style` and `Class`.
+
+---
+
+### 6 — `app.css` — Port style CSS rules
+
+```css
+.diagram-port.port-invisible { opacity: 0; }          /* hidden in view mode */
+.diagram-port.port-fine { border-radius: 2px; }       /* rectangular Fine tick */
+.dashboard-edit-mode .diagram-port.port-invisible { opacity: 0.3; }   /* show in edit */
+.dashboard-edit-mode .diagram-port.port-invisible:hover { opacity: 1; }
+```
+
+---
+
+### 7 — `Display.razor` — `dashboard-edit-mode` CSS class on canvas
+
+The `div.dashboard-canvas` now gets class `dashboard-edit-mode` when `AppState.IsEditMode`.
+This enables the CSS rule that reveals Invisible ports as translucent during editing, making
+drag-to-connect discoverable without changing the view-mode appearance.
+
+---
+
+### 8 — `LinkPropertyEditor.razor` — Source/target port style selectors
+
+When the selected link connects to PSTT ports (`NodePortModel`), the editor now shows
+`MudSelect` dropdowns for Source Port Style and/or Target Port Style (Dot / Fine / Invisible).
+Changing a port style calls `port.Refresh()` to immediately re-render the port without
+requiring a page reload.
+
+
+
+### Commit: (see below) — UTC timestamp: 2026-05-27 — Branch: develop
+
+---
+
+### 1 — `src/PSTT.Dashboard.Client/Models/NodeLinkModel.cs` — **NEW**
+
+PSTT-layer link model extending `FlowLinkModel` (Blazor.Diagrams).
+
+Adds `DataTopic` (string?) — the MQTT topic whose value drives `FlowDirection` at runtime:
+- positive value → `FlowDirection.Forward`
+- negative value → `FlowDirection.Reverse`
+- zero → `FlowDirection.Paused`
+- null/empty topic → no data watcher; direction controlled purely by properties
+
+Also exposes `Animation` (string?) for persisting the user-chosen animation style ("None" | "Flow").
+
+---
+
+### 2 — `src/PSTT.Dashboard.Client/Models/DashboardModel.cs` — Extended
+
+`LinkData` gains: `Color`, `Width` (`double?`), `DashPattern`, `DataTopic`, `Animation`, `AnimationSpeed`, `FlowColor`.  
+`NodePortData` gains: `PortStyle` (string?) — persisted but rendering deferred to a later session.  
+`NodeData.LinkAnimation` **retained** in the data class (even though removed from `TextNodeModel`) for safe round-tripping of old JSON files.
+
+---
+
+### 3 — `src/PSTT.Dashboard.Client/Models/NodePortModel.cs` — Extended
+
+Added `PortStyle` property (default "Dot"). Persisted via `NodePortData.PortStyle`.
+
+---
+
+### 4 — `src/PSTT.Dashboard.Client/Models/TextNodeModel.cs` — Removed `LinkAnimation`
+
+`LinkAnimation` property removed from the model, `FillBaseData` and `ApplyBaseData` no longer write/read it.  
+Old JSON with `LinkAnimation` simply deserializes `NodeData.LinkAnimation` (still present in `DashboardModel`) and is then ignored — backward compatible.
+
+---
+
+### 5 — `src/PSTT.Dashboard.Client/Widgets/BaseNodeWithDataWidget.cs` — Removed `TriggerLinkAnimation`
+
+`TriggerLinkAnimation()` method removed in full, plus all 3 call sites (`SetupDataWatchers`, `OnData1ReceivedCore`, `SeedFromCache`).  
+Unused `using Blazor.Diagrams.Core.Anchors` also removed.
+
+---
+
+### 6 — `src/PSTT.Dashboard.Client/Services/ApplicationState.cs` — Major update
+
+Key changes:
+- Added `using Blazor.Diagrams.Components` (required for `RegisterComponent<FlowLinkModel, FlowLinkWidget>()`).
+- `SelectedLink` (`NodeLinkModel?`) public property; `UpdateLinkSelection()` sets it and triggers `StateHasChanged`.
+- `_linkWatchers` (`List<IDisposable>`) — per-diagram MQTT watchers for all links; disposed in `ResetDiagram()`.
+- `SetupLinkDataWatcher(NodeLinkModel)` — subscribes to link's `DataTopic`; on value → sets `FlowDirection`.
+- `ApplyLinkDataValue(NodeLinkModel, double)` — maps positive/negative/zero to Forward/Reverse/Paused.
+- `CreateDiagramFromPageData`: registers `FlowLinkWidget`, creates `NodeLinkModel` (not plain `LinkModel`), applies persisted Color/Width/DashPattern/DataTopic/FlowColor/Animation/AnimationSpeed, calls `SetupLinkDataWatcher`.
+- `GetPageData`: serializes `NodeLinkModel` properties to `LinkData` (Width defaults to 2.0, so `!= 2.0` check used because `Width` is `double` not `double?` on the model).
+- `CheckForLinkAnimation` kept as empty no-op stub (Display.razor.cs still calls it; stub is harmless and unreachable after `OnLinkAdded` update).
+
+⚠️ Known: calling `SetupLinkDataWatcher` again (e.g. when user changes DataTopic in LinkPropertyEditor) leaks the old watcher. Fix: track per-link watcher in a dictionary keyed by link ID. Deferred to Session D.
+
+---
+
+### 7 — `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor` — Removed `LinkAnimation` block
+
+The Link Animation `MudSelect` block (4 options: None/Forward/Reverse/Auto) was removed from the node properties editor — it referenced the now-removed `TextNodeModel.LinkAnimation`.
+
+---
+
+### 8 — `src/PSTT.Dashboard.Client/Components/LinkPropertyEditor.razor` — **NEW**
+
+Link property editor shown in side panel when a `NodeLinkModel` is selected.
+
+Fields: Color (via `ColorInputRow`), Width (`MudNumericField`), Dash Pattern (`MudTextField`), Animation style (`MudSelect`: None/Flow), Data Topic (`MudTextField`), Animation Speed (`MudNumericField`), Flow Color (via `ColorInputRow`).
+
+All fields use `Value`/`ValueChanged` separately (not `@bind-Value` + `ValueChanged` — invalid in Blazor: RZ10010).  
+Changes call `AppState.SetupLinkDataWatcher` and `StateHasChanged` as needed.
+
+---
+
+### 9 — `src/PSTT.Dashboard.Client/Components/EditSidePanel.razor` + `.razor.cs` — Link selection wiring
+
+`SelectedLink` (`NodeLinkModel?`) parameter added to `EditSidePanel`.  
+The Node Props tab toolbar now shows "Link Properties" title when a link is selected.  
+The Node Props tab content renders `<LinkPropertyEditor>` when `SelectedLink != null`, otherwise `<NodePropertyEditor>` as before.
+
+---
+
+### 10 — `src/PSTT.Dashboard.Client/Pages/Display.razor` + `.razor.cs` — Link selection tracking
+
+`Display.razor`: passes `SelectedLink="_propertiesLink"` to `EditSidePanel`.  
+`Display.razor.cs`: `_propertiesLink` field tracks the currently selected `NodeLinkModel`. `OnSelectionChanged` now also handles link selection — updates `AppState.SelectedLink` and `_propertiesLink`. `OnLinkAdded` updated: creates `NodeLinkModel` (not `LinkModel`), inherits source node `DataTopic1` as default, calls `SetupLinkDataWatcher`.
+
+---
+
+## 2026-05-29 — FEAT-F Session B: FlowLinkModel + FlowLinkWidget (Blazor.Diagrams foundation)
+
+### Commit: d0e7015 (libs/Blazor.Diagrams main) — UTC timestamp: 2026-05-29
+
+---
+
+### 1 — `libs/Blazor.Diagrams/src/Blazor.Diagrams.Core/Models/FlowLinkModel.cs` — **NEW**
+
+Extends `LinkModel` with marching-ants animation properties:
+- `FlowDirection` (enum: None/Forward/Reverse/Paused) — runtime-settable; Forward = source→target, Reverse = target→source, Paused = frozen dashes
+- `FlowSpeed` (double, clamped ≥ 0.05) — seconds per animation cycle
+- `FlowColor` (string?) — overlay path color; falls back to `Link.Color` when null
+- `FlowWidth` (double?) — overlay path width; falls back to half of `Link.Width` when null
+- `FlowDashSize` (double, clamped ≥ 1) — dash/gap size for the marching-ants pattern
+- `ResolvedFlowWidth`, `ResolvedFlowColor` — computed fallback properties
+- `FlowAnimateTo` — returns SVG `stroke-dashoffset` `to` value based on direction (negative=Forward, positive=Reverse, "0"=None/Paused)
+- All setters call `Refresh()` so the `LinkRenderer`'s `Changed` subscription triggers a re-render immediately.
+
+### 2 — `libs/Blazor.Diagrams/src/Blazor.Diagrams/Components/FlowLinkWidget.razor` + `.razor.cs` — **NEW**
+
+Three-layer SVG renderer registered with `diagram.RegisterComponent<FlowLinkModel, FlowLinkWidget>()`:
+1. **Base path** — same as `LinkWidget`: solid, full color/width, existing `AnimateModel` children
+2. **Flow overlay** — narrower dashed path; animated via `stroke-dashoffset` when `FlowDirection` is Forward or Reverse; present but static when Paused; omitted entirely when None
+3. **Selection helper** — wide transparent hit-target path; mouse events forwarded to `BlazorDiagram` for pointer-down/vertex-insertion
+
+`FlowLinkWidget` uses `[Parameter] public LinkModel Link` (same parameter name as `LinkWidget` — required by `LinkRenderer`'s `BuildRenderTree`). Cast to `FlowLinkModel` is done internally via a `FlowLink` computed property.
+
+### 3 — `libs/Blazor.Diagrams/samples/SharedDemo/Demos/Links/FlowLinkDemo.razor` + `.razor.cs` — **NEW**
+
+Interactive sample page at `/links/flow`:
+- 4 `FlowLinkModel` connections in a diamond topology
+- Real-time controls: direction selector, speed slider, dash-size slider, color picker, width slider
+- Demonstrates `RegisterComponent<FlowLinkModel, FlowLinkWidget>()` pattern
+
+### 4 — `libs/Blazor.Diagrams/samples/SharedDemo/Layouts/DemoLayout.razor` — nav entry added
+
+Added "Flow (animated)" link to the Links section of the demo nav menu.
+
+### 5 — `libs/Blazor.Diagrams/tests/Blazor.Diagrams.Core.Tests/Models/FlowLinkModelTests.cs` — **NEW**
+
+17 unit tests (pass across net8/9/10):
+- Default values, FlowDirection changes, `Refresh()` trigger on property change
+- `FlowSpeed` and `FlowDashSize` clamping
+- `FlowAnimateTo` sign (Forward=negative, Reverse=positive, None/Paused="0")
+- `ResolvedFlowWidth` and `ResolvedFlowColor` fallback logic
+- Multiple constructor variants
+
+**All 199 Blazor.Diagrams tests pass (183 Core + 16 Component).**
+
+---
+
+**⚠️ Session C (PSTT layer) not yet started.** `NodeLinkModel`, persistence changes, `LinkPropertyEditor`, and side-panel wiring are next.
+
+---
+
+## 2026-05-29 — Fix flaky `MultiClient_DisconnectOneDoesNotAffectOther` test (thread-pool starvation)
+
+### Commit: 740a835 (libs/PSTT develop) — UTC timestamp: 2026-05-29
+
+---
+
+### 1 — `libs/PSTT/src/PSTT.Remote/RemoteCache.cs` — `AttachUpstream`: use `TaskCreationOptions.LongRunning`
+
+**Root cause:** `_ = SubscribeServerTopicAsync(col.Key)` queues a fire-and-forget task to the .NET thread pool. When `dotnet test PSTT.slnx -c Debug` runs, it simultaneously compiles all projects and executes five test assemblies in parallel (including PSTT.Remote.AspNetCore.Tests which runs for ~26 s). Under this concurrent load the thread pool saturates: all worker threads are occupied, the pool adds new threads only at ~1 thread/500 ms, and those are immediately claimed by other work. The subscribe task sits in the queue and never starts within the 30-second timeout — resulting in a "subscribe permanently lost" failure.
+
+**Diagnostic process:**
+- Running the failing test in isolation or with `--no-build` always passed → load-sensitive only.
+- Added `Console.Error.WriteLine` guards inside `SubscribeServerTopicAsync`, `SendMessageAsync`, `TcpTransport.SendAsync`, and `OnDisconnectedAsync`.
+- Reproduced failure under load: **none of the diagnostic lines appeared** — conclusively proving the task never started executing, not just that it was slow or raised an exception.
+- Diagnostic logging then removed (no residue in final commit).
+
+**Fix:** Replace `_ = SubscribeServerTopicAsync(col.Key)` with:
+```csharp
+_ = Task.Factory.StartNew(
+    () => SubscribeServerTopicAsync(col.Key),
+    CancellationToken.None,
+    TaskCreationOptions.LongRunning,
+    TaskScheduler.Default);
+```
+`LongRunning` causes the .NET runtime to create a **dedicated OS thread immediately** rather than queuing to the pool. The subscribe always starts within microseconds. For small loopback writes (20 bytes), `NetworkStream.WriteAsync` completes synchronously, so the dedicated thread completes almost immediately.
+
+**Trade-off:** Each subscribe creates one OS thread briefly. Acceptable: subscribes happen once per topic at startup and complete in microseconds for loopback/LAN writes.
+
+**Verification:** 10 consecutive runs of `dotnet test PSTT.slnx -c Debug` — 0 failures (was ~1 in 3 before fix).
+
+Also removed leftover diagnostic `Console.Error.WriteLine` calls from `SendMessageAsync` and `TcpTransport.SendAsync` that were added during investigation (they had no compile errors but were noise).
+
+---
+
+## 2026-05-28 — Widget text rendering fixes + generic SupportsProperty refactor
+
+### Commits: bc89907, b94ebc2, 875ddec — develop
+
+---
+
+### 1 — `BaseNodeWithDataWidget.cs` — encode static template parts in `FormatHtml()`
+**File:** `src/PSTT.Dashboard.Client/Widgets/BaseNodeWithDataWidget.cs`
+
+Previously, `FormatHtml()` HTML-encoded only data values; the static portions of the template string (everything between `{N}` placeholders) were passed raw into a `MarkupString`. This meant `<br>` in a static segment should have rendered as an HTML line break — but empirically it showed as literal `<br>` text (possibly a Blazor MarkupString context issue).
+
+Fix: iterate matches and HTML-encode BOTH static segments and data values. Newlines (`\n`, entered via Enter key in the property text box) are NOT encoded by `HtmlEncode`, so they pass through and `white-space:pre-wrap` on the container renders them as line breaks.
+
+Effect: text properties work as documented — plain text, no HTML, Enter key for line breaks.
+
+Updated helper text in `NodePropertyEditor.razor`: `"Text is displayed as-is (no HTML). Press Enter for line breaks."`
+
+---
+
+### 2 — `BatteryNodeWidget.razor`, `GaugeNodeWidget.razor` — switch to `FormatHtml()` + `pre-wrap`
+**Files:** `src/PSTT.Dashboard.Client/Widgets/BatteryNodeWidget.razor`, `src/PSTT.Dashboard.Client/Widgets/GaugeNodeWidget.razor`
+
+Both widgets used `@FormatText()` (plain string, no `MarkupString`, no `pre-wrap` CSS). Line breaks in text properties were silently discarded. Switched both to `@FormatHtml()` with `style="white-space:pre-wrap"`, consistent with `MudNodeWidget` (the Text widget base).
+
+GaugeNodeWidget had two text render sites — both updated.
+
+---
+
+### 3 — `TextNodeModel.cs` + 11 model files — generic `SupportsProperty(string)` mechanism
+**Files:** `src/PSTT.Dashboard.Client/Models/TextNodeModel.cs`, `LogNodeModel.cs`, `TableNodeModel.cs`, `SwitchNodeModel.cs`, `SliderNodeModel.cs`, `TreeViewNodeModel.cs`, `IFrameNodeModel.cs`, `ButtonNodeModel.cs`, `ButtonGroupNodeModel.cs`, `DropDownNodeModel.cs`, `RadioGroupNodeModel.cs`, `TextEntryNodeModel.cs`
+
+Added `public virtual bool SupportsProperty(string propertyName) => true;` to `TextNodeModel`.
+
+11 node models that do not render `Node.Text` override it:
+```csharp
+public override bool SupportsProperty(string name) => name != nameof(Text) && base.SupportsProperty(name);
+```
+
+`NodePropertyEditor.razor` conditions the Text field on `Node.SupportsProperty(nameof(TextNodeModel.Text))`.
+
+Design: `base.SupportsProperty(name)` chaining allows deeper hierarchies to add their own exclusions. `nameof()` is used for refactor safety. The method is deliberately parameterized (`string name`) rather than a boolean flag, so future exclusions (DataTopics, LinkAnimation, etc.) can be added without new virtual members.
+
+---
+
+### 4 — Test investigation: `MultiClient_DisconnectOneDoesNotAffectOther`
+Ran the test 5× in isolation — passed every time (658–687 ms each). Ran all 46 Remote tests together — all passed. Confirmed this is a pre-existing intermittent failure under parallel test load, **not a regression** from the reconnect changes. The TCP transport's `Reconnected` event is declared but never fired, so `OnReconnectedAsync` cannot be triggered in TCP-based tests.
+
+## 2026-05-27 — Fix: correct `Reconnected` event wiring to avoid link rendering regression
+
+### Commit: 075389f / e399226 — develop
+
+---
+
+### 1 — `IRemoteTransport.cs` — new `Reconnected` event on interface
+**File:** `libs/PSTT/src/PSTT.Remote/Transport/IRemoteTransport.cs`
+
+Added `event Func<Task>? Reconnected` to the interface so transports can distinguish "brief drop + auto-recovered" (`Reconnected`) from "permanent disconnect" (`Closed` → `Disconnected`).
+
+---
+
+### 2 — `SignalRClientTransport.cs` — fire `Reconnected` (not `Disconnected`) on reconnect
+**File:** `libs/PSTT/src/PSTT.Remote/Transport/SignalR/SignalRClientTransport.cs`
+
+Previously `_connection.Reconnected` was wired to fire the transport's `Disconnected` event. This was the root cause of a regression: `RemoteCache.OnDisconnectedAsync` published `Status.Stale` for every subscribed key, which fired every widget's subscription callback simultaneously with `StateHasChanged()`. Blazor Diagrams port measurement runs in `OnAfterRenderAsync` via JS interop; this premature mass-render storm interrupted the measurement cycle — ports had no positions, so link SVG paths could not be calculated and links were invisible until the user clicked a port.
+
+Fix: `_connection.Reconnected` now fires the new `Reconnected` event on the transport. No stale is published; only subscriptions are re-sent.
+
+Also added stub `event Func<Task>? Reconnected;` to satisfy the interface.
+
+---
+
+### 3 — `RemoteCache.cs` — `OnReconnectedAsync` handler
+**File:** `libs/PSTT/src/PSTT.Remote/RemoteCache.cs`
+
+Added `OnReconnectedAsync()` private method: sets `_connected = true` and calls `ResubscribeAllAsync()` — no stale publish, no reconnect loop. This is the correct response to a brief auto-reconnect. Wired in the constructor via `_transport.Reconnected += OnReconnectedAsync`.
+
+---
+
+### 4 — Stub `Reconnected` on all other transports
+**Files:**
+- `libs/PSTT/src/PSTT.Remote.AspNetCore/SignalR/SignalRConnectionTransport.cs`
+- `libs/PSTT/src/PSTT.Remote/Transport/WebSocket/WebSocketConnectionTransport.cs`
+- `libs/PSTT/src/PSTT.Remote/Transport/WebSocket/WebSocketClientTransport.cs`
+- `libs/PSTT/src/PSTT.Remote/Transport/Tcp/TcpClientTransport.cs`
+- `libs/PSTT/src/PSTT.Remote/Transport/Tcp/TcpTransport.cs`
+
+All non-SignalR transports do not have their own reconnect mechanism, so `Reconnected` is declared but never fired.
+
+---
+
+**Effect:** Links are now drawn correctly on first render. Stale marking still occurs when the connection is permanently lost (via `Closed` → `Disconnected`). Auto-reconnect still works via `RemoteCache.AutoReconnectLoopAsync` and the `ConnectAsync` guard on the transport.
+
+## 2026-05-27 — Data connection resilience & auto-reconnect
+
+### Commit: 539197d — develop
+
+---
+
+### 1 — `SignalRClientTransport.cs` — auto-reconnect + `Reconnected` handler + double-start guard
+**File:** `libs/PSTT/src/PSTT.Remote/Transport/SignalR/SignalRClientTransport.cs`
+
+Three changes:
+
+**a. `.WithAutomaticReconnect()`** added to the `HubConnectionBuilder` in the string-URL constructor. SignalR will now attempt its own exponential-backoff reconnect before declaring the connection permanently closed.
+
+**b. `Reconnected` event handler**: When SignalR's own reconnect succeeds, the `Disconnected` callback is fired on the transport. This causes `RemoteCache.OnDisconnectedAsync` to (a) mark all subscribed keys as `Stale` and (b) start `AutoReconnectLoopAsync`, which calls `ConnectAsync` → `ResubscribeAllAsync` to re-send all subscription registrations to the (now-reconnected) hub. Without this, subscriptions set up before the drop were silently lost because each SignalR reconnect creates a new connection ID and the server forgets all subscriptions.
+
+**c. `ConnectAsync` double-start guard**: If `HubConnection.State` is `Connected` (SignalR already reconnected on its own), `StartAsync` is skipped (it would throw `InvalidOperationException`). If `Reconnecting` or `Connecting`, waits for the in-flight reconnect to finish before returning. After the guard returns, `RemoteCache.ConnectAsync` sets `_connected = true` and calls `ResubscribeAllAsync` regardless — so subscriptions are always re-sent.
+
+---
+
+### 2 — `Program.cs` (WASM) — `WithAutoReconnect` enabled
+**File:** `src/PSTT.Dashboard.WebApp/PSTT.Dashboard.WebApp.Client/Program.cs`
+
+Added `.WithAutoReconnect(TimeSpan.FromSeconds(5))` to the `RemoteCacheBuilder` chain. This was the primary missing piece: `_autoReconnect` defaulted to `false`, so after any SignalR disconnect the `AutoReconnectLoopAsync` was never started by `OnDisconnectedAsync`. Data went stale and stayed stale until the user manually reloaded the page.
+
+---
+
+### 3 — `MqttInitializationService.cs` — stale-status handling + `ForceReconnectAsync`
+**File:** `src/PSTT.Dashboard.Client/Services/MqttInitializationService.cs`
+
+**a. Stale status**: The MQTT status topic subscriber now checks `sub.Status.IsStale`. When the SignalR/RemoteCache layer marks all keys as stale (on disconnect), the previously returned value `"Connected"` would have been re-evaluated — leading to `IsMqttConnected = true` even when the data transport was down. The fix: if `IsStale`, set connection status to `"Disconnected (reconnecting...)"` and return early.
+
+**b. `ForceReconnectAsync()`**: New public method. In WASM mode (browser), casts `AppState.DataCache` to `RemoteCache<string>` and calls `ConnectAsync()` directly. The double-start guard in the transport makes this safe to call at any time. Sets status to `"Reconnecting..."` before the attempt and updates to an error message on failure. No-op on Blazor Server (the circuit handles its own reconnect).
+
+---
+
+### 4 — `MainLayout.razor` — clickable MQTT icon + app-icon reconnect
+**File:** `src/PSTT.Dashboard.Client/Layout/MainLayout.razor`
+
+**a. MQTT cloud icon** changed from `MudIcon` (static) to `MudIconButton`. `OnMqttIconClicked` calls `MqttInit.ForceReconnectAsync()` when `!AppState.IsMqttConnected`. Tooltip updated to `"… — Click to reconnect"` when offline.
+
+**b. App icon** `OnClick` changed from `() => Nav.NavigateTo("/")` to `OnAppIconClicked()`. When offline, this also triggers `ForceReconnectAsync()`; when connected, it navigates to `/` as before. (In WASM SPA, `NavigateTo("/")` when already on `/` is a no-op, so the reconnect path is the useful behaviour.)
+
+**c. `MqttStatusTooltip`**: New computed property that appends `"— Click to reconnect"` when `!IsMqttConnected`.
+
+---
+
+### Summary of reconnect flow (post-fix)
+
+1. Transport drops → SignalR's `.WithAutomaticReconnect()` tries exponential backoff reconnect.
+   - If SignalR succeeds → `Reconnected` fires → `Disconnected` event fires → `OnDisconnectedAsync`: marks stale + `AutoReconnectLoop` → `ConnectAsync` (guard: already Connected, skips `StartAsync`) → `ResubscribeAllAsync` → data flows again.
+   - If SignalR gives up → `Closed` fires → `Disconnected` event fires → `OnDisconnectedAsync`: marks stale + `AutoReconnectLoop` → retries `ConnectAsync` every 5 s until success.
+2. In both cases, `IsMqttConnected` goes `false` (stale status), MQTT cloud icon goes red/amber.
+3. User can also tap the cloud icon or app icon to force an immediate reconnect attempt.
+
+⚠️ **Known caveat**: On mobile browsers, the OS may completely suspend background tabs including the WASM runtime and WebSocket keep-alive. After a long background period, SignalR may not fire `Closed` until the tab is foregrounded. When the tab is re-opened, the reconnect loop will eventually run and recover, but there may be a delay of up to one `_reconnectDelay` (5 s) before data resumes. Tapping the cloud icon immediately triggers a reconnect attempt.
+
+---
+
+
+
+### Commit: 156dfb0 — develop
+
+---
+
+### 1 — `DataExplorerPanel.razor` — crash fix: `OnAdornmentClick` type mismatch
+**File:** `src/PSTT.Dashboard.Client/Components/DataExplorerPanel.razor`
+
+Changed `EventCallback.Factory.Create(this, ApplySubscription)` to `EventCallback.Factory.Create<MouseEventArgs>(this, _ => ApplySubscription())`. `MudTextField.OnAdornmentClick` is typed `EventCallback<MouseEventArgs>` — the non-generic overload produced an `InvalidCastException` when the Data Explorer tab was opened.
+
+---
+
+### 2 — `Display.razor.cs` `ApplyPageProps()` — undo fix
+**File:** `src/PSTT.Dashboard.Client/Pages/Display.razor.cs`
+
+Added `PushUndoSnapshot()` at the top of `ApplyPageProps()`. Previously page-title and background-colour changes were applied without creating an undo snapshot, so Ctrl+Z had no effect.
+
+---
+
+### 3 — `NodePropertyEditor.razor.cs` `GetNodeSpecificCategories()` — duplicate category fix
+**File:** `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor.cs`
+
+Added `&& c != "Common"` filter. The "Common" category (from `TextNodeModel`'s `NpXxx`-decorated properties) was being included in the node-specific section AND in the manually-coded Common section, causing seven properties to appear twice for TextNode widgets.
+
+---
+
+### 4 — `TextNodeModel.cs` — `NodeTitle` NpText wrapper
+**File:** `src/PSTT.Dashboard.Client/Models/TextNodeModel.cs`
+
+Added `[NpText("Title", Category="Common", Order=0)] public string NodeTitle { get => Title ?? ""; set => Title = value; }` so the node title appears in the grid view editor.
+
+---
+
+### 5 — `PropertyGridEditor.razor` — `OnChanged` EventCallback
+**File:** `src/PSTT.Dashboard.Client/Components/PropertyGridEditor.razor`
+
+Added `[Parameter] public EventCallback OnChanged` and wired all nine value-changed handlers (NpText, NpCheckbox, NpColor, NpJson inline + RenderSelect + four RenderNumeric variants) to invoke it. Previously property changes in grid view never refreshed the canvas.
+
+---
+
+### 6 — `NodePropertyEditor.razor` — no max-height, removed bottom Save/Cancel
+**File:** `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor`
+
+Removed `max-height:70vh` from the wrapper div (content now scrolls inside the panel's scroll area). Removed the Save/Cancel buttons div from the bottom (they moved to the panel subview toolbar).
+
+---
+
+### 7 — `NodePropertyEditor.razor.cs` — public Save/Cancel, AutoCloseOnCancel
+**File:** `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor.cs`
+
+`Save()` and `Cancel()` made `public` so EditSidePanel can call them via `@ref`. Added `[Parameter] public bool AutoCloseOnCancel { get; set; } = true;` — when `false`, Cancel reverts local state but does not invoke `OnClose` (used by EditSidePanel so Cancel doesn't close the panel).
+
+---
+
+### 8 — `NodeModelSnapshot.cs` — new JSON snapshot helper
+**File:** `src/PSTT.Dashboard.Client/Helpers/NodeModelSnapshot.cs` _(new file)_
+
+`NodeModelSnapshot.Capture(node)` serialises all `NpXxx`-decorated properties to a JSON string via `System.Text.Json`. `NodeModelSnapshot.Restore(node, json)` applies the snapshot back. Handles all attribute types including `NpCustom` (NumericRangeSettings, List<ColorTransition>). Used by grid-view Cancel to revert live edits. Will serve as the foundation for a future JSON property editing tab.
+
+---
+
+### 9 — `EditSidePanel.razor/.cs` — full panel restructure
+**Files:** `src/PSTT.Dashboard.Client/Components/EditSidePanel.razor`, `.razor.cs`
+
+- **Tab order**: NodeProps → PageProps → DashboardProps → vertical divider → AddNode → DataExplorer.
+- **Grid/Form toggle**: Replaced single toggle button with two separate `MudIconButton` icons (GridView / ViewAgenda), each highlighted `Color.Primary` when active.
+- **Apply/Cancel in toolbar**: Buttons moved from the bottom of `NodePropertyEditor` to the `panel-subview-toolbar` (always visible at top when a node is selected). Grid view: Apply/Cancel use `NodeModelSnapshot` and `AppState.PushUndoSnapshot`. Form view: Apply/Cancel call `NodePropertyEditor.Save()`/`Cancel()` via `@ref`. Both buttons disabled when no pending changes.
+- **Page move buttons**: Page Properties tab now has ◁ ▷ icon buttons (disabled at boundaries) to reorder the current page left or right.
+- **New parameters**: `CanMovePageLeft`, `CanMovePageRight`, `OnMovePageLeft`, `OnMovePageRight`.
+
+---
+
+### 10 — `Display.razor` — layout restructure
+**File:** `src/PSTT.Dashboard.Client/Pages/Display.razor`
+
+Side panel now spans the full app height including the page-tabs row:
+- Outer `div` is now a flex row with `height:calc(100vh - 72px)`.
+- Left column (`flex:1`) wraps the page-tabs bar and the canvas in a flex column.
+- EditSidePanel is a direct sibling of the left column (not nested inside it), so it stretches to the full height.
+
+Removed the Add Node and Data Explorer icon buttons from the page-tabs toolbar. Replaced with a single toggle button: `Tune` icon when the panel is closed, `Close` (X) icon when open.
+
+---
+
+### 11 — `Display.razor.cs` — ToggleEditPanel, MoveCurrentPageLeft/Right
+**File:** `src/PSTT.Dashboard.Client/Pages/Display.razor.cs`
+
+Added `ToggleEditPanel()` (sets `_isSidePanelOpen` true/false). Added `MoveCurrentPageLeft()` and `MoveCurrentPageRight()` which swap adjacent entries in `_pageStates`, `_diagrams`, and `AppState.PageNames`, update `_activePageIndex`, push an undo snapshot, and call `SwitchToPageAsync`.
+
+---
+
+
+
+### 1 — `PropertyGridEditor.razor` — add `OnChanged` EventCallback
+**File:** `src/PSTT.Dashboard.Client/Components/PropertyGridEditor.razor`
+
+Added `[Parameter] public EventCallback OnChanged { get; set; }`. Every value-changed handler (NpText, NpCheckbox, NpColor, NpJson inline handlers + RenderSelect and all four RenderNumeric type branches) now calls `await OnChanged.InvokeAsync()` after mutating the model via `prop.SetValue`. Previously, grid-view property changes had no downstream effect — the node on the canvas never refreshed and the diagram was never marked dirty.
+
+---
+
+### 2 — `EditSidePanel.razor` + `.cs` — wire up `OnChanged`
+**Files:** `src/PSTT.Dashboard.Client/Components/EditSidePanel.razor`, `.razor.cs`
+
+Added `OnChanged="OnGridPropertyChanged"` to the `<PropertyGridEditor>` element. Added `OnGridPropertyChanged()` method that calls `SelectedNode?.Refresh()` (redraws the node on the canvas) and `AppState.MarkEdited()` (marks the diagram dirty so Save is triggered on close). This path does NOT push an undo snapshot on every keystroke — that would bloat the undo stack; undo is only pushed on explicit Save.
+
+---
+
+### 3 — `NodePropertyEditor.razor` — remove `max-height:70vh`
+**File:** `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor` (line 4)
+
+Removed `max-height:70vh` from the wrapper `<div>`. The panel's `.panel-content` flex container already handles overflow and scrolling; the height cap just wasted panel space and caused double scrollbars.
+
+---
+
+### 4 — `NodePropertyEditor.razor.cs` — filter "Common" from `GetNodeSpecificCategories()`
+**File:** `src/PSTT.Dashboard.Client/Components/NodePropertyEditor.razor.cs`
+
+`GetNodeSpecificCategories()` now excludes `c != "Common"`. Previously it would return "Common" (from the seven `[NpXxx]`-decorated properties on `TextNodeModel`), causing those properties to be rendered a second time via `NodePropertyRenderer` below the manually-coded custom-form section — duplicating TitlePosition, IconColor, BackgroundColor, etc.
+
+---
+
+### 5 — `TextNodeModel.cs` — add `NodeTitle` wrapper property
+**File:** `src/PSTT.Dashboard.Client/Models/TextNodeModel.cs`
+
+Added `[NpText("Title", Category = "Common", Order = 0)] public string NodeTitle { get => Title ?? ""; set => Title = value; }`. This exposes the `NodeModel.Title` base property through the `NpXxx` attribute system so it appears as the first row in the `PropertyGridEditor` grid view. Without this, the most-used property (Title) was absent from the grid view and required switching to the custom form. The property is in the "Common" category (same as the other TextNodeModel decorators) and is filtered out of `GetNodeSpecificCategories()` so it does not appear in the custom form's node-specific section.
+
+---
+
+### 6 — `Display.razor.cs` — `OnNodePropertiesSaved()` now pushes undo snapshot
+**File:** `src/PSTT.Dashboard.Client/Pages/Display.razor.cs`
+
+Added `PushUndoSnapshot(); AppState.MarkEdited();` to `OnNodePropertiesSaved()`. Previously, clicking Save in the node custom form showed a snackbar and called `StateHasChanged()` but never marked the diagram dirty or added an undo point — so changes were invisible to the save-on-close guard and couldn't be undone. This was a pre-existing bug first surfaced when examining panel wiring.
+
+---
+
+## 2026-05-07 — Combined Edit Side Panel
+
+### Commit: 38a922a — develop
+
+---
+
+### 1 — `SidePanelEnums.cs` (new)
+**File:** `src/PSTT.Dashboard.Client/Components/SidePanelEnums.cs`
+
+Defines `SidePanelTab` enum (NodeProps, AddNode, DataExplorer, PageProps, DashboardProps) and `SubView` enum (List, Custom) in the `PSTT.Dashboard.Components` namespace. Used by `EditSidePanel` and `Display`.
+
+---
+
+### 2 — `PropertyGridEditor.razor` + CSS (new)
+**Files:** `src/PSTT.Dashboard.Client/Components/PropertyGridEditor.razor`, `.razor.css`
+
+Compact two-column grid editor that reads `NpXxx` attributes from any `object? Model`. Handles NpText, NpNumeric, NpCheckbox, NpSelect, NpColor, NpJson, NpCustom. Groups by `Category`, sorted by `Order`. Uses CSS grid (`display:grid; grid-template-columns: minmax(70px,40%) 1fr`) so label and value divs automatically flow into two columns.
+
+---
+
+### 3 — `CustomPropertyCell.razor` (new)
+**File:** `src/PSTT.Dashboard.Client/Components/CustomPropertyCell.razor`
+
+Wraps `DynamicComponent` for `NpCustomAttribute` rendering in PropertyGridEditor. Casts `Model as TextNodeModel` and passes property value via `BuildParams()`.
+
+---
+
+### 4 — `DashboardPropertiesContent.razor` (new)
+**File:** `src/PSTT.Dashboard.Client/Components/DashboardPropertiesContent.razor`
+
+Extracted dashboard properties form from `DashboardPropertiesDialog.razor` into a standalone component. Has optional `OnApplied`/`OnCancelled` EventCallback parameters; Cancel button only shown when `OnCancelled.HasDelegate`. Used both by the thin dialog wrapper and embedded in the side panel.
+
+---
+
+### 5 — `sidePanel.js` (new)
+**File:** `src/PSTT.Dashboard.Client/wwwroot/sidePanel.js`
+
+`window.SidePanel` IIFE with `startResize(dotNetRef, startX, startWidth)` (mouse-drag resize with `SetWidth` .NET callback), `saveWidth(w)` and `loadWidth()` using `localStorage` key `edit-side-panel-width`.
+
+---
+
+### 6 — `NpColorAttribute` added to `NodePropertyAttributes.cs`
+**File:** `src/PSTT.Dashboard.Client/Models/NodePropertyAttributes.cs`
+
+Added `NpColorAttribute(displayName)` sealed class inheriting `NodePropertyAttribute`. Properties: `ShowClear` (default true), `Placeholder`. Used by `PropertyGridEditor` and `NodePropertyRenderer` to render `<ColorInputRow>`.
+
+---
+
+### 7 — NpXxx decorators on `TextNodeModel.cs`
+**File:** `src/PSTT.Dashboard.Client/Models/TextNodeModel.cs`
+
+Added `[NpXxx]` attribute decorators to 7 properties so they appear in `PropertyGridEditor` (grid/list sub-view):
+- `TitlePosition` → `[NpSelect(...)]`
+- `IconColor` → `[NpColor(..., ShowClear=true)]`
+- `Text` → `[NpText(..., Lines=4)]`
+- `BackgroundColor` → `[NpColor(..., ShowClear=true)]`
+- `BackgroundImageUrl` → `[NpText(...)]`
+- `BackgroundObjectFit` → `[NpSelect(...)]`
+- `FontSize` → `[NpNumeric(..., Min=0)]`
+
+All use `Category="Common"`, `Order` 1–8.
+
+---
+
+### 8 — `NpColorAttribute` handling in `NodePropertyRenderer.razor`
+**File:** `src/PSTT.Dashboard.Client/Components/NodePropertyRenderer.razor`
+
+Added `else if (entry.Attr is NpColorAttribute colorAttr)` branch between `NpJsonAttribute` and `NpCustomAttribute` handling. Renders `<ColorInputRow>` with two-way binding.
+
+---
+
+### 9 — `DashboardPropertiesDialog.razor` refactored to thin wrapper
+**File:** `src/PSTT.Dashboard.Client/Components/DashboardPropertiesDialog.razor`
+
+Replaced the full form implementation with a thin wrapper that delegates to `<DashboardPropertiesContent OnApplied="..." OnCancelled="..." />`. `@code` block now only has `[CascadingParameter] IMudDialogInstance MudDialog`.
+
+---
+
+### 10 — `DataExplorerPanel.razor` — Embedded mode
+**File:** `src/PSTT.Dashboard.Client/Components/DataExplorerPanel.razor`
+
+Added `[Parameter] public bool Embedded { get; set; }`. When `Embedded=true`, renders the inner content div directly without the `<FloatingPanel>` wrapper. Inner content shared via `RenderFragment RenderInner` (tree builder API).
+
+---
+
+### 11 — `EditSidePanel.razor` + `.razor.cs` + `.razor.css` (new)
+**Files:** `src/PSTT.Dashboard.Client/Components/EditSidePanel.*`
+
+The main combined edit side panel component. Key features:
+- **5 icon tabs** in header: NodeProps, AddNode, DataExplorer, PageProps, DashboardProps
+- **Sub-view toggle** (grid/form icons) shown only for NodeProps tab — switches between `<PropertyGridEditor>` (list) and `<NodePropertyEditor>` (custom form)
+- **Resize handle** on left edge: calls `SidePanel.startResize()` JS, which invokes `[JSInvokable] SetWidth()` on the .NET side; width clamped 200–800px, persisted to localStorage
+- **PageProps tab**: inline MudTextField + ColorInputRow + Apply button (fires `OnPagePropsApplied` callback)
+- **DashboardProps tab**: renders `<DashboardPropertiesContent />` (no sub-view toggle)
+- **DataExplorer tab**: `<DataExplorerPanel Embedded="true" ...>` 
+- Implements `IAsyncDisposable` for `DotNetObjectReference` cleanup
+
+---
+
+### 12 — `Display.razor` restructured
+**File:** `src/PSTT.Dashboard.Client/Pages/Display.razor`
+
+- Wrapped the canvas `<MudPaper>` in a `display:flex;flex-direction:row` container taking `height:calc(100vh - 100px)`
+- MudPaper now has `flex:1;min-width:0;` instead of the fixed height/width style
+- Removed three `<FloatingPanel>` blocks (AddNode, DataExplorer, NodeProperties)
+- Added `<EditSidePanel>` after the canvas paper, inside `@if (AppState.IsEditMode)`
+- Updated toolbar Add/DataExplorer icon buttons to call `ToggleSidePanelTab()` and reflect `_sidePanelTab`
+
+---
+
+### 13 — `Display.razor.cs` updated
+**File:** `src/PSTT.Dashboard.Client/Pages/Display.razor.cs`
+
+Multiple changes:
+- Replaced `_isAddNodeOpen`/`_isDataExplorerOpen`/`_isPropertiesOpen` with `_isSidePanelOpen` + `_sidePanelTab`
+- `SwitchMode(true)` → sets `_isSidePanelOpen = true`; `SwitchMode(false)` → sets `_isSidePanelOpen = false`
+- `AddNode()` → calls `ToggleSidePanelTab(SidePanelTab.AddNode)`
+- `EditNodeProperties()` → sets `_isSidePanelOpen=true`, `_sidePanelTab=SidePanelTab.NodeProps`
+- `ClosePropertiesPanel()` → just calls `StateHasChanged()` (no panel bool to clear)
+- `OnSelectionChanged()` → switches to NodeProps tab when a node is selected and panel is open
+- `ShowDiagramPropertiesAsync()` → now synchronous: sets `_isSidePanelOpen=true`, `_sidePanelTab=SidePanelTab.DashboardProps` (no more dialog)
+- `CanvasStyle` → renamed to `CanvasBgStyle`, returns only `background-color:...` or `""` (layout handled by flex container)
+- Added `ToggleSidePanelTab(tab)` helper: toggles open/closed, or switches tab
+- Added `ApplyPageProps((string Name, string? BgColor))`: updates page name + background, calls `AppState.MarkEdited()`
+
+---
+
+### 14 — `App.razor` — script tag added
+**File:** `src/PSTT.Dashboard.Client/App.razor`
+
+Added `<script src="_content/PSTT.Dashboard.Client/sidePanel.js"></script>` after the existing `tableResize.js` script tag.
+
+---
+
+⚠️ **Known caveats / remaining work:**
+- DataExplorer embedded mode uses a `RenderFragment` with builder API — if it shows rendering issues, consider extracting inner content to a separate `DataExplorerPanelContent.razor`
+- The `DashboardPropertiesDialog.razor` is kept as a thin wrapper for backward compat (any code still calling `DialogService.ShowAsync<DashboardPropertiesDialog>()` will still work)
+- PropertyGridEditor only renders `NpXxx`-decorated properties; widgets that have few/no decorators will show an empty grid — add attributes incrementally per widget
+
+---
+
 ## 2026-05-05 — Table widget Session 3 complete — cell/row/col styling, conditional formatting, flash animation
 
 ### Commit: TBD — feature/table-widget

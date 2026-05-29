@@ -76,6 +76,12 @@ public class MqttInitializationService
             _appState.DataCache.Subscribe(DashboardTopics.MqttStatus, async sub =>
             {
                 if (sub.Status.IsPending) return;
+                if (sub.Status.IsStale)
+                {
+                    // SignalR connection dropped — mark as disconnected so UI shows offline state
+                    _appState.SetMqttConnectionStatus("Disconnected (reconnecting...)", false);
+                    return;
+                }
                 var connected = "Connected".Equals(sub.Value, StringComparison.OrdinalIgnoreCase);
                 _appState.SetMqttConnectionStatus(sub.Value ?? "Unknown", connected);
                 await Task.CompletedTask;
@@ -105,4 +111,29 @@ public class MqttInitializationService
     }
 
     public bool IsInitialized => _initialized;
+
+    /// <summary>
+    /// Attempts to (re-)connect the data cache to the server hub.
+    /// In WASM mode this reconnects the SignalR RemoteCache and re-sends all subscriptions.
+    /// Safe to call when already connected — the transport guard skips double-start.
+    /// No-op on Blazor Server (the Blazor circuit manages its own reconnect).
+    /// </summary>
+    public async Task ForceReconnectAsync()
+    {
+        if (!OperatingSystem.IsBrowser()) return;
+        if (_appState.DataCache is not RemoteCache<string> remoteCache) return;
+
+        _appState.SetMqttConnectionStatus("Reconnecting...", false);
+        _logger?.LogInformation("Force reconnect requested by user");
+
+        try
+        {
+            await remoteCache.ConnectAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Force reconnect failed");
+            _appState.SetMqttConnectionStatus($"Reconnect failed: {ex.Message}", false);
+        }
+    }
 }

@@ -6,6 +6,16 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 ## BUGS
 
+- [ ] New link features:
+	- [ ] Link properties review. They should be as follows:
+		- [ ] SourcePortSyle, EndPortStyle
+		      None, Fine, Dot, HalfRound, Arrow
+			  shape to draw on port
+	- [ ] When port syle is changed its likely the "end" of the line needs to be adjusted so the line appears to join the widget 
+
+- [ ] Editor side panel:
+	- [ ] Dashboard and page properties edit could also have the "form" vs "grid" options — requires NpXxx attributes on DiagramState/PageState models
+
 ## 🟡 Minor Enhancements
 
 - [ ] release.ps1
@@ -15,7 +25,7 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 	- [ ] Needs a means to drag reordering around the conditions to specify which is first match
 
 - [ ] Data item topics per node
-	- [ ] "Link animation" needs a property for index of which data item to animate upon
+	- [ ] _(Link animation is now on the link itself, not the node — Session C done)_
 
 - [ ] Page tabs
 	- [ ] Use MudTabs and related controls for displaying. MudTabs has a different model...every page is rendered inside tab component BUT maybe there's a way to use index of selected tab to render it outside MudTabs component?
@@ -71,17 +81,18 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
       - Self collected easy to do but little application if looses it every refresh.
 
 - [ ] Widget libraries- What libraries or packages are availble (FOSS) that would enhance the package?? Are there any emerging standards or widely used packages?
+
 - [ ] Generic property handling for data value transition:
-- [ ] Any widget property should be able to have a data transition appliled to it in some generic way
-      rather than present where just fixed (typlically color) property has data vaue transition built in only
-	  - other use cases would be whole widget visibility based on a data vaue (e.g. hide if 0)
-	  - speed of animation of line based on data vaue
-	  - 
+	- [ ] Any widget property should be able to have a data transition appliled to it in some generic way
+		  rather than present where just fixed (typlically color) property has data vaue transition built in only
+		  - other use cases would be whole widget visibility based on a data vaue (e.g. hide if 0)
+		  - speed of animation of line based on data vaue
+		  - 
 
 ### FEAT-D: Multiple dashboard pages _(basic multi-page done — see CHANGELOG)_
 - [ ] Page tab overflow handling (scrolling/dropdown when many pages)
 - [ ] Swipe left/right gesture on mobile
-- [ ] Page reordering (drag tabs) somewhereor at least a "move left, move right" option 
+- [ ] Page reordering by drag (tabs)
 - [ ] Page in memory persistence? - should pages be held in memory live for rapdi and no-change switching, or should they be reloaded from razor code each time? Maybe an option for this at page level or dashboard level. Default owuld be keep in memory
 
 ### FEAT-E: Editing improvements
@@ -94,33 +105,35 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] Data explorer panel
 	- [ ] drag a data item to an existing node to add it to that node
 
-- [ ] all the edit mode panels could be combined into a tabbed super panel with a tab for each of these functions (add node, edit node, data explorer, page properties, dashboard properties, etc)
-	- [ ] similar to current floating panels but also could be "docked" to right hand side of screen
-	- [ ] that is resizeable (and saves size and position and dock state i,e. floating or ocked)
-	- [ ] and when in edit mode this panel is shown by default but can be hidden to give more canvas space, and then shown again when needed
-	- [ ] whole thing is shown/hidden via single button
-	- [ ] thing becomes very extendable
-	- [ ] contained panels:
-		- [ ] nodeproperties panel is simple list of all properties and a simple editing value
-		- [ ] second propeties panel (ie. current dialog) would be for specialized node properties with the layout and cusom dialog as present
-		- [ ] dashboard oroperties and page properties another panel - again have linear list or ghioh value custom dialog
-		- [ ] add node
-		- [ ] data explorer
-		- [ ] ...so maybe tool bar olong top to choose which panel (node, page, table, data, add node) but also for some panel type a binary choice of list or custom
-	- [ ] rather like the node-red editing page with slide out panel on the right side
-
 ### FEAT-F: Link improvements
-- [ ] Links as proper model objects with a properties editor: color, thickness, dash style
-	- [ ] Data-driven link styling — color/intensity driven by a topic value
-	- [ ] remove link animation from current widget joined to the link and build it into the link itself 
+- [ ] Links as proper model objects with a properties editor: color, thickness, dash style _(Session C: basic LinkPropertyEditor + persistence done; Sessions D-E for full polish)_
+	- [ ] Data-driven link styling — color/intensity driven by a topic value _(Session D)_
+	- [x] remove link animation from current widget joined to the link and build it into the link itself — ✓ done (Session C)
+	- [x] links have set of properties (Color, Width, DashPattern, DataTopic, Animation, AnimationSpeed, FlowColor) — ✓ done (Session C)
+		- [x] Properties editor (LinkPropertyEditor) shown in side panel when link selected — ✓ done (Session C)
+- [ ] Behaviours:
+	- [ ] as current drag from a port starts a new link, drop on end port to finish it or drop on canvas to leave it unattached
+	- [x] a new link inherits data topic from widget at start point but can be changed in link properties — ✓ done (Session C)
+	- [x] double click a link and edit properties in properties editor — ✓ done (Session B)
+	- [x] del on a link deletes it — ✓ done (Session B)
+- [ ] Link options: 
+	- [ ] More stylinging, colour, thickness.
+	- [ ] Animations... moving dashes moving arrows, color changes etc
+	- [ ] Victron has a nice animation with the line being 2 thin outer lines and a thicker inner line that animates with a "marching ants" effect.
+	      This is probably the most visually effective way to show flow direction and intensity.
+		  The "ants" could be simple rectanlge or arrow heads
+		  The denisty and speed of ants reflected in data topic value (e.g. flow rate or power level)
+		  Colour also
 - [ ] POrt options:
-	- [ ] Arrow heads to show flow direction
+	- [ ] Current dots seems too heavy and positionn is difficult. The are fill rouns circles, half round would be a good option,
+	- [ ] Also coulud be arrow head,  with topic value being flow direction directs arrow head direction, and which end
 	- [ ] Not at all or single ended - or much finer than current black blob.
-	- [ ] Diffenent view in edit mode as has to be visible
-- [ ] Link port to centre of widget aswell as edge ports (blozor diagrams supports this).
-- [ ] Mutiple edge ports per side spaced properly or on top of each other? (implement in blazor diagrams)
+	- [ ] Different look in edit mode as has to be visible and allow attaching line when dragging
+- [ ] Link port to centre of widget aswell as edge ports (blazor diagrams supports this) we'll need a gui to enable it
+- [ ] Fork/junction points between links - option to "split" a line by inserting a junction that then allows dragging to create new line form junction to a port
 - [ ] Draggable Bezier control points
-- [ ] Fork/junction points between links
+- [ ] Mutiple edge ports per side spaced properly or on top of each other? (implement in blazor diagrams)
+- [ ] 
 
 ### FEAT-G: Grouping / layout containers
 - [ ] "Group" box — labeled background rectangle that visually wraps related nodes
@@ -163,7 +176,11 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] Admin interface: runtime monitoring, logs, connected clients, dashboard file management
 - [ ] We've lost the "restart" button ...might want to do a restart for other reasosns
 - [ ] Backend (docker) deployment of a new version shoul dbe detected by front end and a prompt to restart/reload offered
-- [ ] If backend has become incompatible (version change etc) then restart coul dbe forced
+- [ ] If backend has become incompatible (version change etc) then restart could be forced
+- [ ] An alternative docker deployment that is the SSR exe only (rather than the WASM exe in SSR mode).
+      It would be interesting to see the size and performance differences for this
+	  Can it be a runtime or biuld time option in a single docker image or would it have to be a seperate image? Not worried about deployment times
+	  by having a smaller SSR-only image, although can this be an option in the dockerfile or docker compose files?
 
 ### FEAT-M: Settings persistence _(done — settings now in data directory)_
 

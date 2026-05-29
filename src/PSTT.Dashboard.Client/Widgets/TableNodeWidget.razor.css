@@ -2,18 +2,25 @@
     overflow: hidden;
 }
 
+/* Override MudBlazor dense table padding. The Dense="true" rule has specificity (0,2,2);
+   this ::deep rule generates (0,4,2) and wins regardless of load order. */
+.table-node ::deep .mud-simple-table.mud-table-dense tr td,
+.table-node ::deep .mud-simple-table.mud-table-dense tr th {
+    padding: 3px 8px;
+}
+
 .table-node .mud-simple-table {
     table-layout: auto;
 }
 
 .table-node th {
     white-space: nowrap;
-    padding: 2px 6px;
+    padding: 3px 8px;
     position: relative; /* needed for absolute resize handle */
 }
 
 .table-node td {
-    padding: 2px 6px;
+    padding: 3px 8px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
