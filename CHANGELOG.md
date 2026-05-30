@@ -15,6 +15,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Table widget row sort and filter** — Three new properties on the Table node: `Sort Rows By Column` (column key to sort by numeric value), `Sort Descending` (largest first), and `Row Filters` (JSON array of `{col, op, value}` rules). Rows not meeting all filter conditions are hidden; rows with no MQTT data for a filter column are always shown. Example: `[{"col":"Power","op":">","value":5}]` hides rows where Power ≤ 5.
 
 ### Changed
+- **CacheHub security** — Replaced the previous authentication gate (which blocked unauthenticated users even in read-only mode) with a signed HTTP-only presence cookie. Any browser that loads a page receives a 7-day `chsession` cookie signed via ASP.NET Core Data Protection; WASM clients carry it automatically on the same-origin SignalR negotiate request. Tokens survive server restarts. This blocks internet scanners while allowing read-only/unauthenticated data access.
 - **NuGet package upgrades** — All packages updated to latest stable: MudBlazor 9.5.0, ASP.NET Core 10.0.8, Serilog.AspNetCore 10.0.0, BCrypt.Net-Next 4.2.1, Playwright 1.60.0, and more
 
 ### Security

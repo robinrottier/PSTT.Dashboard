@@ -1,4 +1,41 @@
-## 2026-05-30 — Table row sort and filter
+## 2026-05-30 — Replace CacheHub auth gate with signed presence-cookie barrier
+
+### Commit: 2be73d5 — UTC 2026-05-30 — Branch: develop
+
+#### Problem
+The previous `/cachehub` guard (`if authEnabled && !authenticated → 401`) broke read-only/view-only mode: MQTT data is displayed without login, so `RemoteCache<string>` must connect to `/cachehub` even for unauthenticated users. The gate was too coarse.
+
+#### Solution: HTTP-only presence cookie + Data Protection signatures
+
+**New file:** `src/PSTT.Dashboard.Server/Services/CacheHubTokenService.cs`
+- Uses `ITimeLimitedDataProtector` (ASP.NET Core Data Protection)
+- `IssueToken()` produces a signed, 7-day ciphertext; each call produces a distinct token
+- `Validate(string?)` decrypts + checks the sentinel payload — throws on expired/tampered
+- DP keys are persisted to disk → tokens survive server restarts (old cookies remain valid)
+
+**`ServiceCollectionExtensions.cs`:** registered as singleton
+
+**`WebApplicationExtensions.cs`:** old 9-line auth middleware replaced with two middleware:
+
+1. **Cookie-issuing** (runs on all non-hub/non-API/non-asset requests, before `await next()`):
+   - Validates existing `chsession` cookie; if absent or invalid, calls `IssueToken()` and appends a new `HttpOnly; SameSite=Strict; MaxAge=7d` cookie
+   - Path exclusions: `/cachehub`, `/api/`, `/healthz`, `/_framework/`, `/_content/`
+
+2. **Cookie-validation** (runs on all requests):
+   - If path starts with `/cachehub`, validates `chsession`; if missing/invalid → 401
+
+**`HubConnectionHelper.cs`** (integration tests): mints a token via `factory.Services.GetRequiredService<CacheHubTokenService>().IssueToken()` and injects it as `Cookie: chsession=<token>` in hub connection options.
+
+#### Threat model
+- ✅ Blocks blind internet scanners (curl/nmap/shodan probing `/cachehub` directly)
+- ✅ Works in read-only mode (no login required)
+- ✅ Survives server restarts (DP keys persisted)
+- ✅ Reconnects work (same browser cookie jar, 7-day token)
+- ⚠️ Does NOT block a cookie-aware scripted client that fetches `/` first — not the goal
+
+---
+
+
 
 ### Commit: b431134 — UTC 2026-05-30 — Branch: develop
 
