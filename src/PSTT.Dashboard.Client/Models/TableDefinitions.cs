@@ -69,6 +69,21 @@ public sealed record CellDef(
     string? Static);
 
 /// <summary>
+/// A single row-filter rule. A row passes when its value in <see cref="Col"/> satisfies
+/// the <see cref="Op"/> comparison. Multiple rules use AND logic (all must pass).
+/// Parsed from the <c>RowFilters</c> JSON property: <c>[{"col":"Power","op":"&gt;","value":5}]</c>
+/// </summary>
+public sealed record RowFilterDef(
+    /// <summary>Column key whose live value is tested.</summary>
+    string Col,
+    /// <summary>Comparison operator: &gt;=, &gt;, &lt;=, &lt;, ==, !=</summary>
+    string? Op,
+    /// <summary>Numeric threshold value.</summary>
+    double? Value,
+    /// <summary>String comparison value (used for == / != when the value is not numeric).</summary>
+    string? Str);
+
+/// <summary>
 /// Table-level appearance settings. Parsed from the <c>TableStyle</c> JSON property.
 /// All fields are optional CSS values (colors, etc.).
 /// </summary>
@@ -302,6 +317,63 @@ public static class TableDefsParser
         el.TryGetProperty(name, out var v)
             ? (v.ValueKind == JsonValueKind.True ? true : v.ValueKind == JsonValueKind.False ? false : null)
             : null;
+
+    // ── RowFilters ────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Parses a RowFilters JSON array into a list of <see cref="RowFilterDef"/> records.
+    /// Returns an empty list when the string is empty or invalid.
+    /// Example: <c>[{"col":"Power","op":"&gt;","value":5},{"col":"Status","op":"!=","value":"Off"}]</c>
+    /// </summary>
+    public static List<RowFilterDef> ParseRowFilters(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try
+        {
+            var arr = JsonSerializer.Deserialize<JsonElement[]>(json, _opts);
+            if (arr == null) return [];
+            var result = new List<RowFilterDef>(arr.Length);
+            foreach (var el in arr)
+            {
+                var col = Str(el, "col");
+                var op  = Str(el, "op");
+                if (string.IsNullOrEmpty(col) || string.IsNullOrEmpty(op)) continue;
+                double? numVal = null;
+                string? strVal = null;
+                if (el.TryGetProperty("value", out var vEl))
+                {
+                    if (vEl.ValueKind == JsonValueKind.Number)
+                        numVal = vEl.GetDouble();
+                    else if (vEl.ValueKind == JsonValueKind.String)
+                        strVal = vEl.GetString();
+                }
+                result.Add(new RowFilterDef(col!, op, numVal, strVal));
+            }
+            return result;
+        }
+        catch { return []; }
+    }
+
+    /// <summary>
+    /// Evaluates a single <see cref="RowFilterDef"/> against a raw cell value.
+    /// Returns <c>true</c> if the row passes (should be shown).
+    /// Rows with no value for the filter column always pass (not hidden).
+    /// </summary>
+    public static bool EvaluateRowFilter(RowFilterDef filter, string? rawValue)
+    {
+        if (rawValue == null) return true; // no data yet — don't hide
+        var isNum = double.TryParse(rawValue, NumberStyles.Any, CultureInfo.InvariantCulture, out var num);
+        return filter.Op switch
+        {
+            ">=" => isNum && num >= (filter.Value ?? 0),
+            ">"  => isNum && num >  (filter.Value ?? 0),
+            "<=" => isNum && num <= (filter.Value ?? 0),
+            "<"  => isNum && num <  (filter.Value ?? 0),
+            "==" => isNum ? num == (filter.Value ?? 0) : rawValue == filter.Str,
+            "!=" => isNum ? num != (filter.Value ?? 0) : rawValue != filter.Str,
+            _    => true
+        };
+    }
 
     public static TableStyleDef? ParseTableStyle(string? json)
     {

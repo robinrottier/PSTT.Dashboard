@@ -143,6 +143,7 @@
     private List<CellDef>    _cellDefs = new();
     private TableStyleDef?   _tableStyle;
     private List<CellStyleDef> _cellStyleDefs = [];
+    private List<RowFilterDef> _rowFilters = [];
 
     // Per-cell subscriptions (PerCell mode)
     private readonly List<IDisposable> _cellWatchers = new();
@@ -155,6 +156,7 @@
     private string? _lastDataPattern;
     private string? _lastTableStyle;
     private string? _lastCellStyle;
+    private string? _lastRowFilters;
 
     // ── Column resize ─────────────────────────────────────────────────────────
     // Runtime pixel widths keyed by column key. Populated from ColumnDef.Width on setup
@@ -193,10 +195,11 @@
         var cellDefsChanged   = Node.CellDefs    != _lastCellDefs;
         var styleChanged      = Node.TableStyle  != _lastTableStyle;
         var cellStyleChanged  = Node.CellStyle   != _lastCellStyle;
+        var rowFiltersChanged = Node.RowFilters  != _lastRowFilters;
         var genChanged        = AppState.BridgedDataCache.BridgeGeneration != _lastBridgeGeneration;
 
         if (!modeChanged && !patternChanged && !columnDefsChanged && !rowDefsChanged
-            && !cellDefsChanged && !styleChanged && !cellStyleChanged && !genChanged)
+            && !cellDefsChanged && !styleChanged && !cellStyleChanged && !rowFiltersChanged && !genChanged)
             return;
 
         _lastDataMode    = Node.DataMode;
@@ -206,6 +209,7 @@
         _lastCellDefs    = Node.CellDefs;
         _lastTableStyle  = Node.TableStyle;
         _lastCellStyle   = Node.CellStyle;
+        _lastRowFilters  = Node.RowFilters;
         _lastBridgeGeneration = AppState.BridgedDataCache.BridgeGeneration;
 
         // Tear down old subscriptions
@@ -223,6 +227,7 @@
         _cellDefs      = TableDefsParser.ParseCellDefs(Node.CellDefs);
         _tableStyle    = TableDefsParser.ParseTableStyle(Node.TableStyle);
         _cellStyleDefs = TableDefsParser.ParseCellStyleDefs(Node.CellStyle);
+        _rowFilters    = TableDefsParser.ParseRowFilters(Node.RowFilters);
 
         // Reset runtime widths to reflect updated ColumnDefs
         _columnWidths.Clear();
@@ -333,23 +338,64 @@
 
     private List<(string Key, string Label)> GetDisplayRows()
     {
+        List<(string Key, string Label)> rows;
+
         if (Node.DataMode == "PerCell")
         {
-            return _cellDefs.Select(c => c.Row).Distinct()
+            rows = _cellDefs.Select(c => c.Row).Distinct()
                 .Select(r => (r, r)).ToList();
         }
-
-        // If RowDefs specified, use them (fixed order, with labels); filter to rows with data
-        if (_rows != null && _rows.Count > 0)
+        else if (_rows != null && _rows.Count > 0)
         {
-            return _rows
+            // If RowDefs specified, use them (fixed order, with labels); filter to rows with data
+            rows = _rows
                 .Where(rd => rd.Key == null || _data.ContainsKey(rd.Key))
                 .Select(rd => (rd.Key ?? rd.Label ?? string.Empty, rd.Label ?? rd.Key ?? string.Empty))
                 .ToList();
         }
+        else
+        {
+            // Auto-discovered: stable arrival order (not alphabetical)
+            rows = _autoRows.Select(k => (k, k)).ToList();
+        }
 
-        // Auto-discovered: stable arrival order (not alphabetical)
-        return _autoRows.Select(k => (k, k)).ToList();
+        // Apply row filters (AND logic — all conditions must pass)
+        if (_rowFilters.Count > 0)
+            rows = rows.Where(r => PassesRowFilters(r.Key)).ToList();
+
+        // Apply sort by column value
+        if (!string.IsNullOrEmpty(Node.SortByColumn))
+            rows = SortRowsByColumn(rows, Node.SortByColumn, Node.SortDescending);
+
+        return rows;
+    }
+
+    private bool PassesRowFilters(string rowKey)
+    {
+        foreach (var filter in _rowFilters)
+        {
+            var raw = _data.TryGetValue(rowKey, out var rd) && rd.TryGetValue(filter.Col, out var v) ? v : null;
+            if (!TableDefsParser.EvaluateRowFilter(filter, raw))
+                return false;
+        }
+        return true;
+    }
+
+    private List<(string Key, string Label)> SortRowsByColumn(
+        List<(string Key, string Label)> rows, string colKey, bool descending)
+    {
+        double GetSortKey(string rowKey)
+        {
+            var raw = _data.TryGetValue(rowKey, out var rd) && rd.TryGetValue(colKey, out var v) ? v : null;
+            // Rows with no numeric value sort to the end regardless of direction
+            if (!double.TryParse(raw, System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out var d))
+                return descending ? double.MinValue : double.MaxValue;
+            return d;
+        }
+
+        var sorted = rows.OrderBy(r => GetSortKey(r.Key));
+        return (descending ? rows.OrderByDescending(r => GetSortKey(r.Key)) : sorted).ToList();
     }
 
     private string GetCellValue(string rowKey, ColumnDef col)
