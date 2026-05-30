@@ -7,6 +7,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- **NuGet package upgrades** — All packages updated to latest stable: MudBlazor 9.5.0, ASP.NET Core 10.0.8, Serilog.AspNetCore 10.0.0, BCrypt.Net-Next 4.2.1, Playwright 1.60.0, and more
+
 ### Security
 - **Security response headers** — All responses now include `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, and `Permissions-Policy` restricting unused browser APIs
 - **Auth cookie `Secure` flag** — Auth cookie now carries the `Secure` attribute when served over HTTPS, preventing accidental transmission over plain HTTP

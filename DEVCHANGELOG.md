@@ -1,6 +1,33 @@
+## 2026-05-30 — NuGet package upgrades
+
+### Commit: 382ffd7 — UTC 2026-05-30 — Branch: develop
+
+Upgraded all NuGet packages across the solution and test projects to latest stable versions. All 160 tests pass.
+
+#### Packages updated
+
+| Package | Old | New |
+|---|---|---|
+| MudBlazor | 9.4.0 | 9.5.0 |
+| Microsoft.AspNetCore.* | 10.0.7 | 10.0.8 |
+| Serilog.AspNetCore | 9.0.0 | 10.0.0 |
+| Serilog.Sinks.Console | 6.0.0 | 6.1.1 |
+| BCrypt.Net-Next | 4.0.3 | 4.2.1 |
+| Markdig | 1.1.3 | 1.2.0 |
+| Spectre.Console | 0.49.1 | 0.55.2 |
+| Microsoft.CodeAnalysis.CSharp | 4.13 | 5.3.0 |
+| Microsoft.NET.Test.Sdk | 17.14.1 | 18.6.0 |
+| coverlet.collector | 6.0.4 | 10.0.1 |
+| xunit.runner.visualstudio | 3.1.4 | 3.1.5 |
+| Microsoft.Playwright | 1.49.0 | 1.60.0 |
+
+Also updated the `HealthCheck_WithMqttDisconnected_Returns503` integration test to assert `Degraded` status instead of `mqtt` detail text — which is now hidden by the security hardening from the previous commit (`bd22d45`). The test now correctly validates the minimal-response format.
+
+---
+
 ## 2026-05-30 — Security hardening
 
-### Commit: (pending) — UTC 2026-05-30T13:05Z — Branch: develop
+### Commit: bd22d45 — UTC 2026-05-30T13:05Z — Branch: develop
 
 #### 1. Security response headers (`WebApplicationExtensions.cs`)
 Added a middleware immediately after `UseForwardedHeaders()` that injects three security headers on every response:
