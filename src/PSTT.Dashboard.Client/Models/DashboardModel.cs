@@ -204,6 +204,9 @@ public class TableNodeData : NodeData
     public bool? ShowRowLabels { get; set; }
     public string? TableStyle { get; set; }
     public string? CellStyle { get; set; }
+    public string? SortByColumn { get; set; }
+    public bool? SortDescending { get; set; }
+    public string? RowFilters { get; set; }
 }
 
 // ── Shared nested value types ─────────────────────────────────────────────────

@@ -7,6 +7,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [v0.1.15] - 2026-05-30
+
+### Added
+- **Primary node indicator in multi-selection** — When 2+ nodes are selected, the most-recently-clicked node gets an orange outline ring, marking it as the primary reference node. Same Width / Same Height operations now use the primary node's dimensions as the target (instead of the statistical maximum).
+- **Format painter** — New paint-brush toolbar button in the multi-select floating bar. Copies visual formatting from the primary node to all other selected nodes of the same type (background, colors, icon, text format, title, type-specific style properties). Excludes data topics, position, and size.
+- **Table widget row sort and filter** — Three new properties on the Table node: `Sort Rows By Column` (column key to sort by numeric value), `Sort Descending` (largest first), and `Row Filters` (JSON array of `{col, op, value}` rules). Rows not meeting all filter conditions are hidden; rows with no MQTT data for a filter column are always shown. Example: `[{"col":"Power","op":">","value":5}]` hides rows where Power ≤ 5.
+
+### Changed
+- **NuGet package upgrades** — All packages updated to latest stable: MudBlazor 9.5.0, ASP.NET Core 10.0.8, Serilog.AspNetCore 10.0.0, BCrypt.Net-Next 4.2.1, Playwright 1.60.0, and more
+
+### Security
+- **Security response headers** — All responses now include `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, and `Permissions-Policy` restricting unused browser APIs
+- **Auth cookie `Secure` flag** — Auth cookie now carries the `Secure` attribute when served over HTTPS, preventing accidental transmission over plain HTTP
+- **`/healthz` info reduction** — Health endpoint no longer exposes internal service names/descriptions by default; set `HealthCheck:DetailedResponse=true` to opt in, or `HealthCheck:Enabled=false` to disable it entirely
+- **`/cachehub` SignalR auth** — Live MQTT data hub now requires authentication when a password is configured; unauthenticated external connections receive 401
+
 ## [v0.1.14] - 2026-05-29
 
 ## [v0.1.13] - 2026-05-29

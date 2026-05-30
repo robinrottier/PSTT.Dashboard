@@ -89,6 +89,17 @@ public static class WebApplicationExtensions
         // This must run early in the pipeline so other middleware sees the correct scheme/host.
         app.UseForwardedHeaders(BuildForwardedHeadersOptions(app));
 
+        // Security headers — applied to every response before any other middleware writes to it.
+        app.Use(async (ctx, next) =>
+        {
+            ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
+            ctx.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+            ctx.Response.Headers["Permissions-Policy"] =
+                "accelerometer=(), camera=(), geolocation=(), gyroscope=(), " +
+                "magnetometer=(), microphone=(), payment=(), usb=()";
+            await next();
+        });
+
         // Configure the HTTP request pipeline
         if (app.Environment.IsDevelopment())
         {
@@ -128,33 +139,67 @@ public static class WebApplicationExtensions
         // GET /healthz?ignoreMqtt  — skip the MQTT check; useful for startup probes and
         //                            test harnesses where no broker is intentionally present.
         //                            Always returns 200 as long as the web server is up.
-        app.MapGet("/healthz", async (HttpContext ctx, HealthCheckService healthService) =>
+        // By default only the aggregate status is returned. Set HealthCheck:DetailedResponse=true
+        // in appsettings to include per-check names and descriptions (for uptime monitors etc.).
+        // Set HealthCheck:Enabled=false to disable the endpoint entirely.
+        var healthEnabled = !string.Equals(
+            app.Configuration["HealthCheck:Enabled"], "false", StringComparison.OrdinalIgnoreCase);
+
+        if (healthEnabled)
         {
-            var ignoreMqtt = ctx.Request.Query.ContainsKey("ignoreMqtt");
-
-            Func<HealthCheckRegistration, bool>? predicate = ignoreMqtt
-                ? reg => !string.Equals(reg.Name, "mqtt", StringComparison.OrdinalIgnoreCase)
-                : null;
-
-            var report = await healthService.CheckHealthAsync(predicate, ctx.RequestAborted);
-
-            var body = new
+            app.MapGet("/healthz", async (HttpContext ctx, HealthCheckService healthService) =>
             {
-                status = report.Status.ToString(),
-                checks = report.Entries.Select(e => new
-                {
-                    name        = e.Key,
-                    status      = e.Value.Status.ToString(),
-                    description = e.Value.Description,
-                })
-            };
+                var ignoreMqtt = ctx.Request.Query.ContainsKey("ignoreMqtt");
 
-            return report.Status == HealthStatus.Healthy
-                ? Results.Ok(body)
-                : Results.Json(body, statusCode: StatusCodes.Status503ServiceUnavailable);
+                Func<HealthCheckRegistration, bool>? predicate = ignoreMqtt
+                    ? reg => !string.Equals(reg.Name, "mqtt", StringComparison.OrdinalIgnoreCase)
+                    : null;
+
+                var report = await healthService.CheckHealthAsync(predicate, ctx.RequestAborted);
+
+                var detailed = string.Equals(
+                    ctx.RequestServices.GetRequiredService<IConfiguration>()["HealthCheck:DetailedResponse"],
+                    "true", StringComparison.OrdinalIgnoreCase);
+
+                object body = detailed
+                    ? new
+                    {
+                        status = report.Status.ToString(),
+                        checks = report.Entries.Select(e => new
+                        {
+                            name        = e.Key,
+                            status      = e.Value.Status.ToString(),
+                            description = e.Value.Description,
+                        })
+                    }
+                    : new { status = report.Status.ToString() };
+
+                return report.Status == HealthStatus.Healthy
+                    ? Results.Ok(body)
+                    : Results.Json(body, statusCode: StatusCodes.Status503ServiceUnavailable);
+            });
+        }
+
+        // Protect /cachehub when auth is configured: check dynamically so runtime password
+        // setup takes effect without restart. Blazor Server circuits do NOT connect here —
+        // they use in-process ServerDataCache directly. Only WASM browser clients connect,
+        // and they automatically carry the auth cookie (same-origin WebSocket negotiate).
+        app.Use(async (ctx, next) =>
+        {
+            if (ctx.Request.Path.StartsWithSegments("/cachehub"))
+            {
+                var cfg = ctx.RequestServices.GetRequiredService<IConfiguration>();
+                var authEnabled = !string.IsNullOrEmpty(cfg["Auth:AdminPasswordHash"]);
+                if (authEnabled && ctx.User.Identity?.IsAuthenticated != true)
+                {
+                    ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    return;
+                }
+            }
+            await next();
         });
 
-        // Map PSTT CacheHub — SignalR hub (WebSocket same-origin protects against CSRF)
+        // Map PSTT CacheHub — SignalR hub
         app.MapCacheHub("/cachehub");
 
         // Map Razor Components with appropriate render mode

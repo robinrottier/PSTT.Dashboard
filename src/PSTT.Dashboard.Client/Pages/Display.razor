@@ -122,11 +122,16 @@ else
                         <MudIconButton Icon="@Icons.Material.Filled.AlignVerticalBottom" Size="Size.Small" Color="Color.Primary" OnClick='() => AlignNodes("bottom")' />
                     </MudTooltip>
                     <MudDivider Vertical="true" FlexItem="true" Style="margin:4px 2px;" />
-                    <MudTooltip Text="Make Same Width">
+                    <MudTooltip Text="Make Same Width (as primary node)">
                         <MudIconButton Icon="@Icons.Material.Filled.SwapHoriz" Size="Size.Small" Color="Color.Primary" OnClick="SameWidth" />
                     </MudTooltip>
-                    <MudTooltip Text="Make Same Height">
+                    <MudTooltip Text="Make Same Height (as primary node)">
                         <MudIconButton Icon="@Icons.Material.Filled.SwapVert" Size="Size.Small" Color="Color.Primary" OnClick="SameHeight" />
+                    </MudTooltip>
+                    <MudDivider Vertical="true" FlexItem="true" Style="margin:4px 2px;" />
+                    <MudTooltip Text="Copy Formatting to Same-Type Nodes (excludes data topics and size/position). Click a node last to make it the primary reference.">
+                        <MudIconButton Icon="@Icons.Material.Filled.FormatPaint" Size="Size.Small" Color="Color.Secondary"
+                                       Disabled="@(!CanFormatPaint)" OnClick="FormatPaintToSelected" />
                     </MudTooltip>
                 </MudPaper>
             }

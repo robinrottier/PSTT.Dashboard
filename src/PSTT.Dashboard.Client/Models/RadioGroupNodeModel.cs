@@ -10,6 +10,14 @@ public class RadioGroupNodeModel : TextNodeModel
     }
     public override bool SupportsProperty(string propertyName) => propertyName != nameof(Text) && base.SupportsProperty(propertyName);
 
+    public override void CopyFormatFrom(TextNodeModel source)
+    {
+        base.CopyFormatFrom(source);
+        if (source is not RadioGroupNodeModel s) return;
+        Orientation = s.Orientation;
+        RadioColor  = s.RadioColor;
+    }
+
     /// <summary>
     /// Newline-separated list of radio options. Each line: "Label=Value".
     /// Lines starting with # are treated as comments and ignored.

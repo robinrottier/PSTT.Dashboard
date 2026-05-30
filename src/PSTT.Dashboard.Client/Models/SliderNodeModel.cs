@@ -10,6 +10,13 @@ public class SliderNodeModel : TextNodeModel
     }
     public override bool SupportsProperty(string propertyName) => propertyName != nameof(Text) && base.SupportsProperty(propertyName);
 
+    public override void CopyFormatFrom(TextNodeModel source)
+    {
+        base.CopyFormatFrom(source);
+        if (source is not SliderNodeModel s) return;
+        Unit = s.Unit;
+    }
+
     [NpNumeric("Min", Category = "Slider", Order = 1)]
     public double Min { get; set; } = 0;
 

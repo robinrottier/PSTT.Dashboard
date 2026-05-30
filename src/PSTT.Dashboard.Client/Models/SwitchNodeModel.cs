@@ -10,6 +10,15 @@ public class SwitchNodeModel : TextNodeModel
     }
     public override bool SupportsProperty(string propertyName) => propertyName != nameof(Text) && base.SupportsProperty(propertyName);
 
+    public override void CopyFormatFrom(TextNodeModel source)
+    {
+        base.CopyFormatFrom(source);
+        if (source is not SwitchNodeModel s) return;
+        SwitchStyle = s.SwitchStyle;
+        OnText      = s.OnText;
+        OffText     = s.OffText;
+    }
+
     [NpText("Publish Topic", Category = "Switch", Order = 1, Placeholder = "Defaults to Data Topic if empty")]
     public string? PublishTopic { get; set; }
 

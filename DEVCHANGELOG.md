@@ -1,3 +1,142 @@
+## 2026-05-30 — Table row sort and filter
+
+### Commit: b431134 — UTC 2026-05-30 — Branch: develop
+
+#### TableNodeWidget — live row sort and filter
+
+**Files changed:** `TableNodeModel.cs`, `DashboardModel.cs`, `TableDefinitions.cs`, `TableNodeWidget.razor`
+
+**New model properties on `TableNodeModel`** (all persisted via `TableNodeData`):
+
+- `SortByColumn` (string, optional) — column key whose live numeric value is used to sort rows at render time.
+- `SortDescending` (bool, default `true`) — sort largest value first; only used when `SortByColumn` is set.
+- `RowFilters` (JSON string, optional) — JSON array of filter rules, e.g. `[{"col":"Power","op":">","value":5}]`. All rules are ANDed — a row is shown only when every condition passes. Rows with no data for a filter column always pass (prevents hiding rows before MQTT data has arrived).
+
+**`TableDefinitions.cs`:**
+- Added `RowFilterDef` sealed record: `(string Col, string? Op, double? Value, string? Str)`
+- Added `TableDefsParser.ParseRowFilters(string?)` — JSON-parses the RowFilters string into `List<RowFilterDef>`
+- Added `TableDefsParser.EvaluateRowFilter(RowFilterDef, string?)` — evaluates a single rule against a raw string value using `double.TryParse`; returns `true` (pass) when raw is null/unparseable
+
+**`TableNodeWidget.razor`:**
+- `_rowFilters` field + `_lastRowFilters` tracking var
+- `SetupWatchers()` detects `RowFilters` changes and re-parses `_rowFilters` once (not on every render)
+- `GetDisplayRows()` refactored: builds base rows list first, then applies filters via `PassesRowFilters()`, then applies sort via `SortRowsByColumn()`
+- `SortRowsByColumn()` uses `double.TryParse` on the column value; non-numeric rows sort to the end
+
+⚠️ Filter operator support matches existing `EvaluateCondition` pattern: `>=`, `>`, `<=`, `<`, `==`, `!=`.
+
+---
+
+## 2026-05-30 — Primary node indicator and format painter
+
+### Commit: f50dbe2 — UTC 2026-05-30 — Branch: develop
+
+Two new multi-node selection features implemented.
+
+#### Feature 1: Primary node indicator
+
+**Problem:** When multiple nodes are selected, same-width/same-height operations used the statistical maximum as the reference size. There was no way to designate which node should be the reference.
+
+**Implementation:**
+- `TextNodeModel.IsPrimarySelection` — runtime-only `bool` (not serialized, not in `NodeState`/`FillBaseData`/`ApplyBaseData`). Set to `true` on the most-recently-selected node in a multi-selection.
+- `Display.razor.cs` — `_primaryNode` field; tracking logic in `OnSelectionChanged`: when a `TextNodeModel` is newly selected and isn't already primary, the old primary's flag is cleared (and `Refresh()`-ed), and the new node is promoted to primary.
+- `UpdateSelectionState()` — clears `_primaryNode` and its `IsPrimarySelection` flag when selection count drops to 0 or 1 (primary indicator only meaningful with 2+ nodes).
+- `SameWidth()`/`SameHeight()` — now use `_primaryNode?.Size` as the reference dimension, falling back to `Max()` when no primary is set (e.g. first usage before any click).
+- `BaseNodeWidget.NodeCssClass()` — adds `"primary-node"` CSS class when `Node.IsPrimarySelection` is true.
+- `app.css` — `.default-node.selected.primary-node { outline: 2px solid var(--mud-palette-warning); outline-offset: 3px; }` — orange outer ring distinguishes primary from blue-ring secondary selection.
+
+#### Feature 2: Format painter
+
+**Problem:** No way to copy visual styling from one node to several others of the same type.
+
+**Implementation:**
+- `TextNodeModel.CopyFormatFrom(TextNodeModel source)` — `virtual` method copying: `NodeTitle`, `TitlePosition`, `Icon`/`IconName`/`IconColor`, `Text`, `FontSize`, `BackgroundColor`, `BackgroundImageUrl`, `BackgroundObjectFit`. Explicitly excludes: `DataTopics`, `Position`, `Size`, `NodeType`, `Id`.
+- All derived models override `CopyFormatFrom` to also copy their type-specific formatting:
+  - **GaugeNodeModel**: `Unit`, `TextPosition`, `GaugeColor` (deep-copied via `ColorTransitionHelper.Serialize`/`Deserialize`)
+  - **BatteryNodeModel**: `ShowPercent`, `BatteryColor` (deep-copied)
+  - **SwitchNodeModel**: `SwitchStyle`, `OnText`, `OffText`
+  - **SliderNodeModel**: `Unit`
+  - **ButtonNodeModel**: `ButtonLabel`, `ButtonVariant`, `ButtonColor`
+  - **ButtonGroupNodeModel**: `Orientation`, `ButtonVariant`, `ButtonColor`, `ActiveButtonColor`
+  - **RadioGroupNodeModel**: `Orientation`, `RadioColor`
+  - **LogNodeModel**: all display columns (ShowDate/Time/TopicFull/Path/Name/ShowValue), MaxEntries, column widths
+  - **TreeViewNodeModel**: `ShowValues`
+  - TextEntryNodeModel, HtmlNodeModel, MarkdownNodeModel, IFrameNodeModel — base properties only (no type-specific visual properties)
+- `Display.razor.cs` — `FormatPaintToSelected()`: pushes undo snapshot, finds all selected nodes with same `NodeType` as `_primaryNode`, calls `target.CopyFormatFrom(_primaryNode!)`, refreshes all, marks edited.
+- `CanFormatPaint` computed property: `true` when `_primaryNode != null` and ≥1 other selected node shares the same `NodeType`.
+- `Display.razor` — format painter `MudIconButton` (`Icons.Material.Filled.FormatPaint`, `Color.Secondary`) added to the multi-select floating toolbar, disabled when `!CanFormatPaint`. Tooltip explains scope of copy.
+- Tooltip texts for Same Width/Height updated to "as primary node".
+
+**⚠️ Known caveat:** The primary node is the *most recently clicked* node, not the first-clicked. This is correct behaviour (last-click-is-reference is the familiar model from design tools) but may surprise users who expect first-selected to be primary. No UI label explains this yet; it's documented in the tooltip.
+
+---
+
+
+
+### Commit: 382ffd7 — UTC 2026-05-30 — Branch: develop
+
+Upgraded all NuGet packages across the solution and test projects to latest stable versions. All 160 tests pass.
+
+#### Packages updated
+
+| Package | Old | New |
+|---|---|---|
+| MudBlazor | 9.4.0 | 9.5.0 |
+| Microsoft.AspNetCore.* | 10.0.7 | 10.0.8 |
+| Serilog.AspNetCore | 9.0.0 | 10.0.0 |
+| Serilog.Sinks.Console | 6.0.0 | 6.1.1 |
+| BCrypt.Net-Next | 4.0.3 | 4.2.1 |
+| Markdig | 1.1.3 | 1.2.0 |
+| Spectre.Console | 0.49.1 | 0.55.2 |
+| Microsoft.CodeAnalysis.CSharp | 4.13 | 5.3.0 |
+| Microsoft.NET.Test.Sdk | 17.14.1 | 18.6.0 |
+| coverlet.collector | 6.0.4 | 10.0.1 |
+| xunit.runner.visualstudio | 3.1.4 | 3.1.5 |
+| Microsoft.Playwright | 1.49.0 | 1.60.0 |
+
+Also updated the `HealthCheck_WithMqttDisconnected_Returns503` integration test to assert `Degraded` status instead of `mqtt` detail text — which is now hidden by the security hardening from the previous commit (`bd22d45`). The test now correctly validates the minimal-response format.
+
+---
+
+## 2026-05-30 — Security hardening
+
+### Commit: bd22d45 — UTC 2026-05-30T13:05Z — Branch: develop
+
+#### 1. Security response headers (`WebApplicationExtensions.cs`)
+Added a middleware immediately after `UseForwardedHeaders()` that injects three security headers on every response:
+- `X-Content-Type-Options: nosniff` — prevents MIME-type sniffing attacks
+- `Referrer-Policy: strict-origin-when-cross-origin` — limits referrer leakage to cross-origin requests
+- `Permissions-Policy: accelerometer=(), camera=(), ...` — disables browser APIs not used by the dashboard
+
+No configuration needed; safe for all environments.
+
+#### 2. Auth cookie `Secure` flag (`WebApplicationBuilderExtensions.cs`)
+Added `options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest` to the `AddCookie()` configuration.
+- In production (HTTPS) the `Secure` attribute is set → cookie cannot be sent over plain HTTP
+- In development (HTTP) the attribute is omitted → login still works locally without TLS
+
+#### 3. `/healthz` info reduction (`WebApplicationExtensions.cs`)
+The health check endpoint previously returned internal service names and descriptions to any caller (e.g. `{"name":"mqtt","description":"MQTT broker connected"}`), leaking service topology.
+
+Changed behaviour:
+- **Default** (no config change needed): returns only `{"status":"Healthy"}` — no internal details exposed
+- **Opt-in verbose**: set `HealthCheck:DetailedResponse=true` in appsettings to restore full check details (useful for uptime monitors)
+- **Opt-in disable**: set `HealthCheck:Enabled=false` to remove the endpoint entirely
+
+The `?ignoreMqtt` query parameter still works in both modes.
+
+#### 4. `/cachehub` SignalR hub auth (`WebApplicationExtensions.cs`)
+The SignalR hub at `/cachehub` was unauthenticated — anyone knowing the URL could connect and receive live MQTT data, bypassing the login page entirely.
+
+Added middleware between `UseAuthorization()` and `MapCacheHub()` that:
+- Reads `Auth:AdminPasswordHash` from `IConfiguration` **dynamically** (configuration reload is supported)
+- If auth is enabled and the connecting user is not authenticated → returns 401
+- If auth is disabled → passes through (open, as before)
+
+**Why no loopback auth problem**: Blazor Server circuits connect to `ServerDataCache` in-process (no SignalR). Only WASM browser clients connect to `/cachehub`, and since it is same-origin they automatically carry the auth cookie with the SignalR negotiate request.
+
+---
+
 ## 2026-05-29 — Duplicate link prevention
 
 ### Commit: (pending) — UTC timestamp: 2026-05-29 — Branch: develop

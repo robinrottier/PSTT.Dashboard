@@ -6,17 +6,6 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 ## BUGS
 
-- [ ] **FlowLink: hidden-port line extension** _(CSS fix applied — monitor for remaining offset issues)_
-	- Port sizing now set correctly in CSS (10px with -5px margin), replacing inline style hack.
-	- Invisible ports should now line up correctly on the node boundary.
-
-- [ ] New link features:
-	- [ ] Link properties review. They should be as follows:
-		- [ ] SourcePortSyle, EndPortStyle
-		      None, Fine, Dot, HalfRound, Arrow
-			  shape to draw on port
-	- [ ] When port syle is changed its likely the "end" of the line needs to be adjusted so the line appears to join the widget 
-
 - [ ] Editor side panel:
 	- [ ] Dashboard and page properties edit could also have the "form" vs "grid" options — requires NpXxx attributes on DiagramState/PageState models
 
@@ -28,13 +17,9 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] Node Property dialog - color transition
 	- [ ] Needs a means to drag reordering around the conditions to specify which is first match
 
-- [ ] Data item topics per node
-	- [ ] _(Link animation is now on the link itself, not the node — Session C done)_
-
 - [ ] Page tabs
 	- [ ] Use MudTabs and related controls for displaying. MudTabs has a different model...every page is rendered inside tab component BUT maybe there's a way to use index of selected tab to render it outside MudTabs component?
 	- [ ] Position option for tabs: top/left/right/bottom in dashboard properties
-	- [ ] Drag to reorder pages when in edit mode. MudTabs would support this but need setting noticed and saved.
 
 - [ ] Log viewer columns: choices for date (and format), time (and format), topic path, topic name, topic full path&name, value — **Full 6-column boolean options done**; date/time format options still open
 - [ ] log viewer colum width: column width changeable via mouse drag and saved in properties _(configurable pixel widths per column added; mouse resize still TODO)_
@@ -103,7 +88,8 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] View zoom/unzoom option and scroll bars for panning view.
 - [ ] Keyboard funcionality:
 	- [ ] arrows to move selcted nodes
-
+- [ ] Mutli-node selection needs to indicate which node is the "main one" in the list that will aplly when same width/same heifht etc are seelcted
+- [ ] With multi-node selection toolbar also need an option to format painter that copies settings to nodes of same type in that group EXCEPT data topic and position/size i..e just formating
 - [ ] Add node panel
 	- [ ] drag onto the canvas and positioned without loosing the dialog
 - [ ] Data explorer panel
@@ -112,34 +98,13 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 ### FEAT-F: Link improvements
 - [ ] Links as proper model objects with a properties editor: color, thickness, dash style _(Session C: basic LinkPropertyEditor + persistence done; Sessions D-E for full polish)_
 	- [ ] Data-driven link styling — color/intensity driven by a topic value _(Session D)_
-	- [x] remove link animation from current widget joined to the link and build it into the link itself — ✓ done (Session C)
-	- [x] links have set of properties (Color, Width, DashPattern, DataTopic, Animation, AnimationSpeed, FlowColor) — ✓ done (Session C)
-		- [x] Properties editor (LinkPropertyEditor) shown in side panel when link selected — ✓ done (Session C)
-	- [ ] **FlowLink width properties simplification** — ✓ done: `LineWidth` removed from `FlowLinkModel`; `Width` (inherited) is the base line width; `FlowWidth` controls animation overlay width. Both exposed in property editor.
-	- [ ] **FlowLink: data-direction-aware marker (arrow)** — ✓ done: `FlowMarker` property added to `FlowLinkModel`; placement follows `FlowDirection` automatically. Exposed in link property editor (None/Arrow/Circle/Square).
 - [ ] Behaviours:
 	- [ ] as current drag from a port starts a new link, drop on end port to finish it or drop on canvas to leave it unattached
-	- [x] a new link inherits data topic from widget at start point but can be changed in link properties — ✓ done (Session C)
-	- [x] double click a link and edit properties in properties editor — ✓ done (Session B)
-	- [x] del on a link deletes it — ✓ done (Session B)
 - [ ] Link options: 
-	- [ ] More stylinging, colour, thickness.
-	- [ ] Animations... moving dashes moving arrows, color changes etc
-	- [ ] Victron has a nice animation with the line being 2 thin outer lines and a thicker inner line that animates with a "marching ants" effect.
-	      This is probably the most visually effective way to show flow direction and intensity.
-		  The "ants" could be simple rectanlge or arrow heads
-		  The denisty and speed of ants reflected in data topic value (e.g. flow rate or power level)
-		  Colour also
-- [ ] POrt options:
-	- [ ] Current dots seems too heavy and positionn is difficult. The are fill rouns circles, half round would be a good option,
-	- [ ] Also coulud be arrow head,  with topic value being flow direction directs arrow head direction, and which end
-	- [ ] Not at all or single ended - or much finer than current black blob.
-	- [ ] Different look in edit mode as has to be visible and allow attaching line when dragging
 - [ ] Link port to centre of widget aswell as edge ports (blazor diagrams supports this) we'll need a gui to enable it
 - [ ] Fork/junction points between links - option to "split" a line by inserting a junction that then allows dragging to create new line form junction to a port
 - [ ] Draggable Bezier control points
 - [ ] Mutiple edge ports per side spaced properly or on top of each other? (implement in blazor diagrams)
-- [ ] 
 
 ### FEAT-G: Grouping / layout containers
 - [ ] "Group" box — labeled background rectangle that visually wraps related nodes

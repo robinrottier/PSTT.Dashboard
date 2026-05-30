@@ -10,6 +10,16 @@ public class ButtonGroupNodeModel : TextNodeModel
     }
     public override bool SupportsProperty(string propertyName) => propertyName != nameof(Text) && base.SupportsProperty(propertyName);
 
+    public override void CopyFormatFrom(TextNodeModel source)
+    {
+        base.CopyFormatFrom(source);
+        if (source is not ButtonGroupNodeModel s) return;
+        Orientation       = s.Orientation;
+        ButtonVariant     = s.ButtonVariant;
+        ButtonColor       = s.ButtonColor;
+        ActiveButtonColor = s.ActiveButtonColor;
+    }
+
     /// <summary>
     /// Newline-separated list of buttons. Each line: "Label=Value".
     /// Label is the button text; Value is what gets published when clicked.

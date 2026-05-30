@@ -33,6 +33,14 @@ public class BatteryNodeModel : TextNodeModel
     public double MaxValue => Range.Max;
     public int DataTopicIndex => Range.DataTopicIndex;
 
+    public override void CopyFormatFrom(TextNodeModel source)
+    {
+        base.CopyFormatFrom(source);
+        if (source is not BatteryNodeModel s) return;
+        ShowPercent  = s.ShowPercent;
+        BatteryColor = ColorTransitionHelper.Deserialize(ColorTransitionHelper.Serialize(s.BatteryColor));
+    }
+
     public override NodeData ToData(double panX = 0, double panY = 0)
     {
         var data = new BatteryNodeData

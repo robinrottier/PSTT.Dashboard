@@ -22,9 +22,9 @@ public class DashboardApiTests : IClassFixture<IntegrationWebApplicationFactory>
         var response = await _client.GetAsync("/healthz");
         Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
 
-        // Body should include per-check status
+        // Body contains minimal status only (detailed response requires HealthCheck:DetailedResponse=true)
         var body = await response.Content.ReadAsStringAsync();
-        Assert.Contains("mqtt", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Degraded", body, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

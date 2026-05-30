@@ -74,6 +74,31 @@ public class TableNodeModel : TextNodeModel
     public bool ShowRowLabels { get; set; } = true;
 
     /// <summary>
+    /// Column key whose live value is used to sort rows at render time.
+    /// Leave empty for no sorting (rows appear in arrival or RowDefs order).
+    /// </summary>
+    [NpText("Sort Rows By Column", Category = "Row Sort / Filter", Order = 8,
+        Placeholder = "Power",
+        HelperText = "Column key whose value is used to sort rows. Leave empty for no sorting.")]
+    public string? SortByColumn { get; set; }
+
+    /// <summary>Sort descending (largest value first). Ignored when SortByColumn is empty.</summary>
+    [NpCheckbox("Sort Descending (largest first)", Category = "Row Sort / Filter", Order = 9)]
+    public bool SortDescending { get; set; } = true;
+
+    /// <summary>
+    /// JSON array of row filter rules. All rules use AND logic — a row is shown only when
+    /// all conditions pass. Rows with no data for the filter column are always shown.
+    /// Example: <c>[{"col":"Power","op":"&gt;","value":5}]</c>
+    /// Operators: &gt;=, &gt;, &lt;=, &lt;, ==, !=
+    /// </summary>
+    [NpJson("Row Filters (JSON)", Category = "Row Sort / Filter", Order = 10,
+        Lines = 3,
+        ExampleJson = """[{"col":"Power","op":">","value":5}]""",
+        HelperText = "Hide rows that don't meet all conditions. Operators: >=, >, <=, <, ==, !=. Rows with no data for a filter column are always shown.")]
+    public string? RowFilters { get; set; }
+
+    /// <summary>
     /// Optional JSON object to style the table appearance.
     /// Supported fields: headerBg, headerColor, altRowBg, borderColor, textColor.
     /// </summary>
@@ -108,6 +133,9 @@ public class TableNodeModel : TextNodeModel
             ShowRowLabels = ShowRowLabels ? null : false,
             TableStyle    = TableStyle,
             CellStyle     = CellStyle,
+            SortByColumn  = SortByColumn,
+            SortDescending = SortDescending ? null : false,
+            RowFilters    = RowFilters,
         };
         FillBaseData(data, panX, panY);
         return data;
@@ -126,6 +154,9 @@ public class TableNodeModel : TextNodeModel
             ShowRowLabels = data.ShowRowLabels ?? true,
             TableStyle    = data.TableStyle,
             CellStyle     = data.CellStyle,
+            SortByColumn  = data.SortByColumn,
+            SortDescending = data.SortDescending ?? true,
+            RowFilters    = data.RowFilters,
         };
         return ApplyBaseData(node, data);
     }
