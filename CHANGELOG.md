@@ -7,6 +7,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **Links not rendering after page switch** — Links were invisible when switching between dashboard pages because ports couldn't initialize their bounding rect positions before the diagram container was ready. Fixed in Blazor.Diagrams by subscribing `PortRenderer` to `ContainerChanged` and retrying dimension initialization when the container becomes available.
+
 ## [v0.1.16] - 2026-05-30
 
 ## [v0.1.15] - 2026-05-30

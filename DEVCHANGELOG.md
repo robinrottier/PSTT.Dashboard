@@ -1,3 +1,40 @@
+## 2026-05-31 — Fix link rendering bug on page switch
+
+### Commit: 9104ede — UTC 2026-05-31 — Branch: develop
+
+#### Problem
+
+Links frequently did not render after switching pages. The node data values were updating (MQTT was working), but the link lines were invisible. Refreshing the page (F5) or touching a source port marker would make them appear.
+
+#### Root Cause
+
+All dashboard nodes extend `TextNodeModel` which sets `ControlledSize = true` (to prevent size feedback loops from sub-pixel rounding). This disables the `ResizeObserver` path in `NodeRenderer`, which is the normal mechanism that calls `Node.ReinitializePorts()` → `port.Refresh()` → `PortRenderer.UpdateDimensions()`.
+
+The fallback path in `PortRenderer.OnAfterRenderAsync` calls `UpdateDimensions()`, but this bails early when `BlazorDiagram.Container == null`. The race: Blazor renders children before parents, so `PortRenderer.OnAfterRenderAsync` fires before `DiagramCanvas.OnAfterRenderAsync` — which is where the container bounding rect is set. Once the container is set, `DiagramCanvas` schedules a re-render, but `PortRenderer._shouldRender = false` so port renderers never run again and never retry `UpdateDimensions()`.
+
+With ports not initialized, `SinglePortAnchor.GetPosition()` returns `null` → no path generated → links invisible. `SwitchToPageAsync` creates a completely fresh `BlazorDiagram` instance each time, so all ports start uninitialized, making the bug consistent on page switch.
+
+#### Fix
+
+**File:** `libs/Blazor.Diagrams/src/Blazor.Diagrams/Components/Renderers/PortRenderer.cs`
+
+Subscribe to `BlazorDiagram.ContainerChanged` (already a public event on `Diagram`, fired by `SetContainer`). When it fires, any port that is not yet initialized retries `UpdateDimensions()`. By the time `ContainerChanged` fires, all `PortRenderer` components for the new page are mounted and subscribed.
+
+Guards applied per rubber-duck review:
+- `!Port.Initialized` — skip if already done
+- `!_updatingDimensions` — avoid duplicate JS calls
+- `Port.Visible` — skip hidden ports
+- `_element.Id != null` — skip unrendered elements
+- try/catch for `JSDisconnectedException` / `OperationCanceledException`
+
+Submodule committed as `04eb582` on the `develop` branch of `libs/Blazor.Diagrams`.
+
+#### Caveats
+
+⚠️ The `await Task.Delay(50); RefreshAll()` in `SwitchToPageAsync` was a timing workaround for the same issue. It is still present as a safety net but is likely no longer necessary. Can be removed once the fix is confirmed working in production.
+
+---
+
 ## 2026-05-30 — Replace CacheHub auth gate with signed presence-cookie barrier
 
 ### Commit: 2be73d5 — UTC 2026-05-30 — Branch: develop
