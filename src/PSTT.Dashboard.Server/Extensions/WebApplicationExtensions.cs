@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using PSTT.Dashboard.Server.Services;
 using PSTT.Remote.AspNetCore.Extensions;
 using System.Net;
 
@@ -180,17 +181,62 @@ public static class WebApplicationExtensions
             });
         }
 
-        // Protect /cachehub when auth is configured: check dynamically so runtime password
-        // setup takes effect without restart. Blazor Server circuits do NOT connect here —
-        // they use in-process ServerDataCache directly. Only WASM browser clients connect,
-        // and they automatically carry the auth cookie (same-origin WebSocket negotiate).
+        // ── CacheHub presence-cookie protection ───────────────────────────────────
+        //
+        // Goal: stop internet scanners from hitting /cachehub directly.  Any browser that
+        // loads a page receives a signed, time-limited "chsession" cookie (issued by
+        // CacheHubTokenService using ASP.NET Core Data Protection).  The cookie is sent
+        // automatically on the same-origin /cachehub/negotiate WebSocket request.
+        // Cookies survive server restarts because DP keys are persisted to disk.
+        //
+        // Blazor Server circuits NEVER connect to /cachehub — they use in-process
+        // ServerDataCache.  Only WASM browser clients do, so this barrier only needs
+        // to work for same-origin browser requests (which it does automatically).
+        //
+        // This is NOT a full authentication system — a cookie-aware scripted client that
+        // first fetches a page can still bypass it.  The goal is noise reduction, not
+        // cryptographic access control.
+
+        // 1. Issue a presence cookie on any navigational request (not static assets,
+        //    not API endpoints, not the hub itself).  Fires before the response body
+        //    is written so headers can still be set.
+        app.Use(async (ctx, next) =>
+        {
+            var path = ctx.Request.Path.Value ?? "";
+            var isExcluded =
+                path.StartsWith("/cachehub", StringComparison.OrdinalIgnoreCase) ||
+                path.StartsWith("/api/",      StringComparison.OrdinalIgnoreCase) ||
+                path.StartsWith("/healthz",   StringComparison.OrdinalIgnoreCase) ||
+                path.StartsWith("/_framework/", StringComparison.OrdinalIgnoreCase) ||
+                path.StartsWith("/_content/",   StringComparison.OrdinalIgnoreCase);
+
+            if (!isExcluded)
+            {
+                var tokenSvc = ctx.RequestServices.GetRequiredService<CacheHubTokenService>();
+                var existing = ctx.Request.Cookies["chsession"];
+                if (!tokenSvc.Validate(existing))
+                {
+                    ctx.Response.Cookies.Append("chsession", tokenSvc.IssueToken(), new CookieOptions
+                    {
+                        HttpOnly = true,
+                        SameSite = SameSiteMode.Strict,
+                        Secure   = ctx.Request.IsHttps,
+                        MaxAge   = CacheHubTokenService.TokenLifetime,
+                        IsEssential = true,
+                    });
+                }
+            }
+
+            await next();
+        });
+
+        // 2. Validate the presence cookie on /cachehub connections.
         app.Use(async (ctx, next) =>
         {
             if (ctx.Request.Path.StartsWithSegments("/cachehub"))
             {
-                var cfg = ctx.RequestServices.GetRequiredService<IConfiguration>();
-                var authEnabled = !string.IsNullOrEmpty(cfg["Auth:AdminPasswordHash"]);
-                if (authEnabled && ctx.User.Identity?.IsAuthenticated != true)
+                var tokenSvc = ctx.RequestServices.GetRequiredService<CacheHubTokenService>();
+                if (!tokenSvc.Validate(ctx.Request.Cookies["chsession"]))
                 {
                     ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
                     return;

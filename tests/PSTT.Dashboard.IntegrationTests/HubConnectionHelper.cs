@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.AspNetCore.Http.Connections;
+using Microsoft.Extensions.DependencyInjection;
+using PSTT.Dashboard.Server.Services;
 using PSTT.Remote;
 
 namespace PSTT.Dashboard.IntegrationTests;
@@ -20,11 +22,18 @@ public static class HubConnectionHelper
     {
         var httpClient = factory.CreateClient();
 
+        // Obtain a valid presence token so the /cachehub middleware allows the connection.
+        // In production this token is issued via a cookie on page load; in tests we mint
+        // one directly from the service.
+        var tokenSvc = factory.Services.GetRequiredService<CacheHubTokenService>();
+        var presenceCookie = $"chsession={tokenSvc.IssueToken()}";
+
         return new HubConnectionBuilder()
             .WithUrl(new Uri(httpClient.BaseAddress!, hubPath), options =>
             {
                 options.Transports = HttpTransportType.LongPolling;
                 options.HttpMessageHandlerFactory = _ => factory.Server.CreateHandler();
+                options.Headers["Cookie"] = presenceCookie;
             })
             .Build();
     }

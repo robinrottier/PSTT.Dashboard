@@ -77,6 +77,7 @@ public static class ServiceCollectionExtensions
 
         // ── Dashboard services ────────────────────────────────────────────────
 
+        services.AddSingleton<CacheHubTokenService>();
         services.AddSingleton<DashboardStorageService>();
         services.AddSingleton<UserSettingsService>();
         services.AddSingleton<LoginTokenStore>();
