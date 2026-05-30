@@ -1,4 +1,48 @@
-## 2026-05-30 — NuGet package upgrades
+## 2026-05-30 — Primary node indicator and format painter
+
+### Commit: f50dbe2 — UTC 2026-05-30 — Branch: develop
+
+Two new multi-node selection features implemented.
+
+#### Feature 1: Primary node indicator
+
+**Problem:** When multiple nodes are selected, same-width/same-height operations used the statistical maximum as the reference size. There was no way to designate which node should be the reference.
+
+**Implementation:**
+- `TextNodeModel.IsPrimarySelection` — runtime-only `bool` (not serialized, not in `NodeState`/`FillBaseData`/`ApplyBaseData`). Set to `true` on the most-recently-selected node in a multi-selection.
+- `Display.razor.cs` — `_primaryNode` field; tracking logic in `OnSelectionChanged`: when a `TextNodeModel` is newly selected and isn't already primary, the old primary's flag is cleared (and `Refresh()`-ed), and the new node is promoted to primary.
+- `UpdateSelectionState()` — clears `_primaryNode` and its `IsPrimarySelection` flag when selection count drops to 0 or 1 (primary indicator only meaningful with 2+ nodes).
+- `SameWidth()`/`SameHeight()` — now use `_primaryNode?.Size` as the reference dimension, falling back to `Max()` when no primary is set (e.g. first usage before any click).
+- `BaseNodeWidget.NodeCssClass()` — adds `"primary-node"` CSS class when `Node.IsPrimarySelection` is true.
+- `app.css` — `.default-node.selected.primary-node { outline: 2px solid var(--mud-palette-warning); outline-offset: 3px; }` — orange outer ring distinguishes primary from blue-ring secondary selection.
+
+#### Feature 2: Format painter
+
+**Problem:** No way to copy visual styling from one node to several others of the same type.
+
+**Implementation:**
+- `TextNodeModel.CopyFormatFrom(TextNodeModel source)` — `virtual` method copying: `NodeTitle`, `TitlePosition`, `Icon`/`IconName`/`IconColor`, `Text`, `FontSize`, `BackgroundColor`, `BackgroundImageUrl`, `BackgroundObjectFit`. Explicitly excludes: `DataTopics`, `Position`, `Size`, `NodeType`, `Id`.
+- All derived models override `CopyFormatFrom` to also copy their type-specific formatting:
+  - **GaugeNodeModel**: `Unit`, `TextPosition`, `GaugeColor` (deep-copied via `ColorTransitionHelper.Serialize`/`Deserialize`)
+  - **BatteryNodeModel**: `ShowPercent`, `BatteryColor` (deep-copied)
+  - **SwitchNodeModel**: `SwitchStyle`, `OnText`, `OffText`
+  - **SliderNodeModel**: `Unit`
+  - **ButtonNodeModel**: `ButtonLabel`, `ButtonVariant`, `ButtonColor`
+  - **ButtonGroupNodeModel**: `Orientation`, `ButtonVariant`, `ButtonColor`, `ActiveButtonColor`
+  - **RadioGroupNodeModel**: `Orientation`, `RadioColor`
+  - **LogNodeModel**: all display columns (ShowDate/Time/TopicFull/Path/Name/ShowValue), MaxEntries, column widths
+  - **TreeViewNodeModel**: `ShowValues`
+  - TextEntryNodeModel, HtmlNodeModel, MarkdownNodeModel, IFrameNodeModel — base properties only (no type-specific visual properties)
+- `Display.razor.cs` — `FormatPaintToSelected()`: pushes undo snapshot, finds all selected nodes with same `NodeType` as `_primaryNode`, calls `target.CopyFormatFrom(_primaryNode!)`, refreshes all, marks edited.
+- `CanFormatPaint` computed property: `true` when `_primaryNode != null` and ≥1 other selected node shares the same `NodeType`.
+- `Display.razor` — format painter `MudIconButton` (`Icons.Material.Filled.FormatPaint`, `Color.Secondary`) added to the multi-select floating toolbar, disabled when `!CanFormatPaint`. Tooltip explains scope of copy.
+- Tooltip texts for Same Width/Height updated to "as primary node".
+
+**⚠️ Known caveat:** The primary node is the *most recently clicked* node, not the first-clicked. This is correct behaviour (last-click-is-reference is the familiar model from design tools) but may surprise users who expect first-selected to be primary. No UI label explains this yet; it's documented in the tooltip.
+
+---
+
+
 
 ### Commit: 382ffd7 — UTC 2026-05-30 — Branch: develop
 

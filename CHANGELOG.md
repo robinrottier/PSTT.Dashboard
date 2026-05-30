@@ -7,6 +7,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **Primary node indicator in multi-selection** — When 2+ nodes are selected, the most-recently-clicked node gets an orange outline ring, marking it as the primary reference node. Same Width / Same Height operations now use the primary node's dimensions as the target (instead of the statistical maximum).
+- **Format painter** — New paint-brush toolbar button in the multi-select floating bar. Copies visual formatting from the primary node to all other selected nodes of the same type (background, colors, icon, text format, title, type-specific style properties). Excludes data topics, position, and size.
+
 ### Changed
 - **NuGet package upgrades** — All packages updated to latest stable: MudBlazor 9.5.0, ASP.NET Core 10.0.8, Serilog.AspNetCore 10.0.0, BCrypt.Net-Next 4.2.1, Playwright 1.60.0, and more
 
