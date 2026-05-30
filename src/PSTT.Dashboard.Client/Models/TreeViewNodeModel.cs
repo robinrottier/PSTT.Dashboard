@@ -7,6 +7,13 @@ public class TreeViewNodeModel : TextNodeModel
     public TreeViewNodeModel(Point? position = null) : base(position) { NodeType = "TreeView"; }
     public override bool SupportsProperty(string propertyName) => propertyName != nameof(Text) && base.SupportsProperty(propertyName);
 
+    public override void CopyFormatFrom(TextNodeModel source)
+    {
+        base.CopyFormatFrom(source);
+        if (source is not TreeViewNodeModel s) return;
+        ShowValues = s.ShowValues;
+    }
+
     // Root topic is now stored in DataTopics[0] (inherited from TextNodeModel).
     // This was previously a separate RootTopic property; old files are migrated in FromData.
 

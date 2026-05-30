@@ -7,6 +7,22 @@ public class LogNodeModel : TextNodeModel
     public LogNodeModel(Point? position = null) : base(position) { NodeType = "Log"; }
     public override bool SupportsProperty(string propertyName) => propertyName != nameof(Text) && base.SupportsProperty(propertyName);
 
+    public override void CopyFormatFrom(TextNodeModel source)
+    {
+        base.CopyFormatFrom(source);
+        if (source is not LogNodeModel s) return;
+        MaxEntries   = s.MaxEntries;
+        ShowDate     = s.ShowDate;
+        ShowTime     = s.ShowTime;
+        ShowTopicFull = s.ShowTopicFull;
+        ShowTopicPath = s.ShowTopicPath;
+        ShowTopicName = s.ShowTopicName;
+        ShowValue    = s.ShowValue;
+        TimeWidth    = s.TimeWidth;
+        TopicWidth   = s.TopicWidth;
+        ValueWidth   = s.ValueWidth;
+    }
+
     [NpNumeric("Max Entries", Category = "Log", Order = 1, Min = 1, Max = 500)]
     public int MaxEntries { get; set; } = 20;
 

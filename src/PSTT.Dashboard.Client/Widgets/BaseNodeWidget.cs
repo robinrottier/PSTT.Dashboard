@@ -29,7 +29,8 @@ public abstract class BaseNodeWidget<TNode> : ComponentBase, IDisposable
     protected string NodeCssClass(string extra = "") =>
         $"pa-1 default-node{(string.IsNullOrEmpty(extra) ? "" : " " + extra)}" +
         (Node.Group  != null  ? " grouped"  : "") +
-        (Node.Selected        ? " selected" : "");
+        (Node.Selected        ? " selected" : "") +
+        (Node.IsPrimarySelection ? " primary-node" : "");
 
     protected static string PortStyle(NodePortModel? port) => string.Empty;
 

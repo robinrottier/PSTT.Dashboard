@@ -97,6 +97,32 @@ namespace PSTT.Dashboard.Models
         /// <summary>Node type discriminator. Defaults to "Text" (existing text/display node).</summary>
         public string NodeType { get; set; } = "Text";
 
+        /// <summary>
+        /// Runtime-only: true when this node is the primary reference node in a multi-selection
+        /// (used for same-width/height and format-painter operations). Never serialized.
+        /// </summary>
+        public bool IsPrimarySelection { get; set; }
+
+        /// <summary>
+        /// Copy visual formatting from <paramref name="source"/> into this node.
+        /// Copies base properties (background, icon, text, font, title) but NOT DataTopics,
+        /// Position, Size, NodeType, or Id.
+        /// Override in derived classes to also copy type-specific formatting properties.
+        /// </summary>
+        public virtual void CopyFormatFrom(TextNodeModel source)
+        {
+            NodeTitle           = source.NodeTitle;
+            TitlePosition       = source.TitlePosition;
+            Icon                = source.Icon;
+            IconName            = source.IconName;
+            IconColor           = source.IconColor;
+            Text                = source.Text;
+            FontSize            = source.FontSize;
+            BackgroundColor     = source.BackgroundColor;
+            BackgroundImageUrl  = source.BackgroundImageUrl;
+            BackgroundObjectFit = source.BackgroundObjectFit;
+        }
+
         // ── Serialization helpers ──────────────────────────────────────────────
 
         protected void FillBaseData(NodeData data, double panX, double panY)

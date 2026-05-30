@@ -36,6 +36,15 @@ public class GaugeNodeModel : TextNodeModel
     public double? Origin => Range.Origin;
     public int DataTopicIndex => Range.DataTopicIndex;
 
+    public override void CopyFormatFrom(TextNodeModel source)
+    {
+        base.CopyFormatFrom(source);
+        if (source is not GaugeNodeModel s) return;
+        Unit          = s.Unit;
+        TextPosition  = s.TextPosition;
+        GaugeColor    = ColorTransitionHelper.Deserialize(ColorTransitionHelper.Serialize(s.GaugeColor));
+    }
+
     public override NodeData ToData(double panX = 0, double panY = 0)
     {
         var data = new GaugeNodeData

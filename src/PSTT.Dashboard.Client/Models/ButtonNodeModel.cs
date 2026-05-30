@@ -10,6 +10,15 @@ public class ButtonNodeModel : TextNodeModel
     }
     public override bool SupportsProperty(string propertyName) => propertyName != nameof(Text) && base.SupportsProperty(propertyName);
 
+    public override void CopyFormatFrom(TextNodeModel source)
+    {
+        base.CopyFormatFrom(source);
+        if (source is not ButtonNodeModel s) return;
+        ButtonLabel   = s.ButtonLabel;
+        ButtonVariant = s.ButtonVariant;
+        ButtonColor   = s.ButtonColor;
+    }
+
     [NpText("Button Label", Category = "Button", Order = 1, Placeholder = "Press")]
     public string ButtonLabel { get; set; } = "Press";
 

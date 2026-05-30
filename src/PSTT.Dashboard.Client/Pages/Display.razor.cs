@@ -55,6 +55,8 @@ public partial class Display : IDisposable
     private SidePanelTab _sidePanelTab = SidePanelTab.NodeProps;
     private TextNodeModel? _propertiesNode;
     private NodeLinkModel? _propertiesLink;
+    // The primary (reference) node in a multi-selection — used by same-width/height and format painter.
+    private TextNodeModel? _primaryNode;
 
     // Guards against concurrent dialog invocations (open, save-as, export, import)
     private bool _dialogActive;
@@ -558,6 +560,18 @@ public partial class Display : IDisposable
         _ = InvokeAsync(() => _pendingDirtyMark = false);
         UpdateSelectionState();
 
+        // Track primary (reference) node — the most recently selected node in a multi-selection.
+        if (model is TextNodeModel tn && tn.Selected && _primaryNode != tn)
+        {
+            if (_primaryNode != null)
+            {
+                _primaryNode.IsPrimarySelection = false;
+                _primaryNode.Refresh();
+            }
+            _primaryNode = tn;
+            _primaryNode.IsPrimarySelection = true;
+        }
+
         // Keep Node Properties panel in sync with the current selection.
         if (_diagram != null)
         {
@@ -622,6 +636,12 @@ public partial class Display : IDisposable
     private void UpdateSelectionState()
     {
         var selected = _diagram?.GetSelectedModels().OfType<NodeModel>().ToList() ?? [];
+        // Clear primary indicator when selection drops to 0 or 1 (no reference node needed).
+        if (selected.Count < 2 && _primaryNode != null)
+        {
+            _primaryNode.IsPrimarySelection = false;
+            _primaryNode = null;
+        }
         HashSet<PortAlignment>? ports = null;
         if (selected.Count == 1)
             ports = selected[0].Ports.OfType<NodePortModel>().Select(p => p.Alignment).ToHashSet();
@@ -1653,9 +1673,9 @@ public partial class Display : IDisposable
         var nodes = _diagram.GetSelectedModels().OfType<NodeModel>().ToList();
         if (nodes.Count < 2) { Snackbar.Add("Select 2+ nodes to resize", Severity.Info); return; }
         PushUndoSnapshot();
-        var maxWidth = nodes.Max(n => n.Size?.Width ?? 100);
+        var targetWidth = _primaryNode?.Size?.Width ?? nodes.Max(n => n.Size?.Width ?? 100);
         foreach (var n in nodes)
-            n.Size = new Blazor.Diagrams.Core.Geometry.Size(maxWidth, n.Size?.Height ?? 50);
+            n.Size = new Blazor.Diagrams.Core.Geometry.Size(targetWidth, n.Size?.Height ?? 50);
         foreach (var n in nodes) n.Refresh();
         _diagram.Refresh();
         StateHasChanged();
@@ -1667,11 +1687,34 @@ public partial class Display : IDisposable
         var nodes = _diagram.GetSelectedModels().OfType<NodeModel>().ToList();
         if (nodes.Count < 2) { Snackbar.Add("Select 2+ nodes to resize", Severity.Info); return; }
         PushUndoSnapshot();
-        var maxHeight = nodes.Max(n => n.Size?.Height ?? 50);
+        var targetHeight = _primaryNode?.Size?.Height ?? nodes.Max(n => n.Size?.Height ?? 50);
         foreach (var n in nodes)
-            n.Size = new Blazor.Diagrams.Core.Geometry.Size(n.Size?.Width ?? 100, maxHeight);
+            n.Size = new Blazor.Diagrams.Core.Geometry.Size(n.Size?.Width ?? 100, targetHeight);
         foreach (var n in nodes) n.Refresh();
         _diagram.Refresh();
+        StateHasChanged();
+    }
+
+    private bool CanFormatPaint => _primaryNode != null &&
+        (_diagram?.GetSelectedModels().OfType<TextNodeModel>()
+            .Any(n => n != _primaryNode && n.NodeType == _primaryNode.NodeType) ?? false);
+
+    private void FormatPaintToSelected()
+    {
+        if (_diagram == null || _primaryNode == null) return;
+        var targets = _diagram.GetSelectedModels()
+            .OfType<TextNodeModel>()
+            .Where(n => n != _primaryNode && n.NodeType == _primaryNode.NodeType)
+            .ToList();
+        if (targets.Count == 0) { Snackbar.Add("No other nodes of the same type selected", Severity.Info); return; }
+        PushUndoSnapshot();
+        foreach (var target in targets)
+        {
+            target.CopyFormatFrom(_primaryNode);
+            target.Refresh();
+        }
+        _diagram.Refresh();
+        AppState.MarkEdited();
         StateHasChanged();
     }
 

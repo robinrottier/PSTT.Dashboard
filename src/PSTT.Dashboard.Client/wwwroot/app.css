@@ -86,3 +86,9 @@ html, body, .mud-layout, .mud-main-content, main, .page, .sidebar, .dashboard-ca
     opacity: 1;
 }
 
+/* Primary reference node in multi-selection: orange outer ring to distinguish
+   it from other selected nodes (which have the default blue selection border). */
+.default-node.selected.primary-node {
+    outline: 2px solid var(--mud-palette-warning);
+    outline-offset: 3px;
+}
