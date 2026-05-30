@@ -1,3 +1,32 @@
+## 2026-05-30 — Table row sort and filter
+
+### Commit: b431134 — UTC 2026-05-30 — Branch: develop
+
+#### TableNodeWidget — live row sort and filter
+
+**Files changed:** `TableNodeModel.cs`, `DashboardModel.cs`, `TableDefinitions.cs`, `TableNodeWidget.razor`
+
+**New model properties on `TableNodeModel`** (all persisted via `TableNodeData`):
+
+- `SortByColumn` (string, optional) — column key whose live numeric value is used to sort rows at render time.
+- `SortDescending` (bool, default `true`) — sort largest value first; only used when `SortByColumn` is set.
+- `RowFilters` (JSON string, optional) — JSON array of filter rules, e.g. `[{"col":"Power","op":">","value":5}]`. All rules are ANDed — a row is shown only when every condition passes. Rows with no data for a filter column always pass (prevents hiding rows before MQTT data has arrived).
+
+**`TableDefinitions.cs`:**
+- Added `RowFilterDef` sealed record: `(string Col, string? Op, double? Value, string? Str)`
+- Added `TableDefsParser.ParseRowFilters(string?)` — JSON-parses the RowFilters string into `List<RowFilterDef>`
+- Added `TableDefsParser.EvaluateRowFilter(RowFilterDef, string?)` — evaluates a single rule against a raw string value using `double.TryParse`; returns `true` (pass) when raw is null/unparseable
+
+**`TableNodeWidget.razor`:**
+- `_rowFilters` field + `_lastRowFilters` tracking var
+- `SetupWatchers()` detects `RowFilters` changes and re-parses `_rowFilters` once (not on every render)
+- `GetDisplayRows()` refactored: builds base rows list first, then applies filters via `PassesRowFilters()`, then applies sort via `SortRowsByColumn()`
+- `SortRowsByColumn()` uses `double.TryParse` on the column value; non-numeric rows sort to the end
+
+⚠️ Filter operator support matches existing `EvaluateCondition` pattern: `>=`, `>`, `<=`, `<`, `==`, `!=`.
+
+---
+
 ## 2026-05-30 — Primary node indicator and format painter
 
 ### Commit: f50dbe2 — UTC 2026-05-30 — Branch: develop

@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - **Primary node indicator in multi-selection** — When 2+ nodes are selected, the most-recently-clicked node gets an orange outline ring, marking it as the primary reference node. Same Width / Same Height operations now use the primary node's dimensions as the target (instead of the statistical maximum).
 - **Format painter** — New paint-brush toolbar button in the multi-select floating bar. Copies visual formatting from the primary node to all other selected nodes of the same type (background, colors, icon, text format, title, type-specific style properties). Excludes data topics, position, and size.
+- **Table widget row sort and filter** — Three new properties on the Table node: `Sort Rows By Column` (column key to sort by numeric value), `Sort Descending` (largest first), and `Row Filters` (JSON array of `{col, op, value}` rules). Rows not meeting all filter conditions are hidden; rows with no MQTT data for a filter column are always shown. Example: `[{"col":"Power","op":">","value":5}]` hides rows where Power ≤ 5.
 
 ### Changed
 - **NuGet package upgrades** — All packages updated to latest stable: MudBlazor 9.5.0, ASP.NET Core 10.0.8, Serilog.AspNetCore 10.0.0, BCrypt.Net-Next 4.2.1, Playwright 1.60.0, and more
