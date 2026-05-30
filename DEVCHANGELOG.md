@@ -1,3 +1,42 @@
+## 2026-05-30 — Security hardening
+
+### Commit: (pending) — UTC 2026-05-30T13:05Z — Branch: develop
+
+#### 1. Security response headers (`WebApplicationExtensions.cs`)
+Added a middleware immediately after `UseForwardedHeaders()` that injects three security headers on every response:
+- `X-Content-Type-Options: nosniff` — prevents MIME-type sniffing attacks
+- `Referrer-Policy: strict-origin-when-cross-origin` — limits referrer leakage to cross-origin requests
+- `Permissions-Policy: accelerometer=(), camera=(), ...` — disables browser APIs not used by the dashboard
+
+No configuration needed; safe for all environments.
+
+#### 2. Auth cookie `Secure` flag (`WebApplicationBuilderExtensions.cs`)
+Added `options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest` to the `AddCookie()` configuration.
+- In production (HTTPS) the `Secure` attribute is set → cookie cannot be sent over plain HTTP
+- In development (HTTP) the attribute is omitted → login still works locally without TLS
+
+#### 3. `/healthz` info reduction (`WebApplicationExtensions.cs`)
+The health check endpoint previously returned internal service names and descriptions to any caller (e.g. `{"name":"mqtt","description":"MQTT broker connected"}`), leaking service topology.
+
+Changed behaviour:
+- **Default** (no config change needed): returns only `{"status":"Healthy"}` — no internal details exposed
+- **Opt-in verbose**: set `HealthCheck:DetailedResponse=true` in appsettings to restore full check details (useful for uptime monitors)
+- **Opt-in disable**: set `HealthCheck:Enabled=false` to remove the endpoint entirely
+
+The `?ignoreMqtt` query parameter still works in both modes.
+
+#### 4. `/cachehub` SignalR hub auth (`WebApplicationExtensions.cs`)
+The SignalR hub at `/cachehub` was unauthenticated — anyone knowing the URL could connect and receive live MQTT data, bypassing the login page entirely.
+
+Added middleware between `UseAuthorization()` and `MapCacheHub()` that:
+- Reads `Auth:AdminPasswordHash` from `IConfiguration` **dynamically** (configuration reload is supported)
+- If auth is enabled and the connecting user is not authenticated → returns 401
+- If auth is disabled → passes through (open, as before)
+
+**Why no loopback auth problem**: Blazor Server circuits connect to `ServerDataCache` in-process (no SignalR). Only WASM browser clients connect to `/cachehub`, and since it is same-origin they automatically carry the auth cookie with the SignalR negotiate request.
+
+---
+
 ## 2026-05-29 — Duplicate link prevention
 
 ### Commit: (pending) — UTC timestamp: 2026-05-29 — Branch: develop

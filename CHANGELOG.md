@@ -7,6 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Security
+- **Security response headers** — All responses now include `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, and `Permissions-Policy` restricting unused browser APIs
+- **Auth cookie `Secure` flag** — Auth cookie now carries the `Secure` attribute when served over HTTPS, preventing accidental transmission over plain HTTP
+- **`/healthz` info reduction** — Health endpoint no longer exposes internal service names/descriptions by default; set `HealthCheck:DetailedResponse=true` to opt in, or `HealthCheck:Enabled=false` to disable it entirely
+- **`/cachehub` SignalR auth** — Live MQTT data hub now requires authentication when a password is configured; unauthenticated external connections receive 401
+
 ## [v0.1.14] - 2026-05-29
 
 ## [v0.1.13] - 2026-05-29

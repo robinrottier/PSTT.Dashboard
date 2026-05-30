@@ -144,6 +144,9 @@ public static class WebApplicationBuilderExtensions
                 options.Cookie.Name = "PSTT.Dashboard.Auth";
                 options.Cookie.HttpOnly = true;
                 options.Cookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Strict;
+                // SameAsRequest: sets the Secure flag when the connection is HTTPS (always in
+                // production), but omits it over plain HTTP so local dev without TLS still works.
+                options.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.SameAsRequest;
                 options.ExpireTimeSpan = TimeSpan.FromDays(30);
                 options.SlidingExpiration = true;
                 options.LoginPath = "/login";
