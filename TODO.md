@@ -6,8 +6,6 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 
 ## BUGS
 
-- [ ] Editor side panel:
-	- [ ] Dashboard and page properties edit could also have the "form" vs "grid" options — requires NpXxx attributes on DiagramState/PageState models
 
 ## 🟡 Minor Enhancements
 
@@ -24,7 +22,6 @@ _Completed items are recorded in [CHANGELOG.md](CHANGELOG.md)._
 - [ ] Log viewer columns: choices for date (and format), time (and format), topic path, topic name, topic full path&name, value — **Full 6-column boolean options done**; date/time format options still open
 - [ ] log viewer colum width: column width changeable via mouse drag and saved in properties _(configurable pixel widths per column added; mouse resize still TODO)_
 
-- [ ] IMport and Export dont seem to be able to see Windows clipboard ... is there some permissions to enable it? This was on firefox
 
 - [ ] testing
 	- [ ] add 'SubscribeAsync' test helper on RemoteCache/RemoteCacheClient to await initial non-pending delivery (tests only) — avoid timing races on slow CI agents

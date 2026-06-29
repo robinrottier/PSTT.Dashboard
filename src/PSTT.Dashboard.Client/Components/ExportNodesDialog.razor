@@ -62,7 +62,7 @@
     {
         try
         {
-            await JSRuntime.InvokeAsync<bool>("mqttClipboard.writeText", Json);
+            await JSRuntime.InvokeAsync<bool>("psttClipboard.writeText", Json);
             Snackbar.Add("Copied to clipboard", Severity.Success);
         }
         catch

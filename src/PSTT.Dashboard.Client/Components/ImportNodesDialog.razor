@@ -160,7 +160,7 @@
     {
         try
         {
-            var text = await JSRuntime.InvokeAsync<string?>("mqttClipboard.readText");
+            var text = await JSRuntime.InvokeAsync<string?>("psttClipboard.readText");
             if (!string.IsNullOrWhiteSpace(text))
             {
                 _json = text;

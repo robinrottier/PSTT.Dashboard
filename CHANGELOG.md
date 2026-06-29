@@ -1,4 +1,4 @@
-﻿# Changelog
+# Changelog
 
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
@@ -7,7 +7,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **Form vs Grid editing for Dashboard & Page properties** — Extended the Editor side panel to support toggling between Grid and Form views for both page and dashboard properties, backed by snapshot-based dirty state tracking and Apply/Cancel workflows.
+
 ### Fixed
+- **Text Node formatting alignment & truncation** — Added support for C# alignment syntax (e.g. `{0,-10}`) in Text node formatting templates, and implemented string truncation if the value length exceeds the alignment limit.
+- **Copy/Paste and Import Subclass Preservation** — Fixed bug where copying, pasting, or importing specialized nodes (e.g., Table, Slider, Button) stripped all type-specific properties, resolving it by using a central polymorphic factory to instantiate the correct model subclass.
+- **Firefox Clipboard Interop** — Updated the export/import clipboard commands to use `psttClipboard` instead of `mqttClipboard` to ensure cross-browser compatibility.
 - **Links not rendering after page switch** — Links were invisible when switching between dashboard pages because ports couldn't initialize their bounding rect positions before the diagram container was ready. Fixed in Blazor.Diagrams by subscribing `PortRenderer` to `ContainerChanged` and retrying dimension initialization when the container becomes available.
 
 ## [v0.1.16] - 2026-05-30

@@ -41,43 +41,108 @@
             </div>
         </div>
 
-        @if (ActiveTab == SidePanelTab.NodeProps && (SelectedNode != null || SelectedLink != null))
+        @if ((ActiveTab == SidePanelTab.NodeProps && (SelectedNode != null || SelectedLink != null)) ||
+             ActiveTab == SidePanelTab.PageProps ||
+             ActiveTab == SidePanelTab.DashboardProps)
         {
             <div class="panel-subview-toolbar">
-                @if (SelectedNode != null)
+                @if (ActiveTab == SidePanelTab.NodeProps)
                 {
-                <MudTooltip Text="Grid View" Placement="Placement.Bottom">
-                    <MudIconButton Icon="@Icons.Material.Filled.GridView" Size="Size.Small"
-                                   Color="@(!_subViewIsCustom ? Color.Primary : Color.Default)"
-                                   OnClick="@(() => _subViewIsCustom = false)" />
-                </MudTooltip>
-                <MudTooltip Text="Form View" Placement="Placement.Bottom">
-                    <MudIconButton Icon="@Icons.Material.Filled.ViewAgenda" Size="Size.Small"
-                                   Color="@(_subViewIsCustom ? Color.Primary : Color.Default)"
-                                   OnClick="@(() => _subViewIsCustom = true)" />
-                </MudTooltip>
-                <div style="flex:1;"></div>
-                @if (!_subViewIsCustom)
-                {
-                    <MudButton Size="Size.Small" Variant="Variant.Text"
-                               Disabled="@(!_gridHasPendingChanges)"
-                               OnClick="GridCancel">Cancel</MudButton>
-                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
-                               Disabled="@(!_gridHasPendingChanges)"
-                               OnClick="GridApply">Apply</MudButton>
+                    @if (SelectedNode != null)
+                    {
+                        <MudTooltip Text="Grid View" Placement="Placement.Bottom">
+                            <MudIconButton Icon="@Icons.Material.Filled.GridView" Size="Size.Small"
+                                           Color="@(!_subViewIsCustom ? Color.Primary : Color.Default)"
+                                           OnClick="@(() => _subViewIsCustom = false)" />
+                        </MudTooltip>
+                        <MudTooltip Text="Form View" Placement="Placement.Bottom">
+                            <MudIconButton Icon="@Icons.Material.Filled.ViewAgenda" Size="Size.Small"
+                                           Color="@(_subViewIsCustom ? Color.Primary : Color.Default)"
+                                           OnClick="@(() => _subViewIsCustom = true)" />
+                        </MudTooltip>
+                        <div style="flex:1;"></div>
+                        @if (!_subViewIsCustom)
+                        {
+                            <MudButton Size="Size.Small" Variant="Variant.Text"
+                                       Disabled="@(!_gridHasPendingChanges)"
+                                       OnClick="GridCancel">Cancel</MudButton>
+                            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
+                                       Disabled="@(!_gridHasPendingChanges)"
+                                       OnClick="GridApply">Apply</MudButton>
+                        }
+                        else
+                        {
+                            <MudButton Size="Size.Small" Variant="Variant.Text"
+                                       OnClick="@(async () => await (_nodeEditor?.Cancel() ?? Task.CompletedTask))">Cancel</MudButton>
+                            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
+                                       OnClick="@(async () => await (_nodeEditor?.Save() ?? Task.CompletedTask))">Apply</MudButton>
+                        }
+                    }
+                    else if (SelectedLink != null)
+                    {
+                        <MudText Typo="Typo.caption" Class="ml-2 mt-1" Color="Color.Secondary">Link selected</MudText>
+                        <div style="flex:1;"></div>
+                    }
                 }
-                else
+                else if (ActiveTab == SidePanelTab.PageProps)
                 {
-                    <MudButton Size="Size.Small" Variant="Variant.Text"
-                               OnClick="@(async () => await (_nodeEditor?.Cancel() ?? Task.CompletedTask))">Cancel</MudButton>
-                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
-                               OnClick="@(async () => await (_nodeEditor?.Save() ?? Task.CompletedTask))">Apply</MudButton>
-                }
-                }
-                else if (SelectedLink != null)
-                {
-                    <MudText Typo="Typo.caption" Class="ml-2 mt-1" Color="Color.Secondary">Link selected</MudText>
+                    <MudTooltip Text="Grid View" Placement="Placement.Bottom">
+                        <MudIconButton Icon="@Icons.Material.Filled.GridView" Size="Size.Small"
+                                       Color="@(!_subViewIsCustom ? Color.Primary : Color.Default)"
+                                       OnClick="@(() => _subViewIsCustom = false)" />
+                    </MudTooltip>
+                    <MudTooltip Text="Form View" Placement="Placement.Bottom">
+                        <MudIconButton Icon="@Icons.Material.Filled.ViewAgenda" Size="Size.Small"
+                                       Color="@(_subViewIsCustom ? Color.Primary : Color.Default)"
+                                       OnClick="@(() => _subViewIsCustom = true)" />
+                    </MudTooltip>
                     <div style="flex:1;"></div>
+                    @if (!_subViewIsCustom)
+                    {
+                        <MudButton Size="Size.Small" Variant="Variant.Text"
+                                   Disabled="@(!_pageHasPendingChanges)"
+                                   OnClick="PageGridCancel">Cancel</MudButton>
+                        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
+                                   Disabled="@(!_pageHasPendingChanges)"
+                                   OnClick="PageGridApply">Apply</MudButton>
+                    }
+                    else
+                    {
+                        <MudButton Size="Size.Small" Variant="Variant.Text"
+                                   OnClick="PageFormCancel">Cancel</MudButton>
+                        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
+                                   OnClick="ApplyPageProps">Apply</MudButton>
+                    }
+                }
+                else if (ActiveTab == SidePanelTab.DashboardProps)
+                {
+                    <MudTooltip Text="Grid View" Placement="Placement.Bottom">
+                        <MudIconButton Icon="@Icons.Material.Filled.GridView" Size="Size.Small"
+                                       Color="@(!_subViewIsCustom ? Color.Primary : Color.Default)"
+                                       OnClick="@(() => _subViewIsCustom = false)" />
+                    </MudTooltip>
+                    <MudTooltip Text="Form View" Placement="Placement.Bottom">
+                        <MudIconButton Icon="@Icons.Material.Filled.ViewAgenda" Size="Size.Small"
+                                       Color="@(_subViewIsCustom ? Color.Primary : Color.Default)"
+                                       OnClick="@(() => _subViewIsCustom = true)" />
+                    </MudTooltip>
+                    <div style="flex:1;"></div>
+                    @if (!_subViewIsCustom)
+                    {
+                        <MudButton Size="Size.Small" Variant="Variant.Text"
+                                   Disabled="@(!_dashboardHasPendingChanges)"
+                                   OnClick="DashboardGridCancel">Cancel</MudButton>
+                        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
+                                   Disabled="@(!_dashboardHasPendingChanges)"
+                                   OnClick="DashboardGridApply">Apply</MudButton>
+                    }
+                    else
+                    {
+                        <MudButton Size="Size.Small" Variant="Variant.Text"
+                                   OnClick="DashboardFormCancel">Cancel</MudButton>
+                        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
+                                   OnClick="ApplyDashboardProps">Apply</MudButton>
+                    }
                 }
             </div>
         }
@@ -128,12 +193,20 @@
             else if (ActiveTab == SidePanelTab.PageProps)
             {
                 <div style="padding:8px;">
-                    <MudTextField @bind-Value="_editPageName" Label="Page Name"
-                                  Variant="Variant.Outlined" Margin="Margin.Dense" />
-                    <div class="mt-2">
-                        <ColorInputRow @bind-Value="_editPageBg" Label="Background Color" ShowClear="true" />
-                    </div>
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+                    @if (!_subViewIsCustom && _editPageModel != null)
+                    {
+                        <PropertyGridEditor Model="_editPageModel" OnChanged="OnPageGridPropertyChanged" />
+                    }
+                    else if (_editPageModel != null)
+                    {
+                        <MudTextField @bind-Value="_editPageModel.Name" Label="Page Name"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        <div class="mt-2">
+                            <ColorInputRow @bind-Value="_editPageModel.BackgroundColor" Label="Background Color" ShowClear="true" />
+                        </div>
+                    }
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;border-top:1px solid var(--mud-palette-divider);padding-top:8px;">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Page Order</MudText>
                         <div style="display:flex;gap:2px;">
                             <MudTooltip Text="Move Page Left">
                                 <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" Size="Size.Small"
@@ -146,15 +219,20 @@
                                                OnClick="@(async () => await OnMovePageRight.InvokeAsync())" />
                             </MudTooltip>
                         </div>
-                        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary"
-                                   OnClick="ApplyPageProps">Apply</MudButton>
                     </div>
                 </div>
             }
             else if (ActiveTab == SidePanelTab.DashboardProps)
             {
                 <div style="padding:8px;">
-                    <DashboardPropertiesContent />
+                    @if (!_subViewIsCustom && _editDashboardModel != null)
+                    {
+                        <PropertyGridEditor Model="_editDashboardModel" OnChanged="OnDashboardGridPropertyChanged" />
+                    }
+                    else if (_editDashboardModel != null)
+                    {
+                        <DashboardPropertiesContent Model="_editDashboardModel" OnChanged="OnDashboardGridPropertyChanged" />
+                    }
                 </div>
             }
         </div>
