@@ -1,8 +1,8 @@
 [submodule "libs/PSTT"]
 	path = libs/PSTT
 	url = https://github.com/robinrottier/PSTT.git
-	branch = main
+	branch = develop
 [submodule "libs/Blazor.Diagrams"]
 	path = libs/Blazor.Diagrams
 	url = https://github.com/robinrottier/Blazor.Diagrams.git
-	branch = main
+	branch = develop
