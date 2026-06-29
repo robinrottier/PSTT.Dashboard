@@ -1,4 +1,4 @@
-# Changelog
+﻿# Changelog
 
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
@@ -6,6 +6,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ---
 
 ## [Unreleased]
+
+## [v0.1.17] - 2026-06-29
 
 ### Added
 - **Form vs Grid editing for Dashboard & Page properties** — Extended the Editor side panel to support toggling between Grid and Form views for both page and dashboard properties, backed by snapshot-based dirty state tracking and Apply/Cancel workflows.
