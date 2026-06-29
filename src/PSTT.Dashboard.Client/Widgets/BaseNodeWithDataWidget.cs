@@ -125,23 +125,80 @@ public abstract class BaseNodeWithDataWidget<TNode> : BaseNodeWidget<TNode>
     /// {0} = DataValues[0], {1} = DataValues[1], etc. Supports C# format specifiers
     /// e.g. "Temp: {0:F1}°C". Returns the raw Text if no format tokens are present or on error.
     /// </summary>
-    protected string FormatText()
+    private static readonly Regex _formatTokenRegex =
+        new(@"\{(\d+)(?:,(-?\d+))?(?::([^}]*))?\}", RegexOptions.Compiled);
+
+    protected string FormatTextCore(bool htmlEncode)
     {
         if (string.IsNullOrEmpty(Node.Text)) return string.Empty;
         try
         {
-            return string.Format(Node.Text,
-                Node.DataValues.Length > 0 ? new FormattableValue(Node.DataValues[0]) : null,
-                Node.DataValues.Length > 1 ? new FormattableValue(Node.DataValues[1]) : null,
-                Node.DataValues.Length > 2 ? new FormattableValue(Node.DataValues[2]) : null,
-                Node.DataValues.Length > 3 ? new FormattableValue(Node.DataValues[3]) : null,
-                null);
+            var sb = new System.Text.StringBuilder();
+            int lastIndex = 0;
+            foreach (Match m in _formatTokenRegex.Matches(Node.Text))
+            {
+                var staticSegment = Node.Text[lastIndex..m.Index];
+                sb.Append(htmlEncode ? System.Net.WebUtility.HtmlEncode(staticSegment) : staticSegment);
+
+                int idx = int.Parse(m.Groups[1].Value);
+                string? alignStr = m.Groups[2].Success && m.Groups[2].Length > 0 ? m.Groups[2].Value : null;
+                string? spec = m.Groups[3].Success && m.Groups[3].Length > 0 ? m.Groups[3].Value : null;
+                object? raw = idx < Node.DataValues.Length ? Node.DataValues[idx] : null;
+
+                string formatted;
+                try
+                {
+                    // Reconstruct standard C# format token format: {0,align:spec}
+                    string tokenFormat = "{0";
+                    if (alignStr != null) tokenFormat += "," + alignStr;
+                    if (spec != null) tokenFormat += ":" + spec;
+                    tokenFormat += "}";
+
+                    formatted = string.Format(tokenFormat, new FormattableValue(raw));
+
+                    // Truncation logic if alignment is set
+                    if (alignStr != null && int.TryParse(alignStr, out var align) && align != 0)
+                    {
+                        var absAlign = Math.Abs(align);
+                        if (formatted.Length > absAlign)
+                        {
+                            if (align < 0)
+                            {
+                                // Left aligned: truncate from right
+                                formatted = formatted[..absAlign];
+                            }
+                            else
+                            {
+                                // Right aligned: keep rightmost characters
+                                formatted = formatted.Substring(formatted.Length - absAlign);
+                            }
+                        }
+                    }
+                }
+                catch
+                {
+                    formatted = raw?.ToString() ?? string.Empty;
+                }
+
+                sb.Append(htmlEncode ? System.Net.WebUtility.HtmlEncode(formatted) : formatted);
+                lastIndex = m.Index + m.Length;
+            }
+            var trailingSegment = Node.Text[lastIndex..];
+            sb.Append(htmlEncode ? System.Net.WebUtility.HtmlEncode(trailingSegment) : trailingSegment);
+            return sb.ToString();
         }
-        catch { return Node.Text; }
+        catch
+        {
+            return htmlEncode ? System.Net.WebUtility.HtmlEncode(Node.Text) : Node.Text;
+        }
     }
 
-    private static readonly Regex _formatTokenRegex =
-        new(@"\{(\d+)(?::([^}]*))?\}", RegexOptions.Compiled);
+    /// <summary>
+    /// Formats <see cref="TextNodeModel.Text"/> using data values as positional args:
+    /// {0} = DataValues[0], {1} = DataValues[1], etc. Supports C# format specifiers
+    /// e.g. "Temp: {0:F1}°C". Returns the raw Text if no format tokens are present or on error.
+    /// </summary>
+    protected string FormatText() => FormatTextCore(htmlEncode: false);
 
     /// <summary>
     /// Renders <see cref="TextNodeModel.Text"/> substituting data values for <c>{0}</c>,
@@ -150,38 +207,7 @@ public abstract class BaseNodeWithDataWidget<TNode> : BaseNodeWidget<TNode>
     /// Newlines (Enter in the text field) are preserved as line breaks via CSS white-space:pre-wrap.
     /// Supports C# format specs, e.g. {0:F2}.
     /// </summary>
-    protected MarkupString FormatHtml()
-    {
-        if (string.IsNullOrEmpty(Node.Text)) return new MarkupString(string.Empty);
-        try
-        {
-            var sb = new System.Text.StringBuilder();
-            int lastIndex = 0;
-            foreach (Match m in _formatTokenRegex.Matches(Node.Text))
-            {
-                // Encode the static segment before this token so HTML tags appear as literal text
-                sb.Append(System.Net.WebUtility.HtmlEncode(Node.Text[lastIndex..m.Index]));
-
-                int idx = int.Parse(m.Groups[1].Value);
-                string? spec = m.Groups[2].Success && m.Groups[2].Length > 0 ? m.Groups[2].Value : null;
-                object? raw = idx < Node.DataValues.Length ? Node.DataValues[idx] : null;
-                string formatted;
-                try
-                {
-                    formatted = spec != null
-                        ? string.Format($"{{0:{spec}}}", new FormattableValue(raw))
-                        : (raw?.ToString() ?? string.Empty);
-                }
-                catch { formatted = raw?.ToString() ?? string.Empty; }
-                sb.Append(System.Net.WebUtility.HtmlEncode(formatted));
-                lastIndex = m.Index + m.Length;
-            }
-            // Encode the trailing static segment
-            sb.Append(System.Net.WebUtility.HtmlEncode(Node.Text[lastIndex..]));
-            return new MarkupString(sb.ToString());
-        }
-        catch { return new MarkupString(System.Net.WebUtility.HtmlEncode(Node.Text)); }
-    }
+    protected MarkupString FormatHtml() => new MarkupString(FormatTextCore(htmlEncode: true));
 
     /// <summary>Wraps an arbitrary MQTT value for use with string.Format numeric format specifiers.</summary>
     private sealed class FormattableValue(object? value) : IFormattable

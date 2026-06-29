@@ -179,5 +179,28 @@ namespace PSTT.Dashboard.Models
             var node = new TextNodeModel(new Blazor.Diagrams.Core.Geometry.Point(data.X, data.Y));
             return ApplyBaseData(node, data);
         }
+
+        public static TextNodeModel CreateFromData(NodeData nodeData)
+        {
+            return nodeData switch
+            {
+                GaugeNodeData d       => GaugeNodeModel.FromData(d),
+                SwitchNodeData d      => SwitchNodeModel.FromData(d),
+                BatteryNodeData d     => BatteryNodeModel.FromData(d),
+                LogNodeData d         => LogNodeModel.FromData(d),
+                TreeViewNodeData d    => TreeViewNodeModel.FromData(d),
+                SliderNodeData d      => SliderNodeModel.FromData(d),
+                ButtonNodeData d      => ButtonNodeModel.FromData(d),
+                HtmlNodeData d        => HtmlNodeModel.FromData(d),
+                IFrameNodeData d      => IFrameNodeModel.FromData(d),
+                TextEntryNodeData d   => TextEntryNodeModel.FromData(d),
+                DropDownNodeData d    => DropDownNodeModel.FromData(d),
+                MarkdownNodeData d    => MarkdownNodeModel.FromData(d),
+                ButtonGroupNodeData d => ButtonGroupNodeModel.FromData(d),
+                RadioGroupNodeData d  => RadioGroupNodeModel.FromData(d),
+                TableNodeData d       => TableNodeModel.FromData(d),
+                _                     => TextNodeModel.FromData(nodeData),
+            };
+        }
     }
 }

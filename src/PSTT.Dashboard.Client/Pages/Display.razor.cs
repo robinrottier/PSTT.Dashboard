@@ -1056,17 +1056,7 @@ public partial class Display : IDisposable
 
         foreach (var nodeData in toPaste)
         {
-            TextNodeModel node = nodeData switch
-            {
-                GaugeNodeData d      => GaugeNodeModel.FromData(d),
-                SwitchNodeData d     => SwitchNodeModel.FromData(d),
-                BatteryNodeData d    => BatteryNodeModel.FromData(d),
-                LogNodeData d        => LogNodeModel.FromData(d),
-                TreeViewNodeData d   => TreeViewNodeModel.FromData(d),
-                TextEntryNodeData d  => TextEntryNodeModel.FromData(d),
-                DropDownNodeData d   => DropDownNodeModel.FromData(d),
-                _                    => TextNodeModel.FromData(nodeData),
-            };
+            TextNodeModel node = TextNodeModel.CreateFromData(nodeData);
             // Offset paste position
             node.SetPosition(nodeData.X + offset, nodeData.Y + offset);
 
@@ -1157,15 +1147,7 @@ public partial class Display : IDisposable
             _diagram.UnselectAll();
             foreach (var nodeData in importResult.Nodes)
             {
-                TextNodeModel node = nodeData switch
-                {
-                    GaugeNodeData d    => GaugeNodeModel.FromData(d),
-                    SwitchNodeData d   => SwitchNodeModel.FromData(d),
-                    BatteryNodeData d  => BatteryNodeModel.FromData(d),
-                    LogNodeData d      => LogNodeModel.FromData(d),
-                    TreeViewNodeData d => TreeViewNodeModel.FromData(d),
-                    _                  => TextNodeModel.FromData(nodeData),
-                };
+                TextNodeModel node = TextNodeModel.CreateFromData(nodeData);
                 foreach (var ps in nodeData.Ports ?? [])
                 {
                     if (Enum.TryParse<Blazor.Diagrams.Core.Models.PortAlignment>(ps.Alignment, out var alignment))

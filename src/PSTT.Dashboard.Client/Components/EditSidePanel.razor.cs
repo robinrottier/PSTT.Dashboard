@@ -34,16 +34,24 @@ public partial class EditSidePanel : IAsyncDisposable
     [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
 
     private int _panelWidth = 300;
-    private bool _subViewIsCustom;
-    private string? _editPageName;
-    private string? _editPageBg;
+    private bool _subViewIsCustom = true;
     private DotNetObjectReference<EditSidePanel>? _dotNetRef;
 
-    // Grid view Apply/Cancel state
+    // Grid view Apply/Cancel state (Nodes)
     private NodePropertyEditor? _nodeEditor;
     private TextNodeModel? _lastGridNode;
     private string _propertySnapshot = "";
     private bool _gridHasPendingChanges;
+
+    // Page model editing state
+    private DashboardPageModel? _editPageModel;
+    private string _pageSnapshot = "";
+    private bool _pageHasPendingChanges;
+
+    // Dashboard model editing state
+    private DashboardModel? _editDashboardModel;
+    private string _dashboardSnapshot = "";
+    private bool _dashboardHasPendingChanges;
 
     protected override async Task OnInitializedAsync()
     {
@@ -56,10 +64,45 @@ public partial class EditSidePanel : IAsyncDisposable
         catch { /* ignore JS errors during SSR */ }
     }
 
+    private void InitPageModel()
+    {
+        _editPageModel = new DashboardPageModel
+        {
+            Name = CurrentPageName ?? "",
+            BackgroundColor = CurrentPageBgColor
+        };
+        _pageSnapshot = System.Text.Json.JsonSerializer.Serialize(_editPageModel);
+        _pageHasPendingChanges = false;
+    }
+
+    private void InitDashboardModel()
+    {
+        _editDashboardModel = new DashboardModel
+        {
+            Name = AppState.DashboardDisplayName,
+            ShowName = AppState.ShowName,
+            BackgroundColor = AppState.CanvasBackgroundColor,
+            GridSize = Math.Max(5, AppState.GridSize),
+            GridSnapToCenter = AppState.GridSnapToCenter,
+            MqttSubscriptions = new HashSet<string>(AppState.SubscribedTopics)
+        };
+        _dashboardSnapshot = System.Text.Json.JsonSerializer.Serialize(_editDashboardModel);
+        _dashboardHasPendingChanges = false;
+    }
+
     protected override void OnParametersSet()
     {
-        _editPageName = CurrentPageName;
-        _editPageBg = CurrentPageBgColor;
+        // Re-initialize page model if active page name/color params changed from outside
+        if (_editPageModel == null || _editPageModel.Name != CurrentPageName || _editPageModel.BackgroundColor != CurrentPageBgColor)
+        {
+            InitPageModel();
+        }
+
+        // Re-initialize dashboard model if null
+        if (_editDashboardModel == null)
+        {
+            InitDashboardModel();
+        }
 
         // Capture a snapshot when the selected node changes (before any edits)
         if (!object.ReferenceEquals(SelectedNode, _lastGridNode))
@@ -117,9 +160,87 @@ public partial class EditSidePanel : IAsyncDisposable
         AppState.MarkEdited();
     }
 
+    // Page Properties editing
+    private void OnPageGridPropertyChanged()
+    {
+        _pageHasPendingChanges = true;
+    }
+
     private void ApplyPageProps()
     {
-        _ = OnPagePropsApplied.InvokeAsync((_editPageName ?? "", _editPageBg));
+        if (_editPageModel != null)
+        {
+            _ = OnPagePropsApplied.InvokeAsync((_editPageModel.Name, _editPageModel.BackgroundColor));
+            _pageSnapshot = System.Text.Json.JsonSerializer.Serialize(_editPageModel);
+            _pageHasPendingChanges = false;
+        }
+    }
+
+    private void PageFormCancel()
+    {
+        PageGridCancel();
+    }
+
+    private void PageGridApply()
+    {
+        ApplyPageProps();
+    }
+
+    private void PageGridCancel()
+    {
+        if (!string.IsNullOrEmpty(_pageSnapshot))
+        {
+            _editPageModel = System.Text.Json.JsonSerializer.Deserialize<DashboardPageModel>(_pageSnapshot);
+            _pageHasPendingChanges = false;
+        }
+    }
+
+    // Dashboard Properties editing
+    private void OnDashboardGridPropertyChanged()
+    {
+        _dashboardHasPendingChanges = true;
+    }
+
+    private void ApplyDashboardProps()
+    {
+        if (_editDashboardModel != null)
+        {
+            AppState.PushUndoSnapshot(AppState.GetPageData());
+            AppState.SetDisplayName(_editDashboardModel.Name);
+            AppState.SetShowDiagramName(_editDashboardModel.ShowName);
+            if (_editDashboardModel.GridSize >= 5 && _editDashboardModel.GridSize <= 100)
+            {
+                AppState.SetGridSize(_editDashboardModel.GridSize);
+            }
+            AppState.SetGridSnapToCenter(_editDashboardModel.GridSnapToCenter);
+            if (_editDashboardModel.MqttSubscriptions != null)
+            {
+                AppState.SetSubscribedTopics(_editDashboardModel.MqttSubscriptions.ToList());
+            }
+            AppState.MarkEdited();
+
+            _dashboardSnapshot = System.Text.Json.JsonSerializer.Serialize(_editDashboardModel);
+            _dashboardHasPendingChanges = false;
+        }
+    }
+
+    private void DashboardFormCancel()
+    {
+        DashboardGridCancel();
+    }
+
+    private void DashboardGridApply()
+    {
+        ApplyDashboardProps();
+    }
+
+    private void DashboardGridCancel()
+    {
+        if (!string.IsNullOrEmpty(_dashboardSnapshot))
+        {
+            _editDashboardModel = System.Text.Json.JsonSerializer.Deserialize<DashboardModel>(_dashboardSnapshot);
+            _dashboardHasPendingChanges = false;
+        }
     }
 
     public async ValueTask DisposeAsync()

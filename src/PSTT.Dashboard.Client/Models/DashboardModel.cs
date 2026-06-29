@@ -7,10 +7,21 @@ namespace PSTT.Dashboard.Models;
 
 public class DashboardModel
 {
+    [NpText("Dashboard Name", Category = "Dashboard Properties", Order = 1)]
     public string Name { get; set; } = string.Empty;
+
+    [NpCheckbox("Show dashboard name in title bar", Category = "Dashboard Properties", Order = 2)]
     public bool ShowName { get; set; } = false;
+
+    [NpNumeric("Grid Size (px)", Min = 5, Max = 100, Category = "Grid Settings", Order = 1)]
     public int GridSize { get; set; } = 20;
+
+    [NpCheckbox("Snap to cell centre", Category = "Grid Settings", Order = 2)]
     public bool GridSnapToCenter { get; set; } = false;
+
+    [JsonIgnore]
+    public string? BackgroundColor { get; set; }
+
     public HashSet<string>? MqttSubscriptions { get; set; }
     public List<DashboardPageModel> Pages { get; set; } = new();
     [JsonPropertyOrder(99)] public DashboardFileInfo? FileInfo { get; set; }
@@ -19,8 +30,13 @@ public class DashboardModel
 public class DashboardPageModel
 {
     [FileId] public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
+
+    [NpText("Page Name", Category = "Page Properties", Order = 1)]
     public string Name { get; set; } = "Page 1";
+
+    [NpColor("Background Color", Category = "Page Properties", Order = 2, ShowClear = true)]
     public string? BackgroundColor { get; set; }
+
     public List<NodeData> Nodes { get; set; } = new();
     public List<LinkData> Links { get; set; } = new();
 }
