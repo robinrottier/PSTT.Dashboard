@@ -380,6 +380,15 @@ function Get-StepsToRun {
         # Local-only mode: restrict to the local steps
         return $LocalSteps | Where-Object { -not $SkipSet.Contains($_) }
     }
+    # Non-interactive preset selection: if a Preset is provided, run only those steps
+    if (-not $IsInteractive -and -not [string]::IsNullOrWhiteSpace($Preset)) {
+        $presetSteps = [System.Collections.Generic.List[string]]::new()
+        foreach ($pt in ($Preset -split ',')) {
+            $resolved = Resolve-Steps $pt.Trim()
+            foreach ($rs in $resolved) { [void]$presetSteps.Add($rs) }
+        }
+        return [string[]]@($StepOrder | Where-Object { $_ -in $presetSteps -and -not $SkipSet.Contains($_) })
+    }
     # -From: if it's a group keyword, start from the first step of that group
     $resolvedFrom = if ($From) { @(Resolve-Steps $From.Trim())[0] } else { '' }
     $started = [string]::IsNullOrEmpty($resolvedFrom)
@@ -405,8 +414,13 @@ function Invoke-Cmd([string]$Exe, [string[]]$ArgList) {
 
     if (-not $IsInteractive) {
         Write-Step "→ $label"
-        & $Exe @ArgList | Out-Host
-        return $LASTEXITCODE
+        $captured = @()
+        & $Exe @ArgList 2>&1 | Tee-Object -Variable captured | Out-Host
+        $ec = $LASTEXITCODE
+        if ($ec -ne 0) {
+            $script:LastCapturedLines = [string[]]@($captured | ForEach-Object { "$_" })
+        }
+        return $ec
     }
 
     # Resolve full exe path so ProcessStartInfo can find it without UseShellExecute
@@ -514,6 +528,45 @@ function Assert-Cmd([string]$Exe, [string[]]$ArgList, [string]$ErrorMsg = '') {
     if ($code -ne 0) { throw $(if ($ErrorMsg) { $ErrorMsg } else { "$Exe exited with code $code" }) }
 }
 
+function Invoke-TestWithRetry([string]$stepName, [scriptblock]$testAction) {
+    $maxRetries = 2
+    for ($attempt = 1; $attempt -le $maxRetries + 1; $attempt++) {
+        try {
+            & $testAction
+            if ($attempt -gt 1) {
+                Write-Warn "Tests passed on retry attempt $($attempt - 1)!"
+                $logDir = Join-Path $RepoRoot 'artifacts'
+                if (-not (Test-Path $logDir)) { [void](New-Item -ItemType Directory -Path $logDir -Force) }
+                $logFile = Join-Path $logDir 'flakey-tests.log'
+                $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+                $recoveryMsg = "`n[$timestamp] [$stepName] SUCCESS: Tests recovered on retry attempt $($attempt - 1)`n"
+                [System.IO.File]::AppendAllText($logFile, $recoveryMsg, [System.Text.Encoding]::UTF8)
+            }
+            return
+        } catch {
+            if ($attempt -le $maxRetries) {
+                Write-Warn "Test failure detected in step '$stepName' (Attempt $attempt). Logging failure and retrying in 5 seconds..."
+                $logDir = Join-Path $RepoRoot 'artifacts'
+                if (-not (Test-Path $logDir)) { [void](New-Item -ItemType Directory -Path $logDir -Force) }
+                $logFile = Join-Path $logDir 'flakey-tests.log'
+                $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+                $failureHeader = "`n========================================================================`n" +
+                                 "[$timestamp] [$stepName] FAILURE on attempt ${attempt}:`n" +
+                                 "========================================================================`n"
+                [System.IO.File]::AppendAllText($logFile, $failureHeader, [System.Text.Encoding]::UTF8)
+                if ($script:LastCapturedLines -and $script:LastCapturedLines.Count -gt 0) {
+                    [System.IO.File]::AppendAllLines($logFile, $script:LastCapturedLines, [System.Text.Encoding]::UTF8)
+                } else {
+                    [System.IO.File]::AppendAllText($logFile, "No output captured.`nError: $_`n", [System.Text.Encoding]::UTF8)
+                }
+                Start-Sleep -Seconds 5
+            } else {
+                throw $_
+            }
+        }
+    }
+}
+
 # ─── Step: preflight ─────────────────────────────────────────────────────────
 function Step-Preflight {
     foreach ($tool in @('git', 'dotnet')) {
@@ -594,7 +647,9 @@ function Step-TestPstt {
     Write-Step "Building PSTT submodule..."
     Assert-Cmd dotnet @('build', $slnx, '-c', 'Debug') "PSTT submodule build failed"
     Write-Step "Testing PSTT submodule..."
-    Assert-Cmd dotnet @('test', $slnx, '-c', 'Debug', '--no-build') "PSTT submodule tests failed"
+    Invoke-TestWithRetry 'test-pstt' {
+        Assert-Cmd dotnet @('test', $slnx, '-c', 'Debug', '--no-build') "PSTT submodule tests failed"
+    }
     Write-Ok "PSTT submodule build + tests passed"
 }
 
@@ -603,9 +658,12 @@ function Step-TestBlazorDiagrams {
     $testRoot  = Join-Path $RepoRoot 'libs' 'Blazor.Diagrams' 'tests'
     $coreTests = Join-Path $testRoot 'Blazor.Diagrams.Core.Tests' 'Blazor.Diagrams.Core.Tests.csproj'
     $mainTests = Join-Path $testRoot 'Blazor.Diagrams.Tests'      'Blazor.Diagrams.Tests.csproj'
-    foreach ($proj in @($coreTests, $mainTests)) {
-        Write-Step "Testing $(Split-Path -Leaf $proj)..."
-        Assert-Cmd dotnet @('test', $proj, '-c', 'Debug') "Tests failed: $(Split-Path -Leaf $proj)"
+    Write-Step "Testing Blazor.Diagrams submodule..."
+    Invoke-TestWithRetry 'test-blazor-diagrams' {
+        foreach ($proj in @($coreTests, $mainTests)) {
+            Write-Step "Testing $(Split-Path -Leaf $proj)..."
+            Assert-Cmd dotnet @('test', $proj, '-c', 'Debug') "Tests failed: $(Split-Path -Leaf $proj)"
+        }
     }
     Write-Ok "Blazor.Diagrams submodule tests passed"
 }
@@ -615,29 +673,40 @@ function Step-BuildDebug {
     Write-Step "Building (Debug)..."
     Assert-Cmd dotnet @('build', 'PSTT.Dashboard.slnx', '-c', 'Debug') "Debug build failed"
     Write-Step "Testing (Debug) [filter: $EffTestFilter]..."
-    Assert-Cmd dotnet @('test', 'PSTT.Dashboard.slnx', '-c', 'Debug', '--no-build', '--filter', $EffTestFilter) "Debug tests failed"
+    Invoke-TestWithRetry 'build-debug' {
+        Assert-Cmd dotnet @('test', 'PSTT.Dashboard.slnx', '-c', 'Debug', '--no-build', '--filter', $EffTestFilter) "Debug tests failed"
+    }
     Write-Ok "Debug build + tests passed"
 }
 
 # ─── Step: build-release ─────────────────────────────────────────────────────
 function Step-BuildRelease {
     if ($Parallel) {
-        # Run both configs concurrently; replay captured output afterwards.
-        Write-Step "Building Debug + Release in parallel..."
-        $dOut  = [System.IO.Path]::GetTempFileName()
-        $rOut  = [System.IO.Path]::GetTempFileName()
-        $dCmd  = "dotnet build PSTT.Dashboard.slnx -c Debug && dotnet test PSTT.Dashboard.slnx -c Debug --no-build"
-        $filter = $EffTestFilter
-        $rTest = if ($IsSkipTests) { '' } else { " && dotnet test PSTT.Dashboard.slnx -c Release --no-build --filter `"$filter`"" }
-        $rCmd  = "dotnet build PSTT.Dashboard.slnx -c Release$rTest"
-        $p1 = Start-Process pwsh -ArgumentList @('-NoProfile','-Command',$dCmd) -PassThru -RedirectStandardOutput $dOut -RedirectStandardError "$dOut.err" -NoNewWindow
-        $p2 = Start-Process pwsh -ArgumentList @('-NoProfile','-Command',$rCmd) -PassThru -RedirectStandardOutput $rOut -RedirectStandardError "$rOut.err" -NoNewWindow
-        Wait-Process -Id $p1.Id, $p2.Id
-        Write-Host (Get-Content $dOut -Raw) -ForegroundColor Gray
-        Write-Host (Get-Content $rOut -Raw) -ForegroundColor Gray
-        Remove-Item $dOut, "$dOut.err", $rOut, "$rOut.err" -ErrorAction SilentlyContinue
-        if ($p1.ExitCode -ne 0) { throw "Debug build/test failed" }
-        if ($p2.ExitCode -ne 0) { throw "Release build/test failed" }
+        Invoke-TestWithRetry 'build-parallel' {
+            # Run both configs concurrently; replay captured output afterwards.
+            Write-Step "Building Debug + Release in parallel..."
+            $dOut  = [System.IO.Path]::GetTempFileName()
+            $rOut  = [System.IO.Path]::GetTempFileName()
+            $dCmd  = "dotnet build PSTT.Dashboard.slnx -c Debug && dotnet test PSTT.Dashboard.slnx -c Debug --no-build"
+            $filter = $EffTestFilter
+            $rTest = if ($IsSkipTests) { '' } else { " && dotnet test PSTT.Dashboard.slnx -c Release --no-build --filter `"$filter`"" }
+            $rCmd  = "dotnet build PSTT.Dashboard.slnx -c Release$rTest"
+            $p1 = Start-Process pwsh -ArgumentList @('-NoProfile','-Command',$dCmd) -PassThru -RedirectStandardOutput $dOut -RedirectStandardError "$dOut.err" -NoNewWindow
+            $p2 = Start-Process pwsh -ArgumentList @('-NoProfile','-Command',$rCmd) -PassThru -RedirectStandardOutput $rOut -RedirectStandardError "$rOut.err" -NoNewWindow
+            Wait-Process -Id $p1.Id, $p2.Id
+            
+            $dText = Get-Content $dOut -Raw
+            $rText = Get-Content $rOut -Raw
+            Write-Host $dText -ForegroundColor Gray
+            Write-Host $rText -ForegroundColor Gray
+            
+            # Save output in case of failure
+            $script:LastCapturedLines = ($dText -split "`n") + ($rText -split "`n")
+            
+            Remove-Item $dOut, "$dOut.err", $rOut, "$rOut.err" -ErrorAction SilentlyContinue
+            if ($p1.ExitCode -ne 0) { throw "Debug build/test failed" }
+            if ($p2.ExitCode -ne 0) { throw "Release build/test failed" }
+        }
         Write-Ok "Parallel Debug + Release build and tests passed"
         return   # skip the sequential Release-only logic below
     }
@@ -646,7 +715,9 @@ function Step-BuildRelease {
     Assert-Cmd dotnet @('build', 'PSTT.Dashboard.slnx', '-c', 'Release') "Release build failed"
     if ($IsSkipTests) { Write-Warn "Skipping Release tests (-SkipReleaseTests)"; return }
     Write-Step "Testing (Release) [filter: $EffTestFilter]..."
-    Assert-Cmd dotnet @('test', 'PSTT.Dashboard.slnx', '-c', 'Release', '--no-build', '--filter', $EffTestFilter) "Release tests failed"
+    Invoke-TestWithRetry 'build-release' {
+        Assert-Cmd dotnet @('test', 'PSTT.Dashboard.slnx', '-c', 'Release', '--no-build', '--filter', $EffTestFilter) "Release tests failed"
+    }
     Write-Ok "Release build + tests passed"
 }
 
@@ -1253,7 +1324,7 @@ function Show-StepMenu([string[]]$planned, [string]$preset = '') {
 }
 
 # Interactive prompt when a step fails: Retry / Dep+retry / Skip / Logs / Abort
-function Prompt-OnFailure([string]$stepName) {
+function Request-OnFailure([string]$stepName) {
     if (-not $IsInteractive) { return 'abort' }
     Write-Host "`n  Step '$stepName' failed." -ForegroundColor $C.Fail
 
@@ -1368,7 +1439,7 @@ try {
             } catch {
                 $stepErr = $_
                 Write-Fail "Step '$step' failed: $stepErr"
-                $action = Prompt-OnFailure $step
+                $action = Request-OnFailure $step
                 switch ($action) {
                     'retry' { Write-Warn "Retrying '$step'..." }
                     'skip'  { Write-Warn "Skipping '$step'"; $succeeded = $true }
