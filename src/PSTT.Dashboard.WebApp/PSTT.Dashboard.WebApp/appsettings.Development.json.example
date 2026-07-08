@@ -37,6 +37,11 @@
   {
     "KeysDirectory": "../../../data/keys"
   },
+  "CacheSettings":
+  {
+    "TcpPort": 0,
+    "ConflateUpdates": true
+  },
   "MqttSettings":
   {
     "Broker": "your-mqtt-broker-host",

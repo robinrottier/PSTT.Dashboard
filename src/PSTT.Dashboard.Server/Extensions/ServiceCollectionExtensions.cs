@@ -46,12 +46,17 @@ public static class ServiceCollectionExtensions
         // Reconnect loop
         services.AddHostedService<MqttHostedService>();
 
+        // Conflate updates settings: defaults to true if not specified
+        var conflateUpdates = configuration["CacheSettings:ConflateUpdates"] == null ||
+                              (bool.TryParse(configuration["CacheSettings:ConflateUpdates"], out var cu) && cu);
+
         // SignalR-based remote endpoint for WASM / remote clients
         services.AddCacheSignalRServer<string>(
             serverCache,
             serializer:   v => Encoding.UTF8.GetBytes(v),
             deserializer: b => Encoding.UTF8.GetString(b),
-            forwardPublish: true);
+            forwardPublish: true,
+            conflateUpdates: conflateUpdates);
 
         // Optional TCP cache server: enables external tools to subscribe/publish via PSTT TCP protocol.
         // Set CacheSettings:TcpPort > 0 to enable (0 = disabled).
@@ -63,7 +68,8 @@ public static class ServiceCollectionExtensions
                 tcpPort,
                 serializer:    v => Encoding.UTF8.GetBytes(v),
                 deserializer:  b => Encoding.UTF8.GetString(b),
-                forwardPublish: true);
+                forwardPublish: true,
+                conflateUpdates: conflateUpdates);
         }
 
         // Scoped per-circuit cache: downstream of serverCache, wildcards forwarded.
