@@ -43,8 +43,8 @@ public sealed class DashboardMetricsPublisher : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _ = _cache.PublishAsync(DashboardTopics.Version, ReadVersion());
-        _ = _cache.PublishAsync(DashboardTopics.MqttBroker, _brokerInfo);
+        _ = _cache.PublishAsync(DashboardTopics.Version, ReadVersion(), null, true);
+        _ = _cache.PublishAsync(DashboardTopics.MqttBroker, _brokerInfo, null, true);
 
         try
         {
