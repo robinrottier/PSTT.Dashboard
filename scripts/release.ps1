@@ -1324,7 +1324,7 @@ function Show-StepMenu([string[]]$planned, [string]$preset = '') {
 }
 
 # Interactive prompt when a step fails: Retry / Dep+retry / Skip / Logs / Abort
-function Prompt-OnFailure([string]$stepName) {
+function Request-OnFailure([string]$stepName) {
     if (-not $IsInteractive) { return 'abort' }
     Write-Host "`n  Step '$stepName' failed." -ForegroundColor $C.Fail
 
@@ -1439,7 +1439,7 @@ try {
             } catch {
                 $stepErr = $_
                 Write-Fail "Step '$step' failed: $stepErr"
-                $action = Prompt-OnFailure $step
+                $action = Request-OnFailure $step
                 switch ($action) {
                     'retry' { Write-Warn "Retrying '$step'..." }
                     'skip'  { Write-Warn "Skipping '$step'"; $succeeded = $true }
