@@ -255,13 +255,12 @@
         _subscription = AppState.BridgedDataCache.Subscribe(wildcardTopic, async s =>
         {
             if (s.Status.IsPending || _disposed) return;
-            _ = InvokeAsync(() =>
+            await InvokeAsync(() =>
             {
                 if (_disposed) return;
                 OnTopicValue(s.Key, s.Value, triggerFlash: true);
                 StateHasChanged();
             });
-            await Task.CompletedTask;
         });
     }
 
@@ -296,13 +295,12 @@
             var watcher = AppState.BridgedDataCache.Subscribe(cell.Topic, async s =>
             {
                 if (s.Status.IsPending || _disposed) return;
-                _ = InvokeAsync(() =>
+                await InvokeAsync(() =>
                 {
                     if (_disposed) return;
                     StoreCell(capturedCell.Row, capturedCell.Col, s.Value, triggerFlash: true);
                     StateHasChanged();
                 });
-                await Task.CompletedTask;
             });
             _cellWatchers.Add(watcher);
         }
