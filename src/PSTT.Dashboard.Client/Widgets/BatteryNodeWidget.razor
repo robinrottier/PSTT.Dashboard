@@ -5,9 +5,9 @@
 
 <StandardNodeLayout Node="Node" ExtraCssClass="battery-node">
     <ExtraContent>
-        <div style="flex:1;min-height:0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+        <div style="flex:1;min-height:0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;overflow:hidden;">
             <!-- Battery SVG: terminal nub on top, body below, fill from bottom -->
-            <svg viewBox="0 0 40 70" style="width:auto;height:80%;max-height:60px;display:block;">
+            <svg viewBox="0 0 40 70" style="width:auto;height:80%;max-height:60px;max-width:35px;display:block;">
                 <!-- Terminal nub -->
                 <rect x="13" y="0" width="14" height="5" rx="2" fill="currentColor" opacity="0.6"/>
                 <!-- Battery body outline -->
@@ -26,7 +26,7 @@
             </svg>
             @if (!string.IsNullOrEmpty(Node.Text))
             {
-                <div style="text-align:center;font-size:0.7rem;padding:1px 2px;word-break:break-word;white-space:pre-wrap;">@FormatHtml()</div>
+                <div style="text-align:center;font-size:0.7rem;padding:1px 2px;word-break:break-word;white-space:pre-wrap;width:100%;">@FormatHtml()</div>
             }
         </div>
     </ExtraContent>
@@ -40,9 +40,7 @@
 
     protected override void OnInitialized()
     {
-        Node.MinimumDimensions = new(50, 70);
-        if (Node.Size == null || Node.Size.Width < 50 || Node.Size.Height < 70)
-            Node.Size = new(80, 110);
+        Node.MinimumDimensions = new(40, 70);
         base.OnInitialized();
     }
 

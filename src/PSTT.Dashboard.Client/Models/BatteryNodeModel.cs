@@ -8,6 +8,7 @@ public class BatteryNodeModel : TextNodeModel
     public BatteryNodeModel(Point? position = null) : base(position)
     {
         NodeType = "Battery";
+        Size = new Size(60, 90);
         BatteryColor = new ColorTransition
         {
             ColorThresholds =

@@ -115,9 +115,9 @@
 
     private string OuterFlexStyle => TitlePosition switch
     {
-        "Left"  => "display:flex;flex-direction:row;align-items:center;height:100%;",
-        "Right" => "display:flex;flex-direction:row;align-items:center;height:100%;",
-        _       => "display:flex;flex-direction:column;height:100%;"
+        "Left"  => "display:flex;flex-direction:row;align-items:center;height:100%;width:100%;min-width:0;overflow:hidden;",
+        "Right" => "display:flex;flex-direction:row;align-items:center;height:100%;width:100%;min-width:0;overflow:hidden;",
+        _       => "display:flex;flex-direction:column;height:100%;width:100%;min-width:0;overflow:hidden;"
     };
 
     private bool HasTitleContent =>

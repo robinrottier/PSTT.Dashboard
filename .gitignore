@@ -377,3 +377,7 @@ docker-compose.override.yml
 
 *.deb
 /env.bat
+
+# VS Code personal settings
+.vscode/settings.json
+

@@ -57,8 +57,6 @@
     protected override void OnInitialized()
     {
         Node.MinimumDimensions = new(120, 80);
-        if (Node.Size == null || Node.Size.Width < 120 || Node.Size.Height < 80)
-            Node.Size = new(200, 200);
         base.OnInitialized();
         _debounceTimer = new System.Threading.Timer(OnDebounceElapsed, null,
             System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);

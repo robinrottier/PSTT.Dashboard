@@ -8,6 +8,7 @@ public class GaugeNodeModel : TextNodeModel
     public GaugeNodeModel(Point? position = null) : base(position)
     {
         NodeType = "Gauge";
+        Size = new Size(120, 100);
         GaugeColor = new ColorTransition
         {
             ColorThresholds =

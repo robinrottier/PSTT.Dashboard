@@ -7,6 +7,7 @@ public class DropDownNodeModel : TextNodeModel
     public DropDownNodeModel(Point? position = null) : base(position)
     {
         NodeType = "DropDown";
+        Size = new Size(180, 70);
     }
     public override bool SupportsProperty(string propertyName) => propertyName != nameof(Text) && base.SupportsProperty(propertyName);
 

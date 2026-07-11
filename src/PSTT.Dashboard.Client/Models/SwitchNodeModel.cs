@@ -7,6 +7,7 @@ public class SwitchNodeModel : TextNodeModel
     public SwitchNodeModel(Point? position = null) : base(position)
     {
         NodeType = "Switch";
+        Size = new Size(100, 80);
     }
     public override bool SupportsProperty(string propertyName) => propertyName != nameof(Text) && base.SupportsProperty(propertyName);
 

@@ -7,6 +7,7 @@ public class SliderNodeModel : TextNodeModel
     public SliderNodeModel(Point? position = null) : base(position)
     {
         NodeType = "Slider";
+        Size = new Size(200, 100);
     }
     public override bool SupportsProperty(string propertyName) => propertyName != nameof(Text) && base.SupportsProperty(propertyName);
 

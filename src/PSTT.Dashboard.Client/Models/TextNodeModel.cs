@@ -5,21 +5,8 @@ namespace PSTT.Dashboard.Models
     {
         public TextNodeModel(Blazor.Diagrams.Core.Geometry.Point? position = null) : base(position)
         {
-            // Disable the Blazor.Diagrams ResizeObserver for all our nodes.
-            // We set explicit CSS sizes (width/height) on every node and manage them ourselves
-            // via OnInitialized in each widget and via the resize handle drag. Leaving
-            // ControlledSize=false (the default) means NodeRenderer sets up a JS ResizeObserver
-            // that calls OnResize(getBoundingClientRect()) after each render — but getBoundingClientRect
-            // includes any sub-pixel rounding or zoom-division noise, so the reported size can differ
-            // slightly from the stored size, triggering a re-render, which re-fires the observer, causing
-            // the node to grow or shrink indefinitely.
-            //
-            // C# init semantics: ControlledSize is declared as { get; init; } in NodeModel (rrSoft.Blazor.Diagrams
-            // 0.1.2). Setting it here works because the C# spec allows derived-class constructors to call
-            // init accessors of base-class properties (they share the same "init context").
-            // If the library ever changes ControlledSize to { get; protected set; }, this line still
-            // compiles unchanged; if it becomes virtual, we could override it instead.
             ControlledSize = true;
+            Size = new Blazor.Diagrams.Core.Geometry.Size(100, 60);
         }
         /// <summary>
         /// Position of the title relative to the main content: "Above", "Below", "Left", "Right". Defaults to "Above".
@@ -152,7 +139,10 @@ namespace PSTT.Dashboard.Models
         protected static T ApplyBaseData<T>(T node, NodeData data) where T : TextNodeModel
         {
             node.Title = data.Title;
-            node.Size = new Blazor.Diagrams.Core.Geometry.Size(data.Width > 0 ? data.Width : 120, data.Height > 0 ? data.Height : 90);
+            node.Size = new Blazor.Diagrams.Core.Geometry.Size(
+                data.Width > 0 ? data.Width : (node.Size?.Width ?? 120),
+                data.Height > 0 ? data.Height : (node.Size?.Height ?? 90)
+            );
             node.Icon = data.Icon;
             node.IconName = data.IconName;
             node.IconColor = data.IconColor;

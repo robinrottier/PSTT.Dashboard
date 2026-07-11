@@ -7,6 +7,7 @@ public class TableNodeModel : TextNodeModel
     public TableNodeModel(Point? position = null) : base(position)
     {
         NodeType = "Table";
+        Size = new Size(280, 180);
     }
     public override bool SupportsProperty(string propertyName) => propertyName != nameof(Text) && base.SupportsProperty(propertyName);
 

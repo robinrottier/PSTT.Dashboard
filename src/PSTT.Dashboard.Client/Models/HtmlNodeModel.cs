@@ -11,6 +11,7 @@ public class HtmlNodeModel : TextNodeModel
     public HtmlNodeModel(Point? position = null) : base(position)
     {
         NodeType = "Html";
+        Size = new Size(200, 120);
     }
 
     public override NodeData ToData(double panX = 0, double panY = 0)

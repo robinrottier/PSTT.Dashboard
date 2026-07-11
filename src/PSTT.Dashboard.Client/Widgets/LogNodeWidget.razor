@@ -82,8 +82,6 @@
     protected override void OnInitialized()
     {
         Node.MinimumDimensions = new(120, 80);
-        if (Node.Size == null || Node.Size.Width < 120 || Node.Size.Height < 80)
-            Node.Size = new(200, 160);
         base.OnInitialized();
     }
 
