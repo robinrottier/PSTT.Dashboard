@@ -11,6 +11,7 @@ public class MarkdownNodeModel : TextNodeModel
     public MarkdownNodeModel(Point? position = null) : base(position)
     {
         NodeType = "Markdown";
+        Size = new Size(240, 150);
     }
 
     public override NodeData ToData(double panX = 0, double panY = 0)

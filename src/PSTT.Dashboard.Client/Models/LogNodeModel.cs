@@ -4,7 +4,11 @@ namespace PSTT.Dashboard.Models;
 
 public class LogNodeModel : TextNodeModel
 {
-    public LogNodeModel(Point? position = null) : base(position) { NodeType = "Log"; }
+    public LogNodeModel(Point? position = null) : base(position)
+    {
+        NodeType = "Log";
+        Size = new Size(200, 160);
+    }
     public override bool SupportsProperty(string propertyName) => propertyName != nameof(Text) && base.SupportsProperty(propertyName);
 
     public override void CopyFormatFrom(TextNodeModel source)

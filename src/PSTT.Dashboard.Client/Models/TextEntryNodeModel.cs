@@ -7,6 +7,7 @@ public class TextEntryNodeModel : TextNodeModel
     public TextEntryNodeModel(Point? position = null) : base(position)
     {
         NodeType = "TextEntry";
+        Size = new Size(200, 70);
     }
     public override bool SupportsProperty(string propertyName) => propertyName != nameof(Text) && base.SupportsProperty(propertyName);
 

@@ -7,6 +7,7 @@ public class ButtonNodeModel : TextNodeModel
     public ButtonNodeModel(Point? position = null) : base(position)
     {
         NodeType = "Button";
+        Size = new Size(120, 70);
     }
     public override bool SupportsProperty(string propertyName) => propertyName != nameof(Text) && base.SupportsProperty(propertyName);
 

@@ -4,7 +4,11 @@ namespace PSTT.Dashboard.Models;
 
 public class TreeViewNodeModel : TextNodeModel
 {
-    public TreeViewNodeModel(Point? position = null) : base(position) { NodeType = "TreeView"; }
+    public TreeViewNodeModel(Point? position = null) : base(position)
+    {
+        NodeType = "TreeView";
+        Size = new Size(200, 200);
+    }
     public override bool SupportsProperty(string propertyName) => propertyName != nameof(Text) && base.SupportsProperty(propertyName);
 
     public override void CopyFormatFrom(TextNodeModel source)

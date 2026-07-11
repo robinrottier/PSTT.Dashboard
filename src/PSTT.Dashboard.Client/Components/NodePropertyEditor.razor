@@ -93,14 +93,14 @@
                                      Label="Width (px)"
                                      Variant="Variant.Outlined"
                                      Margin="Margin.Dense"
-                                     Min="60" />
+                                     Min="@Node.MinimumDimensions.Width" />
                 </MudItem>
                 <MudItem xs="4">
                     <MudNumericField @bind-Value="@Height"
                                      Label="Height (px)"
                                      Variant="Variant.Outlined"
                                      Margin="Margin.Dense"
-                                     Min="45" />
+                                     Min="@Node.MinimumDimensions.Height" />
                 </MudItem>
                 <MudItem xs="4">
                     <MudNumericField @bind-Value="@FontSize"

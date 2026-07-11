@@ -7,6 +7,7 @@ public class IFrameNodeModel : TextNodeModel
     public IFrameNodeModel(Point? position = null) : base(position)
     {
         NodeType = "IFrame";
+        Size = new Size(320, 240);
     }
     public override bool SupportsProperty(string propertyName) => propertyName != nameof(Text) && base.SupportsProperty(propertyName);
 

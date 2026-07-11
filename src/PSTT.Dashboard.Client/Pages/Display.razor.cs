@@ -1657,7 +1657,10 @@ public partial class Display : IDisposable
         PushUndoSnapshot();
         var targetWidth = _primaryNode?.Size?.Width ?? nodes.Max(n => n.Size?.Width ?? 100);
         foreach (var n in nodes)
-            n.Size = new Blazor.Diagrams.Core.Geometry.Size(targetWidth, n.Size?.Height ?? 50);
+        {
+            var clampedWidth = Math.Max(targetWidth, n.MinimumDimensions.Width);
+            n.Size = new Blazor.Diagrams.Core.Geometry.Size(clampedWidth, n.Size?.Height ?? 50);
+        }
         foreach (var n in nodes) n.Refresh();
         _diagram.Refresh();
         StateHasChanged();
@@ -1671,7 +1674,10 @@ public partial class Display : IDisposable
         PushUndoSnapshot();
         var targetHeight = _primaryNode?.Size?.Height ?? nodes.Max(n => n.Size?.Height ?? 50);
         foreach (var n in nodes)
-            n.Size = new Blazor.Diagrams.Core.Geometry.Size(n.Size?.Width ?? 100, targetHeight);
+        {
+            var clampedHeight = Math.Max(targetHeight, n.MinimumDimensions.Height);
+            n.Size = new Blazor.Diagrams.Core.Geometry.Size(n.Size?.Width ?? 100, clampedHeight);
+        }
         foreach (var n in nodes) n.Refresh();
         _diagram.Refresh();
         StateHasChanged();

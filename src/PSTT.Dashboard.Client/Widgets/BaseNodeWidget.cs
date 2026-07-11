@@ -15,6 +15,25 @@ public abstract class BaseNodeWidget<TNode> : ComponentBase, IDisposable
     [Parameter] public TNode Node { get; set; } = null!;
     [Inject] protected ApplicationState AppState { get; set; } = null!;
 
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        if (Node != null)
+        {
+            if (Node.Size == null)
+            {
+                Node.Size = new Blazor.Diagrams.Core.Geometry.Size(120, 90);
+            }
+
+            var w = Math.Max(Node.Size.Width, Node.MinimumDimensions.Width);
+            var h = Math.Max(Node.Size.Height, Node.MinimumDimensions.Height);
+            if (w != Node.Size.Width || h != Node.Size.Height)
+            {
+                Node.Size = new Blazor.Diagrams.Core.Geometry.Size(w, h);
+            }
+        }
+    }
+
     protected string ContainerStyle()
     {
         var size = Node.Size != null

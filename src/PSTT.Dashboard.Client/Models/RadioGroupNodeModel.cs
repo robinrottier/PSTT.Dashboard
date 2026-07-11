@@ -7,6 +7,7 @@ public class RadioGroupNodeModel : TextNodeModel
     public RadioGroupNodeModel(Point? position = null) : base(position)
     {
         NodeType = "RadioGroup";
+        Size = new Size(200, 80);
     }
     public override bool SupportsProperty(string propertyName) => propertyName != nameof(Text) && base.SupportsProperty(propertyName);
 
