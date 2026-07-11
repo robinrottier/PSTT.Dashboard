@@ -74,7 +74,7 @@ public abstract class BaseNodeWithDataWidget<TNode> : BaseNodeWidget<TNode>
                 if (_disposed) return;
                 var key = sub.Key;
                 var value = (object?)sub.Value;
-                _ = InvokeAsync(() =>
+                await InvokeAsync(() =>
                 {
                     if (_disposed) return;
                     Node.DataValues[idx]       = value;
@@ -83,7 +83,6 @@ public abstract class BaseNodeWithDataWidget<TNode> : BaseNodeWidget<TNode>
                     OnDataUpdated();
                     StateHasChanged();
                 });
-                await Task.CompletedTask;
             });
             _dataWatchers.Add(watcher);
         }

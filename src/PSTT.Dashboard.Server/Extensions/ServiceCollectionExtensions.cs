@@ -79,6 +79,7 @@ public static class ServiceCollectionExtensions
             .WithUpstream(sp.GetRequiredService<ServerDataCache>(),
                 supportsWildcards: true, forwardPublish: true)
             .WithUnsubscribeGracePeriod(TimeSpan.FromSeconds(30))
+            .WithConflateUpdates(conflateUpdates)
             .Build());
 
         // ── Dashboard services ────────────────────────────────────────────────
